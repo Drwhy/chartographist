@@ -1,27 +1,30 @@
+from .population import grow_population
+from .colonization import expand_civilization
+from .infrastructure import build_roads
+from .events import RANDOM_INCIDENTS # On renomme pour plus de clarté
 import random
-from .civilizations import grow_population, build_roads, expand_civilization # <-- Ajout ici
-from .events import RANDOM_EVENTS
 
 def evolve_world(width, height, elevation, river_map, plates, structures, road_map, cycle):
     new_logs = []
 
-    # 1. Croissance (Village -> Cité)
+    # --- MÉCANIQUES SYSTÉMIQUES (Toujours actives) ---
     new_logs.extend(grow_population(structures))
+    new_logs.extend(expand_civilization(width, height, elevation, structures))
 
-    # 2. EXPANSION (Migration : Cité -> Nouveau Village)
-    # On passe la config des cultures au cas où, mais ici on utilise la culture mère
-    migration_logs = expand_civilization(width, height, elevation, structures, None)
-    new_logs.extend(migration_logs)
-
-    # 3. Routes
     if cycle % 5 == 0:
         build_roads(width, height, elevation, structures, road_map)
 
-    # 4. Événements
-    for pos in list(structures.keys()):
-        for probability, event_func in RANDOM_EVENTS:
-            if random.random() < probability:
-                log = event_func(structures, pos)
-                if log: new_logs.append(log)
+    # --- INCIDENTS ALÉATOIRES (Le "Destin") ---
+    for prob, func, etype in RANDOM_INCIDENTS:
+        if random.random() < prob:
+            if etype == "map":
+                # Événement qui nécessite la connaissance de la carte
+                res = func(width, height, elevation, structures)
+                if res: new_logs.append(res)
+            elif etype == "city" and structures:
+                # Événement qui frappe une ville au hasard
+                pos = random.choice(list(structures.keys()))
+                res = func(structures, pos)
+                if res: new_logs.append(res)
 
     return structures, new_logs
