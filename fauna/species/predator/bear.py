@@ -8,6 +8,12 @@ class Bear(Predator):
     Sa force réside dans sa capacité à grimper là où les autres ne vont pas.
     """
 
+    def __init__(self, x, y, char="🐻"):
+            self.x = x
+            self.y = y
+            self.char = char
+            self.power = 0.80  # Puissance de l'ours
+
     def move(self, width, height, elevation, structures):
         """
         Déplacement unique : l'ours peut s'aventurer sur des reliefs

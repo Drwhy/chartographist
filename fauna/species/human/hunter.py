@@ -90,3 +90,29 @@ class Hunter(Human):
                     best_dist = dist
                     potential_target = animal
         self.target_prey = potential_target
+
+    def catch_prey(self, fauna_list):
+            """Gère le combat en fonction de la puissance de la cible."""
+            if self.target_prey not in fauna_list:
+                return None
+
+            target = self.target_prey
+            prey_char = getattr(target, 'char', '🐾')
+            # On récupère la puissance de l'animal (0 par défaut pour les proies inoffensives)
+            danger_level = getattr(target, 'power', 0.0)
+            culture_name = self.culture.get('name', 'Chasseur')
+
+            # --- LOGIQUE DE COMBAT ---
+            # Le jet de dé : si le nombre aléatoire est inférieur au danger, le chasseur meurt
+            if random.random() < danger_level:
+                log_msg = f"💀 {self.char} {culture_name} a succombé face à {prey_char} !"
+                return {"event": "hunter_died", "log": log_msg}
+
+            else:
+                # Le chasseur gagne
+                verb = "a terrassé" if danger_level > 0 else "a capturé"
+                log_msg = f"🏹 {culture_name} {verb} {prey_char}."
+
+                fauna_list.remove(target)
+                self.target_prey = None
+                return {"event": "success", "log": log_msg}

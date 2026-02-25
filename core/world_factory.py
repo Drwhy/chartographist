@@ -1,6 +1,7 @@
 import random
 from .geo import generate_geology, simulate_hydrology
 from .culture import initialize_civilizations
+from history.colonization import seed_civilization
 
 def assemble_world(width, height, config, seed_val):
     random.seed(seed_val)
@@ -9,7 +10,7 @@ def assemble_world(width, height, config, seed_val):
     rivers = simulate_hydrology(width, height, elevation)
 
     # On initialise les structures (Villes)
-    initial_civ = initialize_civilizations(width, height, elevation, config)
+    initial_civ = seed_civilization(width, height, elevation, rivers, plates, config["cultures"])
 
     world = {
         'width': width, 'height': height, 'seed': seed_val, 'cycle': 0,

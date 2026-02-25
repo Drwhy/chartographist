@@ -30,3 +30,8 @@ class Settler(Human):
 
     def __repr__(self):
         return f"Settler({self.culture['name']} @ {self.current_pos} -> {self.target})"
+
+    def can_move_to(self, nx, ny, elevation_map):
+        h = elevation_map[ny][nx]
+        # Autorise tout ce qui n'est pas de l'eau (h < 0)
+        return h >= 0
