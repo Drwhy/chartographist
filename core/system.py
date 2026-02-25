@@ -1,8 +1,7 @@
 # core/system.py
 import sys
 import random
-import culture
-
+from . import culture
 def init_terminal():
     """Prépare le terminal pour le rendu ANSI."""
     sys.stdout.write("\033[2J\033[H\033[?25l")

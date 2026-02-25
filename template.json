@@ -13,10 +13,26 @@
     "desert": "🏜️", "cactus": "🌵"
   },
   "cultures": [
-    {"name": "Empire",   "city": "🏰", "village": "🏡", "port": "⚓", "road": ". "},
-    {"name": "Sultanat", "city": "🕌", "village": "🧱", "port": "🛶", "road": "° "},
-    {"name": "Dynastie", "city": "🏯", "village": "🏮", "port": "⛵", "road": "+ "},
-    {"name": "Clans",    "city": "🛖", "village": "⛺", "port": "⛵", "road": "  "}
+    {
+      "name": "Empire",
+      "city": "🏰", "village": "🏡", "port": "⚓", "road": ". ",
+      "settler_emoji": "🚶", "hunter_emoji": "🏹"
+    },
+    {
+      "name": "Sultanat",
+      "city": "🕌", "village": "🧱", "port": "🛶", "road": "° ",
+      "settler_emoji": "🐪", "hunter_emoji": "🏹"
+    },
+    {
+      "name": "Dynastie",
+      "city": "🏯", "village": "🏮", "port": "⛵", "road": "+ ",
+      "settler_emoji": "👨‍🌾", "hunter_emoji": "🏹"
+    },
+    {
+      "name": "Clans",
+      "city": "🛖", "village": "⛺", "port": "⛵", "road": "  ",
+      "settler_emoji": "🧗", "hunter_emoji": "🏹"
+    }
   ],
   "fauna": [
     {"species": "wolf", "type": "predator", "char": "🐺"},

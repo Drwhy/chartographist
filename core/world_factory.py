@@ -1,35 +1,32 @@
-# core/world_factory.py
 import random
-import geo
-import history
-import fauna
+from .geo import generate_geology, simulate_hydrology
+from .culture import initialize_civilizations
 
 def assemble_world(width, height, config, seed_val):
-    """Orchestre la création de tous les composants du monde."""
-    elev, plates = geo.generate_geology(width, height, seed_val)
+    random.seed(seed_val)
 
-    # Attribution culturelle aux plaques
-    for p in plates:
-        p["culture"] = random.choice(config["cultures"])
+    elevation, plates = generate_geology(width, height, seed_val)
+    rivers = simulate_hydrology(width, height, elevation)
 
-    riv = geo.simulate_hydrology(width, height, elev)
-    initial_civ = history.seed_civilization(width, height, elev, riv, plates, config["cultures"])
+    # On initialise les structures (Villes)
+    initial_civ = initialize_civilizations(width, height, elevation, config)
 
     world = {
-        'elev': elev,
-        'riv': riv,
+        'width': width, 'height': height, 'seed': seed_val, 'cycle': 0,
+        'elev': elevation,
+        'riv': rivers,
+        'plates': plates,
         'civ': initial_civ,
+        # TRÈS IMPORTANT : Initialiser avec "  " et pas None
         'road': [["  " for _ in range(width)] for _ in range(height)],
         'fauna': [],
-        'cycle': 0
+        'settlers': [],
+        'hunters': []
     }
-
-    world['fauna'] = fauna.init_fauna(width, height, elev, world['civ'], config["fauna"])
 
     stats = {
         'year': 0,
-        'logs': [f"L'ère de {config.get('world_name', 'Terra')} commence."],
+        'logs': ["📜 L'aube d'une nouvelle ère commence..."],
         'seed': seed_val
     }
-
     return world, stats
