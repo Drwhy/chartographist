@@ -1,26 +1,23 @@
-from .animal import Animal
-from .species.predator import Predator, Wolf, Bear
-from .species.flyer import Flyer
-from .species.aquatic import Aquatic
+from .species import Animal, Wolf, Bear, Eagle, Shark, Flyer, Aquatic, Predator
 
-# Le dictionnaire de mapping centralisé
-# Clé : (type, species) -> Valeur : (Classe, Emoji_Force)
-FAUNA_MAP = {
-    ("predator", "wolf"): (Wolf, "🐺"),
-    ("predator", "bear"): (Bear, "🐻"),
-    ("flyer", None): (Flyer, "🦅"),
-    ("aquatic", None): (Aquatic, "🐟"),
+# Registre des classes disponibles
+STR_TO_CLASS = {
+    "wolf": Wolf,
+    "bear": Bear,
+    "eagle": Eagle,
+    "shark": Shark,
+    "flyer": Flyer,
+    "aquatic": Aquatic,
+    "predator": Predator
 }
 
+def create_animal(x, y, species_name, type_name, char):
+    """
+    Instancie la classe appropriée avec l'emoji fourni par le JSON.
+    """
+    # 1. On cherche par espèce (wolf, bear...)
+    # 2. Sinon on cherche par type (flyer, aquatic...)
+    # 3. Sinon on utilise la classe Animal de base
+    TargetClass = STR_TO_CLASS.get(species_name) or STR_TO_CLASS.get(type_name) or Animal
 
-def get_animal_class(a_type, a_species):
-    """Retourne la classe et l'emoji forcé pour un type/espèce donné."""
-    # On cherche d'abord le mapping précis (type + espèce)
-    # Sinon on cherche le mapping générique (type seul)
-    # Sinon on retourne la classe de base Animal
-
-    config = FAUNA_MAP.get((a_type, a_species)) or FAUNA_MAP.get((a_type, None))
-
-    if config:
-        return config  # Retourne (Classe, Emoji)
-    return (Animal, None)  # Par défaut, classe Animal, pas d'emoji forcé
+    return TargetClass(x, y, char)

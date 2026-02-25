@@ -1,87 +1,75 @@
 import random
-
-# On importe le mapper qui contient la logique de sélection des classes
-from .fauna_mapper import get_animal_class
-
+# On importe le créateur d'instance depuis le mapper
+from .fauna_mapper import create_animal
 
 def spawn_animal(width, height, elevation, structures, theme_fauna):
     """
-    Crée une instance d'animal en utilisant le mapping centralisé.
-    Vérifie la cohérence entre le type d'animal et le terrain.
+    Tente de créer un animal en fonction des définitions du template JSON.
+    Vérifie que l'animal apparaît sur un terrain compatible.
     """
     if not theme_fauna:
         return None
 
-    # 1. Sélection aléatoire d'une définition dans le thème
+    # 1. Sélection d'une coordonnée aléatoire
     rx, ry = random.randint(0, width - 1), random.randint(0, height - 1)
+
+    # 2. Sélection d'une définition d'animal dans le template JSON
     animal_def = random.choice(theme_fauna)
 
-    a_type = animal_def["type"]
-    a_species = animal_def.get("species")
-    a_char_default = animal_def["char"]
+    species_name = animal_def.get("species")
+    type_name = animal_def.get("type", "standard")
+    char = animal_def.get("char", "🐾") # Emoji défini dans le JSON
 
-    # 2. Consultation du Mapper pour obtenir la Classe et l'Emoji forcé
-    AnimalClass, forced_char = get_animal_class(a_type, a_species)
-    char_to_use = forced_char if forced_char else a_char_default
-
-    # 3. Validation du terrain (Élévation)
+    # 3. Validation du terrain selon l'élévation (h)
     h = elevation[ry][rx]
 
-    # Sécurité : On ne spawn pas sur une structure (ville/village)
+    # Empêcher le spawn sur une cité ou un village
     if (rx, ry) in structures:
         return None
 
-    # Logique spécifique par grand type de mouvement
-    if a_type == "aquatic":
-        if h >= 0:
-            return None  # Les aquatiques ont besoin d'eau (h < 0)
-    elif a_type == "flyer":
-        if h < -0.2:
-            return None  # Les oiseaux ne spawnent pas en plein océan profond
+    # Règles de spawn par type
+    if type_name == "aquatic":
+        if h >= 0: return None  # Besoin d'eau
+    elif type_name == "flyer":
+        if h < -0.2: return None # Pas en plein océan profond
     else:
-        # Terrestres (Standard, Predator, Wolf, Bear)
-        if h <= 0 or h > 0.8:
-            return None  # Pas dans l'eau, pas sur les pics impraticables
+        # Terrestres (standard, predator, etc.)
+        if h <= 0 or h > 0.8: return None # Pas dans l'eau, ni sur les sommets impraticables
 
-    # 4. Instanciation dynamique
-    return AnimalClass(rx, ry, char_to_use)
-
+    # 4. Instanciation via le Mapper
+    # C'est ici que l'emoji du JSON est injecté dans la classe Python
+    return create_animal(rx, ry, species_name, type_name, char)
 
 def init_fauna(width, height, elevation, structures, theme_fauna):
-    """Initialise la population au début de la simulation."""
+    """Initialise la population sauvage au lancement de la carte."""
     fauna_list = []
-    # Tentatives de peuplement initial
-    for _ in range(60):
-        if len(fauna_list) >= 18:
+    # On tente de peupler la carte (ex: 60 tentatives pour 20 animaux max)
+    for _ in range(80):
+        if len(fauna_list) >= 20:
             break
         new_animal = spawn_animal(width, height, elevation, structures, theme_fauna)
         if new_animal:
             fauna_list.append(new_animal)
     return fauna_list
 
-
 def update_fauna(width, height, elevation, structures, fauna_list, theme_fauna):
     """
-    Cycle de vie à chaque tour :
-    - Naissances (selon quota)
-    - Morts naturelles
-    - Mouvements (Polymorphisme)
+    Gère le cycle de vie à chaque tour de simulation.
     """
-
     # --- NAISSANCES ---
-    # On maintient une population dynamique
-    if len(fauna_list) < 25 and random.random() < 0.2:
+    # Maintien de la population si elle descend trop bas
+    if len(fauna_list) < 30 and random.random() < 0.15:
         new_a = spawn_animal(width, height, elevation, structures, theme_fauna)
         if new_a:
             fauna_list.append(new_a)
 
     # --- MORTS ---
-    # Risque de disparition (vieillesse, famine ou sortie de carte)
+    # Risque de mort naturelle (5% de chance qu'un animal disparaisse par tour)
     if fauna_list and random.random() < 0.05:
         fauna_list.pop(random.randint(0, len(fauna_list) - 1))
 
-    # --- MOUVEMENTS ---
-    # Chaque instance (Loup, Ours, Oiseau) exécute sa propre méthode move()
+    # --- MOUVEMENTS (POLYMOPHISME) ---
+    # Chaque animal utilise sa propre méthode move() définie dans sa classe
     for animal in fauna_list:
         animal.move(width, height, elevation, structures)
 

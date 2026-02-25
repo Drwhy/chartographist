@@ -1,0 +1,32 @@
+{
+  "world_name": "Fantasy World",
+  "water": {
+    "ocean": "🌊",
+    "shore": "💧",
+    "river": "🔹",
+    "deep": "🐬"
+  },
+  "biomes": {
+    "volcano": "🌋", "peak": "❄️", "high_mountain": "🏔️", "mountain": "⛰️",
+    "sand": "🏖️", "glaciated": "❄️", "boreal_forest": "🌲", "temperate_forest": "🌳",
+    "autumn_forest": "🍂", "tropical_forest": "🌴", "grassland": "🌿", "tundra": "❄️",
+    "desert": "🏜️", "cactus": "🌵"
+  },
+  "cultures": [
+    {"name": "Empire",   "city": "🏰", "village": "🏡", "port": "⚓", "road": ". "},
+    {"name": "Sultanat", "city": "🕌", "village": "🧱", "port": "🛶", "road": "° "},
+    {"name": "Dynastie", "city": "🏯", "village": "🏮", "port": "⛵", "road": "+ "},
+    {"name": "Clans",    "city": "🛖", "village": "⛺", "port": "⛵", "road": "  "}
+  ],
+  "fauna": [
+    {"species": "wolf", "type": "predator", "char": "🐺"},
+    {"species": "bear", "type": "predator", "char": "🐻"},
+    {"species": "eagle", "type": "flyer", "char": "🦅"},
+    {"species": "shark", "type": "aquatic", "char": "🦈"}
+  ],
+  "special": {
+    "ruin": "🏚️",
+    "port": "⚓",
+    "lava": "🔥"
+  }
+}

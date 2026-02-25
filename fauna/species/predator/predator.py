@@ -1,5 +1,4 @@
-from fauna.animal import Animal
-
+from fauna.species.animal import Animal
 
 class Predator(Animal):
     def move(self, width, height, elevation, structures):
