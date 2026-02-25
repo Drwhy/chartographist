@@ -1,150 +1,96 @@
-import sys, time, random, math
-import numpy as np
-import geo, culture, history, names, fauna
+import sys, time, random
+import geo, culture, history, fauna
+from render import RenderEngine
 
+# --- Configuration Globale ---
 WIDTH, HEIGHT = 60, 30
+MAX_CYCLES = 1000
+TICK_SPEED = 1
 
-def get_char(x, y, elevation, river_map, structures, road_map, config, cycle, fauna_list=[]):
-    """
-    Rendu graphique basé sur le template JSON chargé.
-    """
-    h = elevation[y][x]
-    r = river_map[y][x]
-    rd = road_map[y][x]
-
-    # Raccourcis vers les sections du template
-    bio = config["biomes"]
-    wat = config["water"]
-    spec = config["special"]
-
-    # --- 1. CLIMAT ---
-    dist_to_equator = abs(y - (HEIGHT // 2)) / (HEIGHT // 2)
-    tilt = math.sin(cycle * 0.15)
-    local_temp = (dist_to_equator * 0.6) + (tilt * (y / HEIGHT - 0.5) * 0.5) + (h * 0.4)
-
-    # --- 2. STRUCTURES (Priorité 1) ---
-    if (x, y) in structures:
-        s = structures[(x, y)]
-        if s["type"] == "ruin": return spec["ruin"]
-        # Logique de port dynamique
-        if s["type"] == "village":
-            for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                ny, nx = y + dy, x + dx
-                if 0 <= ny < HEIGHT and 0 <= nx < WIDTH:
-                    if elevation[ny][nx] < 0: return spec["port"]
-        return s["culture"][s["type"]]
-
-    # --- 3. FAUNE (Priorité 2) ---
-    for animal in fauna_list:
-        if animal.pos == (x, y):
-            return animal.char
-
-    # --- 4. RÉSEAUX ---
-    if rd != "  " and h >= 0: return rd
-    if r > 0 and h >= 0: return wat["river"]
-
-    # --- 5. RELIEF & BIOMES ---
-    if h > 0.90: return bio["volcano"]
-    if h > 0.85 or local_temp > 0.8: return bio["peak"]
-    if h > 0.55: return bio["high_mountain"]
-    if h > 0.35: return bio["mountain"]
-
-    if h < -0.15: return wat["ocean"]
-    if h < 0: return wat["shore"]
-    if h < 0.05: return bio["sand"]
-
-    # Biomes dynamiques selon température
-    if local_temp > 0.65:
-        return bio["boreal_forest"] if h > 0.2 else bio["glaciated"]
-    elif local_temp > 0.45:
-        if h > 0.2 and 0.48 < local_temp < 0.55: return bio["autumn_forest"]
-        return bio["temperate_forest"] if h > 0.2 else bio["grassland"]
-    elif local_temp < 0.25:
-        return bio["tropical_forest"] if h > 0.12 else bio["grassland"]
-    else:
-        return bio["temperate_forest"] if h > 0.2 else bio["grassland"]
-
-def draw(elevation, river_map, structures, road_map, seed, year, config, logs, cycle, fauna_list=[], radial_reveal=False):
-    """Affiche la carte dans le terminal."""
-    current_display = [["  " for _ in range(WIDTH)] for _ in range(HEIGHT)]
-    pop = sum(15000 if s["type"] == "city" else 1500 for s in structures.values())
-
-    status = "SOLSTICE" if abs(math.sin(cycle * 0.15)) > 0.7 else "ÉQUINOXE"
-
-    if radial_reveal:
-        center_x, center_y = WIDTH // 2, HEIGHT // 2
-        coords = [(x, y) for y in range(HEIGHT) for x in range(WIDTH)]
-        coords.sort(key=lambda c: math.dist(c, (center_x, center_y)) + random.uniform(-1, 1))
-
-        for i, (x, y) in enumerate(coords):
-            current_display[y][x] = get_char(x, y, elevation, river_map, structures, road_map, config, cycle, fauna_list)
-            if i % 12 == 0 or i == len(coords) - 1:
-                sys.stdout.write("\033[H")
-                print(f"--- 📜 GENÈSE : {config.get('world_name', 'Monde')} | SEED: {seed} ---")
-                bar = int((i / len(coords)) * (WIDTH * 2))
-                print("▕" + "█" * bar + "░" * (WIDTH * 2 - bar) + "▏")
-                for row in current_display: print("".join(row))
-                sys.stdout.flush()
-                time.sleep(0.005)
-    else:
-        sys.stdout.write("\033[H")
-        print(f"--- 🗺️  {config.get('world_name', 'SIMULATION').upper()} | {status} ---")
-        print(f"⏳ AN: {year} | 👥 POP: {pop:,} | 🐾 FAUNE: {len(fauna_list)}")
-        print("=" * WIDTH * 2)
-        for y in range(HEIGHT):
-            line = "".join([get_char(x, y, elevation, river_map, structures, road_map, config, cycle, fauna_list) for x in range(WIDTH)])
-            print(line)
-        print("=" * WIDTH * 2)
-        for l in logs[-5:]: print(f" > {l}")
-        sys.stdout.flush()
-
-if __name__ == "__main__":
-    # Nettoyage terminal et masquage curseur
+def main():
+    # 1. Préparation du Terminal
+    # Effacement et masquage du curseur
     sys.stdout.write("\033[2J\033[H\033[?25l")
 
-    # 1. Chargement de la Configuration (Template JSON)
+    # 2. Chargement des données externes
+    # On gère les arguments : python main.py [template.json] [seed]
     template_path = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1].endswith(".json") else "template.json"
-    world_config = culture.load_template(template_path)
-
-    # 2. Paramètres de base
+    config = culture.load_template(template_path)
     seed_val = sys.argv[2] if len(sys.argv) > 2 else random.randint(0, 99999)
 
-    # 3. Génération Géo & Hydrologie
+    # 3. Initialisation du moteur de rendu
+    renderer = RenderEngine(WIDTH, HEIGHT, config)
+
+    # 4. Génération de la Géographie (Le socle du monde)
     elev, plates = geo.generate_geology(WIDTH, HEIGHT, seed_val)
 
-    # Attribution des cultures depuis le template
+    # Attribution d'une culture par défaut à chaque plaque tectonique
     for p in plates:
-        p["culture"] = random.choice(world_config["cultures"])
+        p["culture"] = random.choice(config["cultures"])
 
+    # Simulation de l'eau (Rivières)
     riv = geo.simulate_hydrology(WIDTH, HEIGHT, elev)
 
-    road_grid = [["  " for _ in range(WIDTH)] for _ in range(HEIGHT)]
-    civ = {}
-    all_logs = [f"Démarrage de l'univers : {world_config.get('world_name')}"]
+    # 5. Création des premières colonies (La Genèse)
+    initial_civ = history.seed_civilization(WIDTH, HEIGHT, elev, riv, plates, config["cultures"])
 
-    # 4. Initialisation Faune
-    fauna_list = fauna.init_fauna(WIDTH, HEIGHT, elev, civ, world_config["fauna"])
+    # 6. État initial de la simulation (Le Modèle)
+    world = {
+        'elev': elev,
+        'riv': riv,
+        'civ': initial_civ,
+        'road': [["  " for _ in range(WIDTH)] for _ in range(HEIGHT)],
+        'fauna': [],
+        'cycle': 0
+    }
 
-    # 5. Rendu initial (Genèse)
-    draw(elev, riv, civ, road_grid, seed_val, 0, world_config, all_logs, 0, fauna_list, radial_reveal=True)
+    # Initialisation de la population sauvage
+    world['fauna'] = fauna.init_fauna(WIDTH, HEIGHT, elev, world['civ'], config["fauna"])
 
-    # 6. Boucle de Simulation
+    # Statistiques de bord
+    stats = {
+        'year': 0,
+        'logs': [f"L'ère de {config.get('world_name', 'Terra')} commence."],
+        'seed': seed_val
+    }
+
     try:
-        for cycle in range(1, 1001):
-            year = cycle * 10
+        # --- PHASE 1 : RÉVÉLATION (Effet Visuel) ---
+        renderer.draw_frame(world, stats, reveal=True)
 
-            # Évolution des cités
-            civ, new_logs = history.evolve_civilization(WIDTH, HEIGHT, elev, riv, plates, civ, road_grid, cycle)
-            all_logs.extend(new_logs)
+        # --- PHASE 2 : ÉVOLUTION TEMPORELLE ---
+        for c in range(1, MAX_CYCLES + 1):
+            world['cycle'] = c
+            stats['year'] = c * 10
 
-            # Évolution de la faune
-            fauna_list = fauna.update_fauna(WIDTH, HEIGHT, elev, civ, fauna_list, world_config["fauna"])
+            # A. Évolution de la Civilisation (Cités, Guerres, Routes)
+            # Utilise history/history_engine.py via history/__init__.py
+            world['civ'], new_logs = history.evolve_world(
+                WIDTH, HEIGHT, elev, riv, plates,
+                world['civ'], world['road'], c
+            )
+            stats['logs'].extend(new_logs)
 
-            # Affichage
-            draw(elev, riv, civ, road_grid, seed_val, year, world_config, all_logs, cycle, fauna_list)
-            time.sleep(0.3)
+            # B. Évolution de la Faune (Mouvements, Naissances)
+            world['fauna'] = fauna.update_fauna(
+                WIDTH, HEIGHT, elev, world['civ'],
+                world['fauna'], config["fauna"]
+            )
+
+            # C. Rendu Graphique
+            renderer.draw_frame(world, stats)
+
+            # D. Latence de cycle
+            time.sleep(TICK_SPEED)
 
     except KeyboardInterrupt:
+        # Sortie propre avec Ctrl+C
         pass
     finally:
-        sys.stdout.write("\033[?25h\n") # Rétablir le curseur
+        # Rétablir le terminal
+        sys.stdout.write("\033[?25h\n")
+        print(f"\nSimulation interrompue à l'An {stats['year']}.")
+        print("Les chroniques de ce monde ont été sauvegardées dans votre mémoire.")
+
+if __name__ == "__main__":
+    main()
