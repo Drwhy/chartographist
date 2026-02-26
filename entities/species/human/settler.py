@@ -11,7 +11,7 @@ class Settler(Actor):
         self.type = "human"
         self.travel_distance = 0
         self.min_travel = random.randint(12, 25)
-
+        self.type = "hunter"
     @staticmethod
     def try_spawn(city_pos, city_data, world, config, active_homes):
         """

@@ -7,84 +7,75 @@ class RenderEngine:
         self.config = config
 
     def _get_char(self, x, y, world_data):
-        """Détermine le caractère unique pour une coordonnée (x, y)."""
-        # Extraction des données de base
+        """Détermine le caractère unique pour une coordonnée (x, y) avec logique climatique."""
+        # 1. EXTRACTION DES DONNÉES
         h = world_data['elev'][y][x]
         r = world_data['riv'][y][x]
         rd = world_data['road'][y][x]
         cycle = world_data['cycle']
 
-        # Accès aux dictionnaires de config
-        bio = self.config["biomes"]
-        wat = self.config["water"]
-        spec = self.config["special"]
+        # Accès aux dictionnaires de config (template.json)
+        bio = self.config.get("biomes", {})
+        wat = self.config.get("water", {})
+        spec = self.config.get("special", {})
 
-        # 1. PRIORITÉ : ENTITÉS DYNAMIQUES (Hunters, Settlers, Animaux)
-        # On scanne le nouveau EntityManager
-        for entity in world_data['entities']:
-            # On récupère la position peu importe le nom de l'attribut (pos ou current_pos)
-            e_pos = getattr(entity, 'pos', getattr(entity, 'current_pos', None))
+        # 2. PRIORITÉ : ENTITÉS (EntityManager remplace les listes séparées)
+        animal_char = None
+        entities_at_pos = [e for e in world_data['entities'] if e.pos == (x, y)]
 
-            if e_pos == (x, y):
-                # Si c'est un humain, il a la priorité absolue sur l'affichage
-                if getattr(entity, 'type', '') == 'human':
-                    return entity.char
-                # On stocke l'animal mais on continue de chercher si un humain est sur la même case
+        for entity in entities_at_pos:
+            # Si c'est un humain ou un construct (ville), on gère la priorité
+            if getattr(entity, 'type', '') == 'actor': # Humains (Hunters/Settlers)
+                return entity.char
+            if getattr(entity, 'type', '') == 'animal':
                 animal_char = entity.char
 
-        # 2. PRIORITÉ : STRUCTURES FIXES (Villes, Ruines)
-        if (x, y) in world_data['civ']:
-            s = world_data['civ'][(x, y)]
-            if s.get("type") == "ruin": return spec.get("ruin", "🏚️")
-
-            cult = s.get("culture")
-            stype = s.get("type")
-
-            # Gestion des ports (si village au bord de l'eau)
-            if stype == "village":
-                for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    ny, nx = y + dy, x + dx
-                    if 0 <= ny < self.height and 0 <= nx < self.width:
-                        if world_data['elev'][ny][nx] < 0:
-                            return cult.get("port", spec.get("port", "⚓"))
-
-            return cult.get(stype, "? ") if isinstance(cult, dict) else "? "
-
-        # 3. RETOUR DE L'ANIMAL (S'il n'y avait pas d'humain ou de ville dessus)
-        # Note: on vérifie si animal_char a été défini dans la boucle 1
-        if 'animal_char' in locals():
+            # Si c'est un construct (Village/City)
+            if getattr(entity, 'type', '') == 'construct':
+                # Logique spécifique aux ports (si au bord de l'eau)
+                if getattr(entity, 'subtype', '') == "village":
+                    for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        ny, nx = y + dy, x + dx
+                        if 0 <= ny < self.height and 0 <= nx < self.width:
+                            if world_data['elev'][ny][nx] < 0:
+                                return entity.culture.get("port", spec.get("port", "⚓"))
+                return entity.char
+        # 3. RETOUR DE L'ANIMAL (S'il n'y avait pas d'humain ou de construct dessus)
+        if animal_char:
             return animal_char
 
         # 4. RÉSEAUX (Routes et Rivières)
         if rd and rd != "  " and h >= 0: return rd
-        if r > 0 and h >= 0: return wat["river"]
+        if r > 0 and h >= 0: return wat.get("river", "~~")
 
-        # 5. TERRAIN ET BIOMES (Logique procédurale)
+        # 5. TERRAIN ET BIOMES (Logique climatique procédurale)
+        # Calcul de la température selon la latitude, l'inclinaison (tilt) et l'altitude
         dist_to_equator = abs(y - (self.height // 2)) / (self.height // 2)
         tilt = math.sin(cycle * 0.15)
         temp = (dist_to_equator * 0.6) + (tilt * (y / self.height - 0.5) * 0.5) + (h * 0.4)
 
-        # Seuils d'élévation
+        # --- Seuils d'élévation ---
         if h > 0.90: return bio.get("volcano", "🌋")
         if h > 0.85 or temp > 0.8: return bio.get("peak", "❄️")
         if h > 0.55: return bio.get("high_mountain", "🏔️")
         if h > 0.35: return bio.get("mountain", "⛰️")
 
-        # Seuils d'eau
+        # --- Seuils d'eau ---
         if h < -0.15: return wat.get("ocean", "🌊")
         if h < 0: return wat.get("shore", "💧")
         if h < 0.05: return bio.get("sand", "🏖️")
 
-        # Distribution par température
+        # --- Distribution par température ---
         if temp > 0.65:
-            return bio["boreal_forest"] if h > 0.2 else bio["glaciated"]
+            return bio.get("boreal_forest", "🌲") if h > 0.2 else bio.get("glaciated", "❄️")
         if temp > 0.45:
-            if h > 0.2 and 0.48 < temp < 0.55: return bio["autumn_forest"]
-            return bio["temperate_forest"]
+            if h > 0.2 and 0.48 < temp < 0.55:
+                return bio.get("autumn_forest", "🍂")
+            return bio.get("temperate_forest", "🌳")
         if temp < 0.25 and h > 0.12:
-            return bio["tropical_forest"]
+            return bio.get("tropical_forest", "🌴")
 
-        # FALLBACK : Sécurité ultime pour éviter le NoneType
+        # FALLBACK : Sécurité ultime
         return bio.get("grassland", "🌿")
 
     def draw_frame(self, world_data, stats, reveal=False):

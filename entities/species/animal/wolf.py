@@ -7,7 +7,6 @@ class Wolf(Animal):
     def __init__(self, x, y, culture, config, species_data):
         # C'est cette ligne qui crée self.target en appelant Animal.__init__
         super().__init__(x, y, culture, config, species_data)
-
         # Tu peux ensuite ajouter des spécificités au loup
         self.perception_range = 6 # Un loup a un meilleur flair que l'animal de base
     @staticmethod

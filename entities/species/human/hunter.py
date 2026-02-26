@@ -1,7 +1,8 @@
 import random
+import math
 from entities.actor import Actor
 from entities.registry import register_civ
-import math
+from core.logger import GameLogger
 
 @register_civ
 class Hunter(Actor):
@@ -11,7 +12,7 @@ class Hunter(Actor):
         self.char = culture.get("hunter_emoji", "🏹")
         self.home_pos = home_pos
         self.target_prey = None
-
+        self.type = "hunter"
     def think(self, world):
         """Logique de décision du chasseur."""
         # Si pas de cible, on en cherche une dans world['entities']
@@ -30,7 +31,7 @@ class Hunter(Actor):
                     if random.random() < 0.3: # 30% de chance de tuer l'animal à distance
                         entity.is_expired = True
                         msg = f"🏹 {self.char} a abattu un {entity.species} à distance !"
-                        world['stats']['logs'].append(msg)
+                        GameLogger.log(msg)
                         self.target_prey = None
                         return # On s'arrête là pour ce tour
 

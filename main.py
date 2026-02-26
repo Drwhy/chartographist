@@ -1,65 +1,88 @@
-import time
-import sys
-import traceback
+import time, random, sys, traceback
+# Imports de ton architecture
 import core
 import history
 import entities.spawn_system as entities_spawn
 from render.render_engine import RenderEngine
+from core.logger import GameLogger
 
 # --- CONFIGURATION ---
-WIDTH, HEIGHT = 60, 30
+WIDTH, HEIGHT = 60, 30  # Ajuste selon la taille de ton terminal
 MAX_CYCLES = 2000
-TICK_SPEED = 0.2  # On accélère un peu pour voir l'action
+TICK_SPEED = 0.3
 
 def main():
-    # 1. INITIALISATION
+    # 1. INITIALISATION DU TERMINAL ET DES DONNÉES
     core.init_terminal()
     config, seed = core.load_arguments()
 
-    # world contient world['entities'] (le Manager)
+    # world contient désormais world['entities'] qui gère TOUT (Villages, Loups, Colons)
     world, stats = core.assemble_world(WIDTH, HEIGHT, config, seed)
 
-    # CRUCIAL : On lie stats à world pour que les entités puissent logger
-    world['stats'] = stats
+    # On s'assure que stats['logs'] est bien initialisé pour l'affichage
     if 'logs' not in stats:
         stats['logs'] = []
 
     renderer = RenderEngine(WIDTH, HEIGHT, config)
 
     try:
-        # Affichage de la genèse (radial reveal)
+        # Affichage de la genèse (Radial Reveal)
         renderer.draw_frame(world, stats, reveal=True)
 
         while world['cycle'] < MAX_CYCLES:
             world['cycle'] += 1
             stats['year'] = world['cycle'] * 10
 
-            # --- A. ÉVOLUTION DU MONDE (Structures & Routes) ---
-            # history_engine ne gère plus les colons, seulement l'évolution village -> city
-            world['civ'], new_logs, _ = history.evolve_world(
-                WIDTH, HEIGHT, world['elev'], world['riv'], None,
-                world['civ'], world['road'], world['cycle']
+            # --- A. ÉVOLUTION PASSIVE (Routes uniquement) ---
+            # Les villages et cités évoluent désormais via leur propre méthode .update()
+            # On ne passe plus world['civ'] car il est intégré dans world['entities']
+            world['road'], new_logs = history.evolve_world(
+                WIDTH,
+                HEIGHT,
+                world['road'],
+                world['entities'], # On passe le manager au lieu de world['civ']
+                world['cycle']
             )
             stats['logs'].extend(new_logs)
 
-            # --- B. SYSTÈME DE SPAWN (Génération auto) ---
-            # Utilise le Registre pour Hunters, Settlers, Wolves, Bears...
+            # --- B. SYSTÈME DE SPAWN ---
+            # Gère l'apparition de la faune sauvage et des nouvelles unités humaines
             entities_spawn.spawn_system(world, config)
 
-            # --- C. MISE À JOUR DES AGENTS (IA & Chasse) ---
-            # On utilise list() pour éviter les erreurs de modification pendant l'itération
-            for entity in list(world['entities']):
+            # --- C. MISE À JOUR UNIFIÉE DES ENTITÉS ---
+            # On crée une copie de la liste pour éviter les erreurs lors des naissances/morts
+            all_entities = list(world['entities'])
+
+            for entity in all_entities:
                 try:
-                    # L'update appelle think() et perform_action()
+                    # Ici, tout le monde travaille :
+                    # - Le Village tente de devenir une City
+                    # - Le Loup cherche une proie
+                    # - Le Colon avance ou fonde un foyer
                     entity.update(world, stats)
                 except Exception as e:
-                    stats['logs'].append(f"⚠️ Erreur entité {type(entity).__name__}: {e}")
+                        # 1. On extrait la dernière ligne de l'erreur (où le bug a eu lieu)
+                        tb = traceback.extract_tb(e.__traceback__)
+                        filename, line, func, text = tb[-1]
 
-            # --- D. NETTOYAGE ---
-            # Retire les entités dont is_expired = True (après une attaque par ex.)
+                        # 2. On récupère la position et l'ID de l'entité pour le contexte
+                        pos = getattr(entity, 'pos', 'Inconnue')
+
+                        # 3. On crée un log ultra-détaillé
+                        error_msg = (
+                            f"⚠️ [BUG] {type(entity).__name__} à {pos} | "
+                            f"Erreur: '{str(e)}' | "
+                            f"Fichier: {filename.split('/')[-1]} (Ligne {line}) | "
+                            f"Code: {text}"
+                        )
+
+                        stats['logs'].append(error_msg)
+            stats['logs'].extend(GameLogger.get_new_logs())
+            # --- D. NETTOYAGE DES MORTS ---
+            # Supprime les entités ayant .is_expired = True (proies mangées, colons arrivés, etc.)
             world['entities'].remove_dead()
 
-            # --- E. RENDU ---
+            # --- E. RENDU GRAPHIQUE ---
             renderer.draw_frame(world, stats)
 
             # Rythme de la simulation
@@ -68,14 +91,21 @@ def main():
     except KeyboardInterrupt:
         print("\n🛑 Simulation interrompue par l'utilisateur.")
     except Exception:
-        # En cas de gros crash, on restaure le terminal proprement pour voir l'erreur
+        # Restauration du terminal pour afficher l'erreur proprement
         core.restore_terminal()
         traceback.print_exc()
     finally:
         core.restore_terminal()
-        print(f"\n📜 Chroniques terminées à l'An {stats['year']}.")
-        print(f"📊 Statistiques finales : {len(world['civ'])} structures | {len(world['entities'])} agents.")
-        print(f"🌱 Seed : {seed}")
+
+        # Statistiques finales basées sur le nouveau système
+        structs = [e for e in world['entities'] if e.type == 'construct']
+        agents = [e for e in world['entities'] if e.type in ['actor', 'animal']]
+
+        print("\n" + "="*40)
+        print(f"📜 Chroniques terminées à l'An {stats['year']}.")
+        print(f"📊 Bilan : {len(structs)} Structures | {len(agents)} Agents vivants.")
+        print(f"🌱 Seed de génération : {seed}")
+        print("="*40 + "\n")
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,7 @@
 import random
 import math
 from entities.actor import Actor
+from core.logger import GameLogger
 
 class Animal(Actor):
     def __init__(self, x, y, culture, config, species_data):
@@ -57,18 +58,18 @@ class Animal(Actor):
             if defense_roll < 0.4: # 40% de chance que le chasseur gagne au corps-à-corps
                 self.is_expired = True
                 msg = f"🗡️ {self.target.char} a terrassé le {self.species} au corps-à-corps !"
-                world['stats']['logs'].append(msg)
+                GameLogger.log(msg)
                 return
             elif defense_roll < 0.6: # 20% de chance de match nul (les deux fuient)
                 msg = f"🏃 Combat acharné ! Le {self.species} et le chasseur se sont repliés."
-                world['stats']['logs'].append(msg)
+                GameLogger.log(msg)
                 self.target = None
                 return
 
         # Sinon (ou si le chasseur rate sa défense), l'animal gagne
         self.target.is_expired = True
         msg = f"💀 {self.char} {self.species.capitalize()} a dévoré sa proie."
-        world['stats']['logs'].append(msg)
+        GameLogger.log(msg)
 
     def _wander(self, world, valid_elev_range=(0.0, 1.0)):
             """Mouvement aléatoire restreint par l'élévation."""
