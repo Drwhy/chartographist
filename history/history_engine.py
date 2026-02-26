@@ -1,28 +1,29 @@
 import random
 
 def evolve_world(width, height, roads, entities, cycle):
+    """Gère uniquement l'évolution des infrastructures passives (routes)."""
+    # Ici, on pourrait imaginer une dégradation des routes avec le temps
+    # ou laisser les entités (Settlers) tracer les routes en marchant.
+    return roads, []
+
+def connect_with_road(roads, start_pos, end_pos, width, height):
     """
-    Gère l'évolution des infrastructures passives (routes).
-    La transformation des villages est désormais gérée par les entités elles-mêmes.
+    Trace une route (simple algorithme de ligne) entre deux points.
+    Appelé par un Settler lorsqu'il fonde un village.
     """
-    new_logs = []
+    x1, y1 = start_pos
+    x2, y2 = end_pos
 
-    # 1. RÉSEAU ROUTIER
-    # On passe le manager d'entités pour savoir où sont les structures
-    _expand_roads(width, height, entities, roads)
+    curr_x, curr_y = x1, y1
 
-    # On ne renvoie que DEUX valeurs pour correspondre à l'appel dans main.py
-    return roads, new_logs
+    # Simple marche vers la cible pour tracer la route
+    while (curr_x, curr_y) != (x2, y2):
+        if curr_x < x2: curr_x += 1
+        elif curr_x > x2: curr_x -= 1
 
-def _expand_roads(width, height, entities, roads):
-    """Étend les routes autour des entités de type 'construct'."""
-    # On récupère les positions de toutes les structures (Villages, Cités)
-    struct_positions = [e.pos for e in entities if getattr(e, 'type', '') == 'construct']
+        if curr_y < y2: curr_y += 1
+        elif curr_y > y2: curr_y -= 1
 
-    for x, y in struct_positions:
-        for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
-            nx, ny = x + dx, y + dy
-            if 0 <= nx < width and 0 <= ny < height:
-                if random.random() < 0.05: # Chance d'extension
-                    if roads[ny][nx] == "  ":
-                        roads[ny][nx] = "··"
+        # On place le caractère de route
+        if 0 <= curr_x < width and 0 <= curr_y < height:
+            roads[curr_y][curr_x] = "··"

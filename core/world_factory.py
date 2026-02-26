@@ -1,18 +1,17 @@
 import random
 from .geo import generate_geology, simulate_hydrology
 from .entities import EntityManager
-from entities.constructs.village import Village # Import du fichier spécifique
+from entities.constructs.city import City  # Changement : On commence par des Cités
 
 def assemble_world(width, height, config, seed_val):
     """
-    Initialise le monde en intégrant les structures (Constructs)
-    directement dans le EntityManager.
+    Initialise le monde avec une géologie complexe et place les Cités Primordiales.
+    C'est le SEUL moment où des Cités apparaissent 'gratuitement'.
     """
     random.seed(seed_val)
 
     # 1. GÉNÉRATION DU TERRAIN (LOGIQUE GÉOLOGIQUE)
     # -------------------------------------------
-    # On conserve tes fonctions spécialisées pour le réalisme
     elevation, plates = generate_geology(width, height, seed_val)
     rivers = simulate_hydrology(width, height, elevation)
 
@@ -20,31 +19,32 @@ def assemble_world(width, height, config, seed_val):
     # -------------------------------------------
     entity_manager = EntityManager()
 
-    # 3. PLACEMENT DES CULTURES INITIALES (CONSTRUCTS)
-    # ------------------------------------------------
-    # On remplace seed_civilization par une logique de placement d'objets
-    cultures = config.get("cultures", {})
+    # 3. PLACEMENT DES CITÉS PRIMORDIALES (LES CAPITALES)
+    # --------------------------------------------------
+    cultures = config.get("cultures", [])
 
+    # On itère sur les cultures définies dans le template.json
     for c_data in cultures:
         placed = False
         attempts = 0
 
-        # On cherche un site propice pour chaque culture
-        while not placed and attempts < 200:
+        # On cherche un site de prestige pour chaque capitale
+        while not placed and attempts < 300:
+            # On évite les bords extrêmes de la map
             rx = random.randint(10, width - 11)
             ry = random.randint(10, height - 11)
 
             h = elevation[ry][rx]
             is_near_water = rivers[ry][rx] > 0
 
-            # Critères : Terre ferme, plaine, idéalement près d'une rivière
-            if 0.1 < h < 0.4:
-                # Si on est près de l'eau ou qu'on a fait trop d'essais
-                if is_near_water or attempts > 150:
-                    # On crée l'entité Construct Village
-                    new_village = Village(rx, ry, c_data, config)
-                    entity_manager.add(new_village)
-                    placed = True
+            # Critères d'implantation d'une Capitale :
+            # Plaine fertile (0.1 < h < 0.3) et OBLIGATOIREMENT près de l'eau
+            if 0.1 < h < 0.3 and is_near_water:
+                # Création de la Cité (objet City)
+                # Elle pourra ensuite générer des Settlers pour créer des Villages
+                new_city = City(rx, ry, c_data, config)
+                entity_manager.add(new_city)
+                placed = True
 
             attempts += 1
 
@@ -60,10 +60,10 @@ def assemble_world(width, height, config, seed_val):
         'elev': elevation,
         'riv': rivers,
         'plates': plates,
+        # Initialisation de la grille de routes vide
         'road': [["  " for _ in range(width)] for _ in range(height)],
 
-        # --- SYSTÈME D'ENTITÉS UNIFIÉ ---
-        # Plus de world['civ'], tout est ici (Villages, Loups, Chasseurs)
+        # Système d'entités unifié (EntityManager)
         'entities': entity_manager
     }
 
@@ -72,8 +72,8 @@ def assemble_world(width, height, config, seed_val):
     stats = {
         'year': 0,
         'logs': [
-            f"📜 Les plaques tectoniques se sont figées (Seed: {seed_val})",
-            "🏠 Les premiers foyers ont été bâtis sur des terres fertiles."
+            f"🌍 Le monde s'est éveillé (Seed: {seed_val})",
+            "🏛️ Les Cités Primordiales ont érigé leurs premiers monuments."
         ],
         'seed': seed_val
     }

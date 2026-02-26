@@ -1,69 +1,115 @@
 import random
+import math
 from entities.actor import Actor
+from core.logger import GameLogger
+from entities.constructs.village import Village
+from history.history_engine import connect_with_road
 from entities.registry import register_civ
 
 @register_civ
 class Settler(Actor):
-    def __init__(self, x, y, culture, config, home_pos):
+    def __init__(self, x, y, culture, config, home_city=None):
+        # Respect de l'ordre strict des paramètres de Actor
         super().__init__(x, y, culture, config)
+
+        self.type = "actor"
+        self.subtype = "settler"
         self.char = culture.get("settler_emoji", "🚶")
-        self.home_pos = home_pos
-        self.type = "human"
-        self.travel_distance = 0
-        self.min_travel = random.randint(12, 25)
-        self.type = "hunter"
-    @staticmethod
-    def try_spawn(city_pos, city_data, world, config, active_homes):
-        """
-        RÈGLE MISE À JOUR :
-        Uniquement une VILLE peut envoyer des colons.
-        """
-        # Vérification du type de structure
-        if city_data.get('type') != "city": # On ignore les "village"
-            return None
+        self.home_city = home_city # La ville d'origine pour la route
 
-        # Un seul colon par ville à la fois
-        if city_pos in active_homes:
-            return None
+        # Logique de mouvement
+        self.target_pos = self._choose_exploration_direction()
+        self.distance_traveled = 0
+        self.min_distance_from_home = 20 # Distance mini pour fonder un village
+        self.max_travel_time = 100       # Un peu plus de temps pour trouver un spot
 
-        # Probabilité de spawn
-        if random.random() < 0.02:
-            return Settler(city_pos[0], city_pos[1], city_data['culture'], config, city_pos)
+    def update(self, world, stats):
+        """Logique de déplacement et de fondation."""
+        if self.is_expired:
+            return
 
-        return None
+        # 1. On avance vers la terre promise
+        self._move_towards_target(world)
+        self.distance_traveled += 1
 
-    def think(self, world):
-        """Logique de décision : marcher loin de la ville mère avant de fonder."""
-        self.travel_distance += 1
-
-        # Distance de sécurité pour ne pas étouffer la ville mère
-        if self.travel_distance >= self.min_travel:
-            # On cherche un bon terrain (plaine et bord de rivière)
-            h = world['elev'][self.y][self.x]
-            is_near_river = world['riv'][self.y][self.x] > 0
-
-            # Condition de fondation : Bon terrain + Rivière OU grande distance
-            if (0 <= h < 0.3 and is_near_river) or self.travel_distance > 40:
+        # 2. On vérifie si le terrain est propice à la fondation
+        if self.distance_traveled > self.min_distance_from_home:
+            if self._is_ideal_spot(world):
                 self._found_village(world)
+                return
 
-    def perform_action(self, world):
-        """Mouvement exploratoire."""
-        dx, dy = random.randint(-1, 1), random.randint(-1, 1)
-        nx, ny = self.x + dx, self.y + dy
+        # 3. Si trop vieux ou perdu, le colon disparaît
+        if self.distance_traveled > self.max_travel_time:
+            self.is_expired = True
+            GameLogger.log(f"💀 Un groupe de colons s'est perdu dans les terres sauvages.")
 
-        if 0 <= nx < world['width'] and 0 <= ny < world['height']:
-            if world['elev'][ny][nx] >= 0:
-                self.pos = (nx, ny)
+    def _choose_exploration_direction(self):
+        """Choisit un point lointain au hasard pour migrer."""
+        angle = random.uniform(0, 2 * math.pi)
+        dist = random.randint(15, 30)
+        tx = int(self.x + math.cos(angle) * dist)
+        ty = int(self.y + math.sin(angle) * dist)
+        return (tx, ty)
+
+    def _move_towards_target(self, world):
+        """Marche simple vers la destination."""
+        tx, ty = self.target_pos
+        dx = 1 if tx > self.x else -1 if tx < self.x else 0
+        dy = 1 if ty > self.y else -1 if ty < self.y else 0
+
+        new_x, new_y = self.x + dx, self.y + dy
+
+        # Collision simple : on évite l'eau profonde (h < 0)
+        if 0 <= new_x < world['width'] and 0 <= new_y < world['height']:
+            if world['elev'][new_y][new_x] >= 0:
+                # Utilisation des membres privés pour éviter le bug de "Property no setter"
+                self._x, self._y = new_x, new_y
+                self.pos = (self._x, self._y)
+            else:
+                # Si on touche l'eau, on change de direction
+                self.target_pos = self._choose_exploration_direction()
+
+    def _is_ideal_spot(self, world):
+        """
+        Détermine si la case actuelle est valide pour un village.
+        Tolérance maximale : Tout sauf Eau, Peaks (>0.85) et Volcans (>0.90).
+        """
+        h = world['elev'][self.y][self.x]
+
+        # REGLÈS D'EXCLUSION STRICTES
+        if h < 0: return False      # Eau
+        if h > 0.85: return False   # Peaks et Volcans (selon tes seuils de rendu)
+
+        # Vérification si une entité occupe déjà la place
+        for e in world['entities']:
+            if e.pos == self.pos and e != self:
+                return False
+            if getattr(e, 'type', '') == 'construct':
+                    dist = math.dist(self.pos, e.pos)
+                    if dist < 8: return False
+
+        # PROBABILITÉ DE FONDATION
+        # Bonus si près d'une rivière, sinon chance standard
+        is_near_river = world['riv'][self.y][self.x] > 0
+        chance = 0.25 if is_near_river else 0.08
+
+        return random.random() < chance
 
     def _found_village(self, world):
-        """Transforme l'unité en village."""
-        if self.pos not in world['civ']:
-            world['civ'][self.pos] = {
-                'type': 'village', # Le colon fonde toujours un village, pas une ville directe
-                'culture': self.culture,
-                'name': f"Nouv. {self.culture['name'][:3]}.",
-                'founded': world['cycle']
-            }
-            self.is_expired = True
-            if 'stats' in world:
-                world['stats']['logs'].append(f"🏠 {self.culture['name']} a étendu son territoire !")
+        """Crée le village et trace la route vers la cité mère."""
+        new_village = Village(self.x, self.y, self.culture, self.config)
+        world['entities'].add(new_village)
+
+        if self.home_city:
+            connect_with_road(
+                world['road'],
+                self.home_city.pos,
+                self.pos,
+                world['width'],
+                world['height']
+            )
+            GameLogger.log(f"🏘️  Nouveau village fondé ! Une route le relie à en ({self.x}, {self.y}).")
+        else:
+            GameLogger.log(f"🏘️  Un village indépendant a été fondé en ({self.x}, {self.y}).")
+
+        self.is_expired = True

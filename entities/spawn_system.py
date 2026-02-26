@@ -1,57 +1,62 @@
 import random
-from entities.registry import CIV_UNITS, WILD_SPECIES
+from entities.registry import WILD_SPECIES, STRUCTURE_TYPES
+from core.logger import GameLogger
+from entities.species.human.hunter import Hunter
 
 def spawn_system(world, config):
     """
-    Système de génération unifié.
-    Gère l'apparition des Humains (depuis les Constructs)
-    et de la Faune (depuis le terrain).
+    Gère l'apparition dynamique des entités mobiles.
+    Les cités sont EXCLUES : elles ne naissent que par évolution de villages.
     """
-    manager = world['entities']
+    width = world['width']
+    height = world['height']
 
-    # 1. RECENSEMENT DES DOMICILES ACTIFS
-    # On identifie où se trouvent déjà des unités pour respecter la règle "un par foyer"
-    # On récupère les home_pos de toutes les entités mobiles (Actors)
-    active_homes = {getattr(e, 'home_pos', None) for e in manager if hasattr(e, 'home_pos')}
-    # On retire None de l'ensemble
-    active_homes.discard(None)
+    # 1. RÉGULATION DE LA FAUNE (Loups, Ours, etc.)
+    _spawn_fauna(world, config, width, height)
 
-    # 2. SPAWN CIVILISATION (Hunters & Settlers)
-    # On cherche tous les Constructs civils sur la carte
-    civ_constructs = [e for e in manager if getattr(e, 'type', '') == 'construct']
+def _spawn_fauna(world, config, width, height):
+    """Gère le spawn des animaux enregistrés via @register_wild."""
+    max_fauna = config.get("max_fauna", 20)
+    current_fauna = len([e for e in world['entities'] if getattr(e, 'type', '') == 'animal'])
 
-    for construct in civ_constructs:
-        # Données de base pour le spawn
-        pos = (construct.x, construct.y)
-        # On prépare un dictionnaire de compatibilité pour les méthodes try_spawn existantes
-        construct_data = {
-            'type': getattr(construct, 'subtype', 'village'),
-            'culture': construct.culture
-        }
+    if current_fauna < max_fauna:
+        # On tente de faire apparaître une espèce au hasard parmi celles enregistrées
+        if WILD_SPECIES:
+            species_class = random.choice(WILD_SPECIES)
 
-        # On tente de spawn chaque type d'unité enregistrée (@register_civ)
-        for unit_class in CIV_UNITS:
-            # La règle de l'unité unique par foyer est vérifiée dans le try_spawn de la classe
-            new_unit = unit_class.try_spawn(pos, construct_data, world, config, active_homes)
+            # On choisit un point au hasard sur la carte
+            rx, ry = random.randint(0, width - 1), random.randint(0, height - 1)
 
-            if new_unit:
-                manager.add(new_unit)
-                # Une seule unité par construct par tour maximum
-                break
+            # La classe gère elle-même ses conditions (biome, probabilité)
+            new_animal = species_class.try_spawn(rx, ry, world, config)
 
-    # 3. SPAWN SAUVAGE (Loups, Ours, etc.)
-    # On limite la population totale pour les performances
-    current_animals = [e for e in manager if getattr(e, 'type', '') == 'animal']
-    max_animals = config.get('simulation', {}).get('max_fauna', 100)
+            if new_animal:
+                world['entities'].add(new_animal)
 
-    if len(current_animals) < max_animals:
-        # On tente plusieurs spawn par tour pour peupler le monde
-        for _ in range(5):
-            rx = random.randint(0, world['width'] - 1)
-            ry = random.randint(0, world['height'] - 1)
+def seed_initial_cities(world, config):
+    """
+    FONCTION SPÉCIALE : Appelé une seule fois au début par world_factory.
+    C'est le seul moment où des cités apparaissent 'gratuitement'.
+    """
+    num_cities = config.get("initial_cities", 3)
+    cities_placed = 0
+    attempts = 0
 
-            for species_class in WILD_SPECIES:
-                new_animal = species_class.try_spawn(rx, ry, world, config)
-                if new_animal:
-                    manager.add(new_animal)
-                    break # On a créé un animal à cette position, on passe à l'essai suivant
+    from entities.constructs.city import City
+
+    while cities_placed < num_cities and attempts < 100:
+        rx, ry = random.randint(0, world['width'] - 1), random.randint(0, world['height'] - 1)
+
+        # Conditions idéales : Plaine (élévation basse mais positive) et rivière
+        is_land = world['elev'][ry][rx] > 0.1 and world['elev'][ry][rx] < 0.4
+        is_near_river = world['riv'][ry][rx] > 0
+
+        if is_land and is_near_river:
+            culture = random.choice(config['cultures'])
+            mother_city = City(rx, ry, culture, config)
+            world['entities'].add(mother_city)
+
+            cities_placed += 1
+            GameLogger.log(f"🏛️  La cité primordiale de {mother_city.name} a été fondée.")
+
+        attempts += 1
