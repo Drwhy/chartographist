@@ -48,33 +48,28 @@ class Animal(Actor):
             self._attack_target(world)
 
     def _attack_target(self, world):
-            """Élimine la proie et consigne l'événement dans les logs."""
-            if self.target:
-                # 1. On récupère les identités pour le log
-                predator_name = self.species.capitalize() # "Loup" ou "Ours"
+        if not self.target or self.target.is_expired: return
 
-                # On essaie de déterminer si c'est un chasseur ou un colon
-                if hasattr(self.target, 'char'):
-                    if self.target.char == "🏹":
-                        prey_name = "un chasseur"
-                    elif self.target.char == "🚶":
-                        prey_name = "un colon"
-                    else:
-                        prey_name = f"une proie ({self.target.char})"
-                else:
-                    prey_name = "une proie"
+        # Si la cible est un Chasseur, il se défend !
+        if getattr(self.target, 'char', '') == "🏹":
+            defense_roll = random.random()
 
-                # 2. On tue la cible
-                self.target.is_expired = True
-
-                # 3. On génère le message de log
-                msg = f"💀 {self.char} {predator_name} a tué {prey_name} en {self.pos}."
-
-                if 'logs' in world.get('stats', {}):
-                    world['stats']['logs'].append(msg)
-
-                # 4. On réinitialise la cible
+            if defense_roll < 0.4: # 40% de chance que le chasseur gagne au corps-à-corps
+                self.is_expired = True
+                msg = f"🗡️ {self.target.char} a terrassé le {self.species} au corps-à-corps !"
+                world['stats']['logs'].append(msg)
+                return
+            elif defense_roll < 0.6: # 20% de chance de match nul (les deux fuient)
+                msg = f"🏃 Combat acharné ! Le {self.species} et le chasseur se sont repliés."
+                world['stats']['logs'].append(msg)
                 self.target = None
+                return
+
+        # Sinon (ou si le chasseur rate sa défense), l'animal gagne
+        self.target.is_expired = True
+        msg = f"💀 {self.char} {self.species.capitalize()} a dévoré sa proie."
+        world['stats']['logs'].append(msg)
+
     def _wander(self, world, valid_elev_range=(0.0, 1.0)):
             """Mouvement aléatoire restreint par l'élévation."""
             # On choisit une direction au hasard (-1, 0, ou 1)

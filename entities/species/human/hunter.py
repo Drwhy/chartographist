@@ -1,6 +1,7 @@
 import random
 from entities.actor import Actor
 from entities.registry import register_civ
+import math
 
 @register_civ
 class Hunter(Actor):
@@ -14,9 +15,28 @@ class Hunter(Actor):
     def think(self, world):
         """Logique de décision du chasseur."""
         # Si pas de cible, on en cherche une dans world['entities']
+        self._check_surroundings(world)
+
+    def _check_surroundings(self, world):
+        # Rayon de tir à l'arc (ex: 3 cases)
+        range_shot = 1
+
+        for entity in world['entities']:
+            if getattr(entity, 'type', '') == 'animal' and not entity.is_expired:
+                dist = math.dist(self.pos, entity.pos)
+
+                # 1. TIR À DISTANCE (Avantage du Chasseur)
+                if dist <= range_shot:
+                    if random.random() < 0.3: # 30% de chance de tuer l'animal à distance
+                        entity.is_expired = True
+                        msg = f"🏹 {self.char} a abattu un {entity.species} à distance !"
+                        world['stats']['logs'].append(msg)
+                        self.target_prey = None
+                        return # On s'arrête là pour ce tour
+
+        # 2. Si aucun prédateur n'est abattu, on cherche une proie normale
         if not self.target_prey:
             self._find_prey(world)
-
     def perform_action(self, world):
         """Exécution du mouvement ou de la chasse."""
         if self.target_prey:
