@@ -1,43 +1,52 @@
 import random
-from .population import grow_population
-from .colonization import expand_civilization
-from .infrastructure import build_roads
-from .events import RANDOM_INCIDENTS
 
-def evolve_world(width, height, elevation, river_map, plates, structures, road_map, cycle):
+def evolve_world(width, height, elevation, rivers, _, structures, roads, cycle):
     """
-    Chef d'orchestre de l'évolution temporelle.
-    Retourne : (structures_mises_à_jour, nouveaux_logs, nouveaux_colons)
+    Gère l'évolution structurelle du monde :
+    - Transformation des villages en cités.
+    - Dégradation des structures isolées en ruines.
+    - Expansion des routes.
     """
     new_logs = []
 
-    # 1. Évolution interne (Village -> Cité)
-    # Renvoie une liste de messages [str, str...]
-    pop_logs = grow_population(structures)
-    new_logs.extend(pop_logs)
+    # On itère sur une copie pour pouvoir modifier le dictionnaire en cours de route
+    for pos, data in list(structures.items()):
+        stype = data.get('type')
+        culture = data.get('culture', {})
+        name = data.get('name', "Lieu-dit")
 
-    # 2. Expansion et Migration (Cité -> Création de colons)
-    # On déballe le tuple : migration_logs (list de str), settlers (list d'objets)
-    migration_logs, newly_spawned_settlers = expand_civilization(width, height, elevation, structures)
-    new_logs.extend(migration_logs)
+        # 1. ÉVOLUTION : VILLAGE -> CITY
+        # Une cité est nécessaire pour générer des colons (Settlers)
+        if stype == "village":
+            # Condition d'évolution : proximité de l'eau ou simple chance au fil du temps
+            is_near_water = rivers[pos[1]][pos[0]] > 0 or elevation[pos[1]][pos[0]] < 0
+            evolution_chance = 0.005 if is_near_water else 0.001
 
-    # 3. Infrastructure (Routes)
-    # On ne construit pas à chaque tour pour laisser le temps aux colons de voyager
-    if cycle % 5 == 0:
-        build_roads(width, height, elevation, structures, road_map)
+            if random.random() < evolution_chance:
+                data['type'] = "city"
+                new_logs.append(f"🏛️  {name} s'est développée en une cité majestueuse.")
 
-    # 4. Aléas historiques (Catastrophes et Incidents)
-    for prob, func, etype in RANDOM_INCIDENTS:
-        if random.random() < prob:
-            if etype == "map":
-                # Événement global (ex: éruption volcanique)
-                res = func(width, height, elevation, structures)
-                if res: new_logs.append(res)
-            elif etype == "city" and structures:
-                # Événement ciblé (ex: peste)
-                pos = random.choice(list(structures.keys()))
-                res = func(structures, pos)
-                if res: new_logs.append(res)
+        # 2. DÉGRADATION : RUINES
+        # Si une structure est très ancienne ou isolée, elle peut tomber en ruine
+        if stype not in ["ruin", "site"]:
+            if random.random() < 0.0001: # Très rare
+                data['type'] = "ruin"
+                new_logs.append(f"🏚️  La structure à {pos} est tombée en ruine.")
 
-    # On retourne les 3 éléments nécessaires au main.py
-    return structures, new_logs, newly_spawned_settlers
+    # 3. RÉSEAU ROUTIER (Optionnel)
+    # Les routes s'étendent naturellement autour des structures existantes
+    _expand_roads(width, height, structures, roads)
+
+    return structures, new_logs, []
+
+def _expand_roads(width, height, structures, roads):
+    """Petite logique simple pour étendre les routes autour des centres civils."""
+    for pos in structures:
+        x, y = pos
+        for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < width and 0 <= ny < height:
+                if random.random() < 0.05: # Chance d'extension
+                    # On place un caractère de route si ce n'est pas déjà occupé
+                    if roads[ny][nx] == "  ":
+                        roads[ny][nx] = "··"

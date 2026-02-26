@@ -1,7 +1,7 @@
 import random
 import math
 from core.names import get_name_by_culture
-from fauna.species.human.settler import Settler
+from entities.species.human.settler import Settler
 
 def seed_civilization(width, height, elevation, riv, plates, config_cultures):
     """
