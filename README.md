@@ -1,77 +1,93 @@
-# chartographist
-A small hobby project to create a map and simulate event on it
-# 🌍 Chartographist: Procedural World & Fauna Simulator
+📜 Chartographist
 
-**Chartographist** is a modular Python-based world generator and life simulator. It creates a procedurally generated map with shifting seasons, evolving civilizations, and a specialized fauna system driven by Object-Oriented Programming (OOP).
+Chartographist est un moteur de simulation de monde procédural en Python, tournant intégralement dans le terminal. Il simule l'évolution d'un écosystème complexe où la géographie, le climat et les formes de vie (humains et animaux) interagissent de manière déterministe.
+🌍 Fonctionnalités principales
+🧬 Génération procédurale & Déterminisme
 
-## ✨ Key Features
-* **Procedural Geography**: Plate tectonics and hydrology simulations.
-* **Dynamic Biomes**: Landscapes change based on elevation and seasonal temperature shifts.
-* **Modular Fauna Engine**: Animals are individual objects with specific behaviors (Wolves hunt, Bears climb, Birds fly).
-* **Civilization Growth**: Empires rise, build roads, and collapse over centuries.
-* **Terminal Graphics**: High-fidelity ASCII/Emoji rendering with a "Genesis" radial reveal.
+    Système de Seed Centralisé : Grâce au RandomService, une même seed générera exactement la même carte, les mêmes déplacements d'animaux et la même évolution de civilisation.
 
-## 📂 Project Structure
-The project is designed with a decoupled architecture to separate data, logic, and rendering:
+    Biomes Dynamiques : Calcul de la température basé sur l'altitude, la latitude et l'inclinaison axiale (saisons).
 
-```text
-.
-├── main.py               # Entry point and rendering loop
-├── culture.py            # Data-driven theme & biome definitions
-├── geo.py                # Geology & Hydrology engine
-├── history.py            # Civilization & event logic
-└── fauna/                # Specialized Fauna Package
-    ├── __init__.py       # Package exposure
-    ├── animal.py         # Base Animal class
-    ├── fauna_engine.py   # Spawning & Lifecycle management
-    ├── fauna_mapper.py   # Data-to-Class mapping registry
-    └── species/          # Specialized behaviors
-        ├── aquatic.py    # Water-bound entities
-        ├── flyer.py      # Terrain-agnostic entities
-        └── predator/     # Predators sub-package
-            ├── __init__.py
-            ├── base_predator.py
-            ├── wolf.py   # Specialized Wolf logic (high mobility)
-            └── bear.py   # Specialized Bear logic (high altitude)
-````
-🛠️ Requirements & Installation
-1. Prerequisites
+    Rendu ASCII/Emoji : Une interface visuelle riche directement dans votre console.
 
-    Python 3.8+
+👥 Civilisation & Acteurs
 
-    A terminal that supports UTF-8 and Emojis (VS Code Terminal, Windows Terminal, iTerm2, or any modern Linux shell).
+    Expansion Intelligente : Les colons fondent des villages qui évoluent en cités selon leur population.
 
-2. Install Dependencies
+    Métiers spécialisés :
 
-This project uses numpy for terrain generation and colorama (optional, for terminal management).
+        🏹 Chasseurs : Protègent les villages des prédateurs terrestres.
+
+        🎣 Pêcheurs : Opèrent dans les villages côtiers, capables d'utiliser des barques (🛶) pour traquer les poissons en mer.
+
+    Logique de survie : Les acteurs doivent récolter des ressources pour assurer la croissance du village.
+
+🦁 Faune & Danger
+
+    Écosystème terrestre : Loups (rapides) et Ours (puissants et territoriaux).
+
+    Écosystème marin :
+
+        🐟 Poissons : Évoluent dans les eaux peu profondes.
+
+        🦈 Requins : Prédateurs redoutables qui chassent les poissons et les pêcheurs en barque.
+
+    Système de Combat : Basé sur un facteur de dangerosité propre à chaque espèce, avec des issues variées (Victoire, Fuite ou Mort).
+
+🚀 Installation
+
+    Clonez le dépôt :
+    Bash
+
+    git clone https://github.com/Drwhy/chartographist.git
+    cd chartographist
+
+    Installez les dépendances :
+    Bash
+
+    pip install -r requirements.txt
+
+🎮 Utilisation
+
+Lancez la simulation avec une seed spécifique pour générer un monde unique :
 Bash
 
-pip install numpy
+python main.py [votre_seed]
 
-🚀 How to Run
+Si aucune seed n'est fournie, une seed aléatoire sera générée automatiquement.
+Commandes (en cours de simulation) :
 
-Launch the simulation with the default settings:
-Bash
+    Ctrl+C : Arrêter la simulation et afficher les statistiques finales.
 
-python main.py
+🛠️ Structure du Projet
+Plaintext
 
-Advanced Usage
+chartographist/
+├── core/
+│   ├── random_service.py   # Service central de déterminisme
+│   ├── system.py           # Gestion des arguments et config
+│   └── logger.py           # Historique des événements du monde
+├── entities/
+│   ├── actors/             # Humains (Settlers, Hunters, Fishermen)
+│   ├── animals/            # Faune (Wolf, Bear, Fish, Shark)
+│   └── constructs/         # Infrastructures (Village, Road)
+├── render/
+│   └── ui_map.py           # Logique d'affichage et biomes
+└── main.py                 # Point d'entrée de la simulation
 
-You can specify a Theme and a Seed:
-Bash
+⚖️ Équilibrage du Combat
 
-# Syntax: python main.py [theme] [seed]
-python main.py fantasy 4289
-python main.py wasteland 666
-python main.py arctic 90210
+Le système de combat utilise la formule suivante dans Animal.py :
 
-🧪 Development: Adding New Species
+    Victoire : roll > (0.6 + danger / 2)
 
-To add a new animal (e.g., a Lion):
+    Fuite : roll > danger
 
-    Create fauna/species/predator/lion.py inheriting from Predator.
+    Défaite : roll < danger
 
-    Register the class in fauna/species/predator/__init__.py.
+Animal	Danger	Type
+🐺 Loup	0.3	Terrestre
+🐻 Ours	0.8	Terrestre
+🦈 Requin	0.7	Aquatique
 
-    Add the mapping in fauna/fauna_mapper.py:
-    ("predator", "lion"): (Lion, "🦁")
+Développé avec ❤️ par Drwhy

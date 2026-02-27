@@ -1,0 +1,8 @@
+# Génération de bruit pour le relief (Perlin/Simplex)
+noise==1.2.2
+
+# Gestion de l'affichage terminal (si tu utilises colorama pour les couleurs)
+colorama==0.4.6
+
+# Outils mathématiques (souvent utilisés pour les calculs de vecteurs/distances)
+numpy==1.26.0
