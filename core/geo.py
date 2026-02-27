@@ -29,8 +29,7 @@ def generate_geology(width, height, scale=20.0):
     elevation = (elevation - v_min) / (v_max - v_min) * 2 - 1  # Range -1 to 1
 
     # Accentuation des sommets (Exposant)
-    elevation = np.where(elevation > 0, np.power(elevation, 0.7), elevation)
-
+    elevation = np.where(elevation > 0, np.power(np.maximum(elevation, 0), 0.7), elevation)
     return elevation, plates
 
 
