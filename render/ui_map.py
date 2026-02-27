@@ -1,7 +1,7 @@
 import math
 import time
 import sys
-import random
+from core.random_service import RandomService
 
 def get_char_at(x, y, world_data, config):
     """Détermine le caractère unique pour une coordonnée (x, y) avec logique climatique complète."""
@@ -97,7 +97,7 @@ def radial_reveal(renderer, world_data, stats):
     current_display = [["  " for _ in range(width)] for _ in range(height)]
     coords = [(x, y) for y in range(height) for x in range(width)]
     center = (width // 2, height // 2)
-    coords.sort(key=lambda c: math.dist(c, center) + random.uniform(-1, 1))
+    coords.sort(key=lambda c: math.dist(c, center) + RandomService.uniform(-1, 1))
 
     for i, (x, y) in enumerate(coords):
         current_display[y][x] = get_char_at(x, y, world_data, renderer.config)

@@ -1,6 +1,6 @@
-import random
 from .base import Animal
 from entities.registry import register_wild
+from core.random_service import RandomService
 
 @register_wild
 class Bear(Animal):
@@ -14,7 +14,7 @@ class Bear(Animal):
     def try_spawn(x, y, world, config):
         """L'ours apparaît en haute altitude."""
         h = world['elev'][y][x]
-        if 0.5 < h < 0.85 and random.random() < 0.05:
+        if 0.5 < h < 0.85 and RandomService.random() < 0.05:
             species_data = next((f for f in config['fauna'] if f['species'] == 'bear'), None)
             if species_data:
                 return Bear(x, y, None, config, species_data)

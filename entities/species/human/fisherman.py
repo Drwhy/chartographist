@@ -1,8 +1,8 @@
-import random
 import math
 from entities.actor import Actor
 from entities.registry import register_civ
 from core.logger import GameLogger
+from core.random_service import RandomService
 
 @register_civ
 class Fisherman(Actor):
@@ -71,7 +71,7 @@ class Fisherman(Actor):
             for e in world['entities']:
                 if e.pos == self.home_pos:
                     if hasattr(e, 'population'):
-                        e.population += random.randint(5, 12)
+                        e.population += RandomService.randint(5, 12)
                     break
 
     def _update_status(self, world):
@@ -107,7 +107,7 @@ class Fisherman(Actor):
 
     def _idle_movement(self, world):
         """Flânerie côtière en attendant que le poisson morde."""
-        dx, dy = random.choice([(0,1), (0,-1), (1,0), (-1,0), (0,0)])
+        dx, dy = RandomService.choice([(0,1), (0,-1), (1,0), (-1,0), (0,0)])
         nx, ny = self._x + dx, self._y + dy
 
         if 0 <= nx < world['width'] and 0 <= ny < world['height']:

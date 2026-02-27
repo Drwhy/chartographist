@@ -1,6 +1,5 @@
 import json
 import os
-import random
 
 def load_template(filepath="template.json"):
     """Charge la configuration complète depuis un fichier JSON."""

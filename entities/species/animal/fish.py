@@ -1,14 +1,12 @@
-import random
 from .base import Animal
 from entities.registry import register_wild
+from core.random_service import RandomService
 
 @register_wild
 class Fish(Animal):
     def __init__(self, x, y, culture, config, species_data):
-        # C'est cette ligne qui crée self.target en appelant Animal.__init__
         super().__init__(x, y, culture, config, species_data)
-        # Tu peux ensuite ajouter des spécificités au loup
-        self.perception_range = 3 # Un loup a un meilleur flair que l'animal de base
+        self.perception_range = 3
         self.danger = 0.0
         self.type = 'fish'
         self.subtype = 'fish'
@@ -24,7 +22,7 @@ class Fish(Animal):
         # Seuil des abysses : h > -0.4 (pour rester près des côtes)
         if -0.4 < h < 0:
             # On peut ajouter une probabilité de réussite pour ne pas saturer l'eau
-            if random.random() < 0.15:
+            if RandomService.random() < 0.15:
                 return Fish(x, y, None, config, species_data)
 
         return None
@@ -32,7 +30,7 @@ class Fish(Animal):
     def _move_logic(self, world):
         """Déplacement aléatoire restreint à son biome aquatique."""
         # On choisit une direction au hasard (y compris l'immobilité)
-        dx, dy = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0), (0, 0)])
+        dx, dy = RandomService.choice([(0, 1), (0, -1), (1, 0), (-1, 0), (0, 0)])
         nx, ny = self._x + dx, self._y + dy
 
         # Vérification des limites du monde

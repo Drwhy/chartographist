@@ -1,9 +1,9 @@
-import random
+from core.random_service import RandomService
 
 def build_roads(width, height, elevation, structures, road_map):
     coords = list(structures.keys())
     if len(coords) < 2: return
-    p1, p2 = random.sample(coords, 2)
+    p1, p2 = RandomService.sample(coords, 2)
 
     curr_x, curr_y = p1
     dest_x, dest_y = p2

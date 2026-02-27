@@ -1,7 +1,7 @@
-import random
 import math
 from entities.actor import Actor
 from core.logger import GameLogger
+from core.random_service import RandomService
 
 class Animal(Actor):
     def __init__(self, x, y, culture, config, species_data):
@@ -65,7 +65,7 @@ class Animal(Actor):
 
         # 1. CAS DU CHASSEUR : Duel de survie
         if getattr(self.target, 'subtype', '') == "hunter":
-            defense_roll = random.random()
+            defense_roll = RandomService.random()
 
             # --- RÉSULTAT A : VICTOIRE DU CHASSEUR ---
             # Il faut un excellent jet qui dépasse le danger
@@ -98,7 +98,7 @@ class Animal(Actor):
     def _wander(self, world, valid_elev_range=(0.0, 1.0)):
             """Mouvement aléatoire restreint par l'élévation."""
             # On choisit une direction au hasard (-1, 0, ou 1)
-            dx, dy = random.randint(-1, 1), random.randint(-1, 1)
+            dx, dy = RandomService.randint(-1, 1), RandomService.randint(-1, 1)
             nx, ny = self.x + dx, self.y + dy
 
             # 1. Vérification des limites de la carte

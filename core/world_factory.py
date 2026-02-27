@@ -1,18 +1,17 @@
-import random
 from .geo import generate_geology, simulate_hydrology
 from .entities import EntityManager
 from entities.constructs.city import City  # Changement : On commence par des Cités
+from core.random_service import RandomService
 
 def assemble_world(width, height, config, seed_val):
     """
     Initialise le monde avec une géologie complexe et place les Cités Primordiales.
     C'est le SEUL moment où des Cités apparaissent 'gratuitement'.
     """
-    random.seed(seed_val)
 
     # 1. GÉNÉRATION DU TERRAIN (LOGIQUE GÉOLOGIQUE)
     # -------------------------------------------
-    elevation, plates = generate_geology(width, height, seed_val)
+    elevation, plates = generate_geology(width, height)
     rivers = simulate_hydrology(width, height, elevation)
 
     # 2. INITIALISATION DU GESTIONNAIRE D'ENTITÉS
@@ -31,8 +30,8 @@ def assemble_world(width, height, config, seed_val):
         # On cherche un site de prestige pour chaque capitale
         while not placed and attempts < 300:
             # On évite les bords extrêmes de la map
-            rx = random.randint(10, width - 11)
-            ry = random.randint(10, height - 11)
+            rx = RandomService.randint(10, width - 11)
+            ry = RandomService.randint(10, height - 11)
 
             h = elevation[ry][rx]
             is_near_water = rivers[ry][rx] > 0

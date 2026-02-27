@@ -1,21 +1,19 @@
 import noise
 import numpy as np
 import math
-import random
+from core.random_service import RandomService
 
-
-def generate_geology(width, height, seed, scale=20.0):
-    random.seed(seed)
+def generate_geology(width, height, scale=20.0):
     elevation = np.zeros((height, width))
 
     # On définit les plaques pour les futures cultures
     num_plates = 8
     plates = [
-        {"center": (random.randint(0, width - 1), random.randint(0, height - 1))}
+        {"center": (RandomService.randint(0, width - 1), RandomService.randint(0, height - 1))}
         for _ in range(num_plates)
     ]
 
-    off_x, off_y = random.randint(0, 1000), random.randint(0, 1000)
+    off_x, off_y = RandomService.randint(0, 1000), RandomService.randint(0, 1000)
 
     for y in range(height):
         for x in range(width):
@@ -39,7 +37,7 @@ def generate_geology(width, height, seed, scale=20.0):
 def simulate_hydrology(width, height, elevation):
     river_map = np.zeros((height, width))
     for _ in range(70):
-        cx, cy = random.randint(0, width - 1), random.randint(0, height - 1)
+        cx, cy = RandomService.randint(0, width - 1), RandomService.randint(0, height - 1)
         if elevation[cy][cx] > 0.4:
             for _ in range(150):
                 river_map[cy][cx] += 1

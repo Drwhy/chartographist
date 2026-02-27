@@ -1,10 +1,10 @@
-import random
 import math
 from entities.actor import Actor
 from core.logger import GameLogger
 from entities.constructs.village import Village
 from history.history_engine import connect_with_road
 from entities.registry import register_civ
+from core.random_service import RandomService
 
 @register_civ
 class Settler(Actor):
@@ -45,8 +45,8 @@ class Settler(Actor):
 
     def _choose_exploration_direction(self):
         """Choisit un point lointain au hasard pour migrer."""
-        angle = random.uniform(0, 2 * math.pi)
-        dist = random.randint(15, 30)
+        angle = RandomService.uniform(0, 2 * math.pi)
+        dist = RandomService.randint(15, 30)
         tx = int(self.x + math.cos(angle) * dist)
         ty = int(self.y + math.sin(angle) * dist)
         return (tx, ty)
@@ -93,7 +93,7 @@ class Settler(Actor):
         is_near_river = world['riv'][self.y][self.x] > 0
         chance = 0.25 if is_near_river else 0.08
 
-        return random.random() < chance
+        return RandomService.random() < chance
 
     def _found_village(self, world):
         """Crée le village et trace la route vers la cité mère."""

@@ -1,14 +1,12 @@
 import time
-import random
 import sys
 import traceback
-
-# Architecture du projet
 import core
 import history
 import entities.spawn_system as entities_spawn
 from render.render_engine import RenderEngine
 from core.logger import GameLogger
+from core.random_service import RandomService
 
 # --- CONFIGURATION GLOBALE ---
 WIDTH, HEIGHT = 60, 30
@@ -20,6 +18,9 @@ def main():
     # On prépare le terminal (cache le curseur, nettoie l'écran)
     core.init_terminal()
     config, seed = core.load_arguments()
+
+    # On initialise le service central ici
+    RandomService.initialize(seed)
 
     # Création du monde et du dictionnaire de statistiques
     # world['entities'] est un EntityManager

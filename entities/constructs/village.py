@@ -1,9 +1,9 @@
-import random
 from .base import Construct
 from entities.registry import register_structure
 from core.logger import GameLogger
 from entities.species.human.hunter import Hunter
 from entities.species.human.fisherman import Fisherman
+from core.random_service import RandomService
 
 @register_structure
 class Village(Construct):
@@ -11,7 +11,7 @@ class Village(Construct):
         super().__init__(x, y, culture, config)
         self.type = "construct"
         self.subtype = "village"
-        self.population = random.randint(50, 150)
+        self.population = RandomService.randint(50, 150)
         self.city_threshold = 1000 # Population requise pour devenir une ville
         self.char = culture.get("village", "🏛️ ")
 

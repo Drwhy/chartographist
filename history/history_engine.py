@@ -1,5 +1,3 @@
-import random
-
 def evolve_world(width, height, roads, entities, cycle):
     """Gère uniquement l'évolution des infrastructures passives (routes)."""
     # Ici, on pourrait imaginer une dégradation des routes avec le temps

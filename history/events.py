@@ -1,11 +1,11 @@
-import random
+from core.random_service import RandomService
 
 def event_volcanic_eruption(width, height, elevation, structures):
     """Trouve un volcan et détruit ce qu'il y a autour."""
     volcanoes = [(x, y) for y in range(height) for x in range(width) if elevation[y][x] > 0.90]
     if not volcanoes: return None
 
-    vx, vy = random.choice(volcanoes)
+    vx, vy = RandomService.choice(volcanoes)
     logs = []
 
     # Impact sur un rayon de 2 cases

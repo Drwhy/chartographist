@@ -1,8 +1,8 @@
-import random
 from .base import Construct
 from entities.registry import register_structure
 from entities.species.human.settler import Settler
 from core.logger import GameLogger
+from core.random_service import RandomService
 
 @register_structure
 class City(Construct):
@@ -15,7 +15,7 @@ class City(Construct):
         self.char = culture.get("city", "🏛️ ")
         
         # Économie et Population
-        self.population = random.randint(500, 1000)
+        self.population = RandomService.randint(500, 1000)
         self.growth_rate = config.get("city_growth", 1.005) # +2% par tour
         self.settler_threshold = 5000 # Population nécessaire pour envoyer des colons
         self.settler_cost = 1500       # Population "consommée" par l'envoi d'un groupe

@@ -1,8 +1,8 @@
-import random
 import math
 from entities.actor import Actor
 from entities.registry import register_civ
 from core.logger import GameLogger
+from core.random_service import RandomService
 
 @register_civ
 class Hunter(Actor):
@@ -28,7 +28,7 @@ class Hunter(Actor):
 
                 # 1. TIR À DISTANCE (Avantage du Chasseur)
                 if dist <= range_shot:
-                    if random.random() < 0.3: # 30% de chance de tuer l'animal à distance
+                    if RandomService.random() < 0.3: # 30% de chance de tuer l'animal à distance
                         entity.is_expired = True
                         msg = f"🏹 {self.char} a abattu un {entity.species} à distance !"
                         GameLogger.log(msg)
@@ -52,7 +52,7 @@ class Hunter(Actor):
 
     def _wander(self, world):
         """Déplacement aléatoire sécurisé."""
-        dx, dy = random.randint(-1, 1), random.randint(-1, 1)
+        dx, dy = RandomService.randint(-1, 1), RandomService.randint(-1, 1)
         nx, ny = self.x + dx, self.y + dy
 
         # Utilisation de la logique de world['elev'] pour éviter l'eau
@@ -64,6 +64,6 @@ class Hunter(Actor):
         """Décide si un chasseur doit apparaître."""
         # Règle : seulement dans les villages et si pas déjà un chasseur dehors
         if city_data.get('type') == "village" and city_pos not in active_homes:
-            if random.random() < 0.1: # 10% de chance
+            if RandomService.random() < 0.1: # 10% de chance
                 return Hunter(city_pos[0], city_pos[1], city_data['culture'], config, city_pos)
         return None
