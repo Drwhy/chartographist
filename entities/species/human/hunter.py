@@ -6,64 +6,120 @@ from core.random_service import RandomService
 
 @register_civ
 class Hunter(Actor):
-    def __init__(self, x, y, culture, config, home_pos):
+    def __init__(self, x, y, culture, config, home_pos, home_city):
         super().__init__(x, y, culture, config)
-        # On récupère l'emoji dynamiquement depuis la culture
         self.char = culture.get("hunter_emoji", "🏹")
         self.home_pos = home_pos
+        self.home_city = home_city
         self.target_prey = None
-        self.type = "hunter"
+        self.type = "human"
+        self.subtype = "hunter"
+        self.land_char = culture.get("hunter_emoji", "🎣")
+        self.meat_transportation_char = culture.get("food", "🍖")
+        self.char = self.land_char
+        # Nouvel état : transport de nourriture
+        self.has_game = False
+    def _update_status(self, world):
+        """Détermine si le chasseur transporte de la nourriture."""
+
+        if self.has_game:
+            self.char = self.meat_transportation_char
+        else:
+            self.char = self.land_char
     def think(self, world):
         """Logique de décision du chasseur."""
-        # Si pas de cible, on en cherche une dans world['entities']
+        # Si le chasseur a déjà du gibier, son but unique est de rentrer
+        if self.has_game:
+            self._update_status(world)
+            return
+
+        # Sinon, il cherche à abattre une cible
         self._check_surroundings(world)
 
     def _check_surroundings(self, world):
-        # Rayon de tir à l'arc (ex: 3 cases)
         range_shot = 1
 
         for entity in world['entities']:
             if getattr(entity, 'type', '') == 'animal' and not entity.is_expired:
+                # On ne chasse pas les volants (Aigles) selon notre règle
+                if getattr(entity, 'is_flying', False):
+                    continue
+
                 dist = math.dist(self.pos, entity.pos)
 
-                # 1. TIR À DISTANCE (Avantage du Chasseur)
                 if dist <= range_shot:
-                    if RandomService.random() < 0.3: # 30% de chance de tuer l'animal à distance
+                    if RandomService.random() < 0.4: # 40% de chance
                         entity.is_expired = True
-                        msg = f"🏹 {self.char} a abattu un {entity.species} à distance !"
+
+                        # Si c'est une biche, on récupère le gibier
+                        if getattr(entity, 'subtype', '') == 'deer':
+                            self.has_game = True
+                            self._update_status(world)
+                            msg = f"🏹 {self.name} a abattu une biche ! Il rapporte la viande à {self.home_city.name}."
+                        else:
+                            # Si c'est un prédateur (loup/ours), on le tue juste pour la sécurité
+                            msg = f"{self.char} {self.name} de {self.home_city.name} a éliminé un {entity.name} !"
+
                         GameLogger.log(msg)
                         self.target_prey = None
-                        return # On s'arrête là pour ce tour
+                        return
 
-        # 2. Si aucun prédateur n'est abattu, on cherche une proie normale
         if not self.target_prey:
             self._find_prey(world)
+
     def perform_action(self, world):
-        """Exécution du mouvement ou de la chasse."""
+        """Exécution du mouvement ou de la livraison."""
+
+        # 1. Retour au village si chargé
+        if self.has_game:
+            if self.pos == self.home_pos:
+                self._deliver_food(world)
+            else:
+                self._move_towards(self.home_pos, world)
+            return
+
+        # 2. Chasse si une cible est en vue
         if self.target_prey:
-            self._move_towards_prey(world)
+            if self.target_prey.is_expired:
+                self.target_prey = None
+            else:
+                self._move_towards(self.target_prey.pos, world)
         else:
             self._wander(world)
 
+    def _deliver_food(self, world):
+        """Livraison de la nourriture à la ville d'origine."""
+        # On booste la population de la home_city (l'objet passé à l'init)
+        boost = RandomService.randint(5, 12)
+        self.home_city.population += boost
+
+        # Reset de l'état
+        self.has_game = False
+        self._update_status(world)
+        GameLogger.log(f"🏠 {self.name} est rentré. {self.home_city.name} gagne {boost} habitants grâce au gibier.")
+
     def _find_prey(self, world):
-        # On cherche dans le nouveau manager d'entités
-        # (Pour l'instant on simule, on affinera la logique de détection après)
-        pass
+        """Cherche la biche la plus proche."""
+        deers = [e for e in world['entities'] if getattr(e, 'subtype', '') == 'deer' and not e.is_expired]
+        if deers:
+            self.target_prey = min(deers, key=lambda d: math.dist(self.pos, d.pos))
+
+    def _move_towards(self, target_pos, world):
+        """Se dirige vers une coordonnée cible."""
+        tx, ty = target_pos
+        dx = 1 if tx > self.x else -1 if tx < self.x else 0
+        dy = 1 if ty > self.y else -1 if ty < self.y else 0
+
+        nx, ny = self.x + dx, self.y + dy
+        if 0 <= nx < world['width'] and 0 <= ny < world['height']:
+            if world['elev'][ny][nx] >= 0: # Ne marche pas sur l'eau
+                self.pos = (nx, ny)
 
     def _wander(self, world):
-        """Déplacement aléatoire sécurisé."""
-        dx, dy = RandomService.randint(-1, 1), RandomService.randint(-1, 1)
+        """Déplacement aléatoire."""
+        dirs = [(0,1), (0,-1), (1,0), (-1,0)]
+        dx, dy = RandomService.choice(dirs)
         nx, ny = self.x + dx, self.y + dy
-
-        # Utilisation de la logique de world['elev'] pour éviter l'eau
         if 0 <= nx < world['width'] and 0 <= ny < world['height']:
             if world['elev'][ny][nx] >= 0:
-                self.pos = (nx, ny) # Utilise le setter de Entity
-    @staticmethod
-    def try_spawn(city_pos, city_data, world, config, active_homes):
-        """Décide si un chasseur doit apparaître."""
-        # Règle : seulement dans les villages et si pas déjà un chasseur dehors
-        if city_data.get('type') == "village" and city_pos not in active_homes:
-            if RandomService.random() < 0.1: # 10% de chance
-                return Hunter(city_pos[0], city_pos[1], city_data['culture'], config, city_pos)
-        return None
+                self.pos = (nx, ny)

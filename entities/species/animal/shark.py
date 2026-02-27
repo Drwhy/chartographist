@@ -12,8 +12,9 @@ class Shark(Animal):
         # Tu peux ensuite ajouter des spécificités au loup
         self.perception_range = 3
         self.danger = 0.7
-        self.type = 'fish'
+        self.type = 'animal'
         self.subtype = 'shark'
+        self.is_aquatic = True
 
     @staticmethod
     def try_spawn(x, y, world, config):

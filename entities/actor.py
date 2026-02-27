@@ -1,4 +1,5 @@
 from core.entities import Entity
+from core.naming import NameGenerator
 
 class Actor(Entity):
     def __init__(self, x, y, culture, config):
@@ -9,7 +10,8 @@ class Actor(Entity):
         self.age = 0
         self.energy = 100
         self.is_dead = False
-
+        if culture is not None:
+            self.name = NameGenerator.generate_person_name(culture)
     def update(self, world, stats):
         """La boucle de vie universelle d'un agent."""
         if self.is_dead or self.is_expired:

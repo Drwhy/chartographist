@@ -8,8 +8,9 @@ class Fish(Animal):
         super().__init__(x, y, culture, config, species_data)
         self.perception_range = 3
         self.danger = 0.0
-        self.type = 'fish'
+        self.type = 'animal'
         self.subtype = 'fish'
+        self.is_aquatic = True
     @staticmethod
     def try_spawn(x, y, world, config):
         """
@@ -22,7 +23,7 @@ class Fish(Animal):
         # Seuil des abysses : h > -0.4 (pour rester près des côtes)
         if -0.4 < h < 0:
             # On peut ajouter une probabilité de réussite pour ne pas saturer l'eau
-            if RandomService.random() < 0.15:
+            if RandomService.random() < 0.30:
                 return Fish(x, y, None, config, species_data)
 
         return None

@@ -11,10 +11,13 @@ class Animal(Actor):
         self.pos = (x, y)
         self.species = species_data['species']
         self.char = species_data['char']
+        self.name = species_data['name']
         self.type = "animal"
         self.target = None
         self.perception_range = 5 # Rayon de détection
         self.danger = 0.1
+        self.is_flying = False
+        self.is_aquatic = False
 
     def _find_target(self, world):
         """Cherche l'entité la plus proche dans le rayon de perception."""
@@ -22,6 +25,8 @@ class Animal(Actor):
         min_dist = self.perception_range + 1
 
         for entity in world['entities']:
+            if not self.can_perceive(entity):
+                continue
             # Un animal ne s'attaque pas lui-même ou à sa propre espèce
             if entity == self or getattr(entity, 'species', None) == self.species:
                 continue
@@ -71,13 +76,13 @@ class Animal(Actor):
             # Il faut un excellent jet qui dépasse le danger
             if defense_roll > (0.6 + self.danger / 2):
                 self.is_expired = True
-                GameLogger.log(f"🗡️ {self.target.char} a abattu un {self.species} après un combat épique !")
+                GameLogger.log(f"🗡️ {self.target.name} a abattu un {self.species} après un combat épique !")
                 return
 
             # --- RÉSULTAT B : FUITE / MATCH NUL ---
             # Le jet est suffisant pour ne pas mourir, mais pas pour tuer
             elif defense_roll > self.danger:
-                GameLogger.log(f"🏃 {self.target.char} a réussi à repousser le {self.species} et s'est replié.")
+                GameLogger.log(f"🏃 {self.target.name} a réussi à repousser le {self.species} et s'est replié.")
                 self.target = None
                 return
 
@@ -85,14 +90,14 @@ class Animal(Actor):
             # Le jet est inférieur au danger de l'animal
             else:
                 self.target.is_expired = True
-                GameLogger.log(f"💀 Tragédie : {self.target.char} a été massacré par le {self.species}...")
+                GameLogger.log(f"💀 Tragédie : {self.target.name} a été massacré par le {self.species}...")
                 self.target = None
                 return
 
         # 2. CAS DES AUTRES PROIES (Colons, autres animaux)
         # Ils n'ont aucune chance de défense, ils sont dévorés
         self.target.is_expired = True
-        GameLogger.log(f"🍴 Un {self.species} a dévoré un {getattr(self.target, 'subtype', 'animal')}.")
+        GameLogger.log(f"🍴 Un {self.name} a dévoré un {self.target.name}.")
         self.target = None
 
     def _wander(self, world, valid_elev_range=(0.0, 1.0)):
@@ -109,3 +114,15 @@ class Animal(Actor):
                 low, high = valid_elev_range
                 if low <= h <= high:
                     self.pos = (nx, ny)
+    def can_perceive(self, other):
+            """
+            Logique générique : un animal terrestre/aquatique ne peut pas
+            percevoir (ou attaquer) un animal volant.
+            """
+            # Si la cible vole et que moi je ne vole pas, je l'ignore
+            if getattr(other, 'is_flying', False) and not self.is_flying:
+                return False
+
+            # Un animal purement terrestre ignore ce qui est purement aquatique
+            # (et inversement), sauf cas particulier (ex: l'ours qui pêche).
+            return True

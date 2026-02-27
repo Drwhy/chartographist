@@ -11,12 +11,10 @@ class Settler(Actor):
     def __init__(self, x, y, culture, config, home_city=None):
         # Respect de l'ordre strict des paramètres de Actor
         super().__init__(x, y, culture, config)
-
-        self.type = "actor"
+        self.type = "human"
         self.subtype = "settler"
         self.char = culture.get("settler_emoji", "🚶")
         self.home_city = home_city # La ville d'origine pour la route
-
         # Logique de mouvement
         self.target_pos = self._choose_exploration_direction()
         self.distance_traveled = 0
@@ -41,7 +39,7 @@ class Settler(Actor):
         # 3. Si trop vieux ou perdu, le colon disparaît
         if self.distance_traveled > self.max_travel_time:
             self.is_expired = True
-            GameLogger.log(f"💀 Un groupe de colons s'est perdu dans les terres sauvages.")
+            GameLogger.log(f"💀 Un groupe de {self.home_city.name} colons s'est perdu dans les terres sauvages.")
 
     def _choose_exploration_direction(self):
         """Choisit un point lointain au hasard pour migrer."""
@@ -108,8 +106,8 @@ class Settler(Actor):
                 world['width'],
                 world['height']
             )
-            GameLogger.log(f"🏘️  Nouveau village fondé ! Une route le relie à en ({self.x}, {self.y}).")
+            GameLogger.log(f"{new_village.char}️  Nouveau village de {new_village.name} fondé ! Une route le relie à {self.home_city.name}.")
         else:
-            GameLogger.log(f"🏘️  Un village indépendant a été fondé en ({self.x}, {self.y}).")
+            GameLogger.log(f"{new_village.char}️  Le village indépendant de {new_village.name} a été fondé.")
 
         self.is_expired = True

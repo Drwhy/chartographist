@@ -59,7 +59,7 @@ class Village(Construct):
         """Crée un unique chasseur attaché à ce village."""
 
         # On passe self.pos comme home_pos
-        new_hunter = Hunter(self.x, self.y, self.culture, self.config, self.pos)
+        new_hunter = Hunter(self.x, self.y, self.culture, self.config, self.pos, self)
 
         # IMPORTANT : On s'assure que le subtype est mis AVANT l'ajout au monde
         new_hunter.subtype = "hunter"
@@ -95,8 +95,8 @@ class Village(Construct):
         # On marque le village comme expiré pour qu'il soit retiré au prochain tour
         self.is_expired = True
 
-        GameLogger.log(f"🏛️  Le village de {self.x}, {self.y} est devenu une cité florissante !")
+        GameLogger.log(f"🏛️  Le village de {self.name} est devenu une cité florissante !")
 
     def _spawn_fisherman(self, world):
-        new_fisher = Fisherman(self.x, self.y, self.culture, self.config, self.pos)
+        new_fisher = Fisherman(self.x, self.y, self.culture, self.config, self.pos, self)
         world['entities'].add(new_fisher)

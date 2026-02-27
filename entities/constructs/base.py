@@ -1,4 +1,4 @@
-# entities/constructs/base.py
+from core.naming import NameGenerator
 
 class Construct:
     """Base pour tout ce qui est bâti sur la carte."""
@@ -11,7 +11,7 @@ class Construct:
         self.type = "construct"
         self.is_expired = False
         self.char = "?"
-
+        self.name = NameGenerator.generate_place_name(culture)
     def update(self, world, stats):
         """Méthode à surcharger dans les sous-classes."""
         pass

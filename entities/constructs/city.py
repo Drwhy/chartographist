@@ -47,7 +47,7 @@ class City(Construct):
         # Ajout au gestionnaire d'entités
         world['entities'].add(new_settler)
         
-        GameLogger.log(f"🚶Trop peuplée ! Un groupe de colons part vers l'inconnu.")
+        GameLogger.log(f"🚶Trop peuplée ! Un groupe de colons part de {self.name} vers l'inconnu.")
 
     def take_damage(self, amount):
         """La population peut baisser en cas de catastrophe ou d'attaque."""

@@ -17,7 +17,7 @@ def get_char_at(x, y, world_data, config):
     entities_at_pos = [e for e in world_data['entities'] if e.pos == (x, y)]
     if entities_at_pos:
         # On trie pour que les acteurs (🚶, 🏹) s'affichent par-dessus les villages (🏠)
-        entities_at_pos.sort(key=lambda e: 10 if e.type == 'actor' else (5 if e.type == 'construct' else 1))
+        entities_at_pos.sort(key=lambda e: 10 if e.type == 'human' else (5 if e.type == 'construct' else 1))
         entity = entities_at_pos[-1]
 
         # Logique spécifique aux ports (si village au bord de l'eau)

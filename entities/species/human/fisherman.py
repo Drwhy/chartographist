@@ -6,24 +6,22 @@ from core.random_service import RandomService
 
 @register_civ
 class Fisherman(Actor):
-    def __init__(self, x, y, culture, config, home_pos):
+    def __init__(self, x, y, culture, config, home_pos, home_city):
         # Initialisation via Actor (gère culture et config)
         super().__init__(x, y, culture, config)
 
         # Attributs d'identité
-        self.type = "actor" # Important pour la priorité de rendu
+        self.type = "human"
         self.subtype = "fisherman"
         self.home_pos = home_pos
-
+        self.home_city = home_city
         # Coordonnées privées pour éviter les conflits de property
         self._x, self._y = x, y
         self.pos = (x, y)
-
         # Visuels (Emojis)
         self.land_char = culture.get("fisherman_emoji", "🎣")
         self.boat_char = culture.get("boat_emoji", "🛶")
         self.char = self.land_char
-
         # Logique métier
         self.target = None
         self.fishing_cooldown = 0
@@ -64,8 +62,7 @@ class Fisherman(Actor):
             self.target = None
 
             # --- MODIFICATION DU LOG ---
-            GameLogger.log(f"🎣 Un pêcheur a fait une belle prise près de {self.home_pos} !")
-
+            GameLogger.log(f"{self.char} {self.name} de {self.home_city.name} a ramené une belle prise !")
             # Optionnel : Bonus de population pour le village d'origine
             # On cherche l'entité à la position home_pos
             for e in world['entities']:

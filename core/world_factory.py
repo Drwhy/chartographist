@@ -2,6 +2,7 @@ from .geo import generate_geology, simulate_hydrology
 from .entities import EntityManager
 from entities.constructs.city import City  # Changement : On commence par des Cités
 from core.random_service import RandomService
+from core.logger import GameLogger
 
 def assemble_world(width, height, config, seed_val):
     """
@@ -44,6 +45,7 @@ def assemble_world(width, height, config, seed_val):
                 new_city = City(rx, ry, c_data, config)
                 entity_manager.add(new_city)
                 placed = True
+                GameLogger.log(f"{new_city.char} ️La cité primordiale de {new_city.name} a été fondé.")
 
             attempts += 1
 

@@ -1,3 +1,5 @@
+from core.random_service import RandomService
+
 def render_header(width, world_data, stats, config):
     """Affiche les statistiques globales en haut de l'écran avec nettoyage de ligne."""
     hunters = sum(1 for e in world_data['entities'] if getattr(e, 'char', '') == "🏹")

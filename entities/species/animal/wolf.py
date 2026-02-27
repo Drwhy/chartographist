@@ -10,6 +10,8 @@ class Wolf(Animal):
         # Tu peux ensuite ajouter des spécificités au loup
         self.perception_range = 6 # Un loup a un meilleur flair que l'animal de base
         self.danger = 0.3
+        self.type = "animal"
+        self.subtype = "wolf"
     @staticmethod
     def try_spawn(x, y, world, config):
         h = world['elev'][y][x]
