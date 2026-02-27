@@ -3,6 +3,7 @@ from .base import Construct
 from entities.registry import register_structure
 from core.logger import GameLogger
 from entities.species.human.hunter import Hunter
+from entities.species.human.fisherman import Fisherman
 
 @register_structure
 class Village(Construct):
@@ -34,23 +35,40 @@ class Village(Construct):
             self._evolve_to_city(world)
 
     def _verify_and_spawn_hunter(self, world):
-        """Vérifie si le village possède un chasseur actif sur la carte."""
-        # On cherche un chasseur dont le 'home_pos' correspond à la position de ce village
-        my_hunter = next((e for e in world['entities']
-                         if getattr(e, 'subtype', '') == 'hunter'
+        # On cherche n'importe quel travailleur (chasseur ou pêcheur) lié au village
+        my_worker = next((e for e in world['entities']
+                         if getattr(e, 'subtype', '') in ['hunter', 'fisherman']
                          and getattr(e, 'home_pos', None) == self.pos), None)
 
-        # Si aucun chasseur n'est trouvé et que le village est assez grand (> 50 hab)
-        if not my_hunter and self.population > 50:
-            self._spawn_village_hunter(world)
+        if not my_worker and self.population > 50:
+            # Est-ce un village côtier ?
+            is_coastal = False
+            for dy, dx in [(-1,0), (1,0), (0,-1), (0,1)]:
+                ny, nx = self.y + dy, self.x + dx
+                if 0 <= ny < world['height'] and 0 <= nx < world['width']:
+                    if world['elev'][ny][nx] < 0:
+                        is_coastal = True
+                        break
+
+            if is_coastal:
+                self._spawn_fisherman(world)
+            else:
+                self._spawn_village_hunter(world)
 
     def _spawn_village_hunter(self, world):
         """Crée un unique chasseur attaché à ce village."""
-        # Import local pour éviter les cycles d'importation
 
-        # On passe self.pos comme home_pos pour le suivi
+        # On passe self.pos comme home_pos
         new_hunter = Hunter(self.x, self.y, self.culture, self.config, self.pos)
+
+        # IMPORTANT : On s'assure que le subtype est mis AVANT l'ajout au monde
+        new_hunter.subtype = "hunter"
+        new_hunter.home_pos = self.pos
+
         world['entities'].add(new_hunter)
+
+        # Log optionnel pour vérifier en console si ça boucle encore
+        # print(f"DEBUG: Village à {self.pos} a spawn un chasseur.")
 
     def _evolve_to_city(self, world):
         """Transforme le village en ville et nettoie les unités associées."""
@@ -78,3 +96,7 @@ class Village(Construct):
         self.is_expired = True
 
         GameLogger.log(f"🏛️  Le village de {self.x}, {self.y} est devenu une cité florissante !")
+
+    def _spawn_fisherman(self, world):
+        new_fisher = Fisherman(self.x, self.y, self.culture, self.config, self.pos)
+        world['entities'].add(new_fisher)

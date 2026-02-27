@@ -16,29 +16,30 @@
     {
       "name": "Empire",
       "city": "🏰", "village": "🏡", "port": "⚓", "road": ". ",
-      "settler_emoji": "🚶", "hunter_emoji": "🏹"
+      "settler_emoji": "🚶", "hunter_emoji": "🏹","fisherman_emoji": "🎣","boat_emoji": "🛶"
     },
     {
       "name": "Sultanat",
       "city": "🕌", "village": "🧱", "port": "🛶", "road": "° ",
-      "settler_emoji": "🐪", "hunter_emoji": "🏹"
+      "settler_emoji": "🐪", "hunter_emoji": "🏹", "fisherman_emoji": "🎣","boat_emoji": "🛶"
     },
     {
       "name": "Dynastie",
       "city": "🏯", "village": "🏮", "port": "⛵", "road": "+ ",
-      "settler_emoji": "👨‍🌾", "hunter_emoji": "🏹"
+      "settler_emoji": "👨‍🌾", "hunter_emoji": "🏹","fisherman_emoji": "🎣","boat_emoji": "🛶"
     },
     {
       "name": "Clans",
       "city": "🛖", "village": "⛺", "port": "⛵", "road": "  ",
-      "settler_emoji": "🧗", "hunter_emoji": "🏹"
+      "settler_emoji": "🧗", "hunter_emoji": "🏹","fisherman_emoji": "🎣","boat_emoji": "🛶"
     }
   ],
   "fauna": [
     {"species": "wolf", "type": "predator", "char": "🐺"},
     {"species": "bear", "type": "predator", "char": "🐻"},
     {"species": "eagle", "type": "flyer", "char": "🦅"},
-    {"species": "shark", "type": "aquatic", "char": "🦈"}
+    {"species": "shark", "type": "aquatic", "char": "🦈"},
+    {"species": "fish", "type": "aquatic", "char": "🐟"}
   ],
   "special": {
     "ruin": "🏚️",

@@ -1,28 +1,31 @@
-import time, random, sys, traceback
-# Imports de ton architecture
+import time
+import random
+import sys
+import traceback
+
+# Architecture du projet
 import core
 import history
 import entities.spawn_system as entities_spawn
 from render.render_engine import RenderEngine
 from core.logger import GameLogger
 
-# --- CONFIGURATION ---
-WIDTH, HEIGHT = 60, 30  # Ajuste selon la taille de ton terminal
+# --- CONFIGURATION GLOBALE ---
+WIDTH, HEIGHT = 60, 30
 MAX_CYCLES = 2000
-TICK_SPEED = 0.3
+TICK_SPEED = 0.15  # Légèrement accéléré pour voir l'expansion
 
 def main():
     # 1. INITIALISATION DU TERMINAL ET DES DONNÉES
+    # On prépare le terminal (cache le curseur, nettoie l'écran)
     core.init_terminal()
     config, seed = core.load_arguments()
 
-    # world contient désormais world['entities'] qui gère TOUT (Villages, Loups, Colons)
+    # Création du monde et du dictionnaire de statistiques
+    # world['entities'] est un EntityManager
     world, stats = core.assemble_world(WIDTH, HEIGHT, config, seed)
 
-    # On s'assure que stats['logs'] est bien initialisé pour l'affichage
-    if 'logs' not in stats:
-        stats['logs'] = []
-
+    # Initialisation du moteur de rendu modulaire
     renderer = RenderEngine(WIDTH, HEIGHT, config)
 
     try:
@@ -31,81 +34,93 @@ def main():
 
         while world['cycle'] < MAX_CYCLES:
             world['cycle'] += 1
+            # Convention : 1 cycle = 10 ans dans l'histoire du monde
             stats['year'] = world['cycle'] * 10
 
-            # --- A. ÉVOLUTION PASSIVE (Routes uniquement) ---
-            # Les villages et cités évoluent désormais via leur propre méthode .update()
-            # On ne passe plus world['civ'] car il est intégré dans world['entities']
+            # --- A. ÉVOLUTION DES INFRASTRUCTURES ---
+            # Gère principalement le tracé passif des routes
             world['road'], new_logs = history.evolve_world(
                 WIDTH,
                 HEIGHT,
                 world['road'],
-                world['entities'], # On passe le manager au lieu de world['civ']
+                world['entities'],
                 world['cycle']
             )
             stats['logs'].extend(new_logs)
 
-            # --- B. SYSTÈME DE SPAWN ---
-            # Gère l'apparition de la faune sauvage et des nouvelles unités humaines
+            # --- B. SYSTÈME DE SPAWN DYNAMIQUE ---
+            # Renouvelle la faune sauvage (Loups, Ours)
+            # Les humains ne spawnent plus ici (ils naissent des cités/villages)
             entities_spawn.spawn_system(world, config)
 
-            # --- C. MISE À JOUR UNIFIÉE DES ENTITÉS ---
-            # On crée une copie de la liste pour éviter les erreurs lors des naissances/morts
+            # --- C. MISE À JOUR DES ENTITÉS (IA) ---
+            # On travaille sur une copie de la liste pour éviter les erreurs de mutation
             all_entities = list(world['entities'])
 
             for entity in all_entities:
+                # Sécurité : on ne traite pas les entités déjà marquées pour suppression
+                if getattr(entity, 'is_expired', False):
+                    continue
+
                 try:
-                    # Ici, tout le monde travaille :
-                    # - Le Village tente de devenir une City
-                    # - Le Loup cherche une proie
-                    # - Le Colon avance ou fonde un foyer
+                    # Chaque entité (City, Settler, Wolf, Hunter) exécute sa propre logique
                     entity.update(world, stats)
                 except Exception as e:
-                        # 1. On extrait la dernière ligne de l'erreur (où le bug a eu lieu)
-                        tb = traceback.extract_tb(e.__traceback__)
-                        filename, line, func, text = tb[-1]
+                    # Système de Log de Bug robuste
+                    tb = traceback.extract_tb(e.__traceback__)
+                    filename, line, func, text = tb[-1]
+                    pos = getattr(entity, 'pos', 'Inconnue')
 
-                        # 2. On récupère la position et l'ID de l'entité pour le contexte
-                        pos = getattr(entity, 'pos', 'Inconnue')
+                    error_msg = (
+                        f"⚠️ [BUG] {type(entity).__name__} à {pos} | "
+                        f"Erreur: '{str(e)}' | "
+                        f"Fichier: {filename.split('/')[-1]} (Ligne {line})"
+                    )
+                    stats['logs'].append(error_msg)
 
-                        # 3. On crée un log ultra-détaillé
-                        error_msg = (
-                            f"⚠️ [BUG] {type(entity).__name__} à {pos} | "
-                            f"Erreur: '{str(e)}' | "
-                            f"Fichier: {filename.split('/')[-1]} (Ligne {line}) | "
-                            f"Code: {text}"
-                        )
-
-                        stats['logs'].append(error_msg)
+            # --- D. SYNCHRONISATION DES LOGS ---
+            # On récupère les messages envoyés au GameLogger (ex: fondations de villes)
             stats['logs'].extend(GameLogger.get_new_logs())
-            # --- D. NETTOYAGE DES MORTS ---
-            # Supprime les entités ayant .is_expired = True (proies mangées, colons arrivés, etc.)
+
+            # --- E. NETTOYAGE (PRÉ-RENDU) ---
+            # Indispensable pour que le RenderEngine ne dessine pas des entités mortes
             world['entities'].remove_dead()
 
-            # --- E. RENDU GRAPHIQUE ---
+            # --- F. RENDU GRAPHIQUE ---
+            # Utilise la nouvelle structure ui_header, ui_map, ui_logs
             renderer.draw_frame(world, stats)
 
-            # Rythme de la simulation
+            # Contrôle du rythme
             time.sleep(TICK_SPEED)
 
     except KeyboardInterrupt:
+        # Sortie propre sur Ctrl+C
+        print("\033[?25h") # Réaffiche le curseur
         print("\n🛑 Simulation interrompue par l'utilisateur.")
+
     except Exception:
-        # Restauration du terminal pour afficher l'erreur proprement
+        # En cas de crash critique, on restaure le terminal avant d'afficher l'erreur
         core.restore_terminal()
         traceback.print_exc()
+
     finally:
+        # Nettoyage final systématique
         core.restore_terminal()
 
-        # Statistiques finales basées sur le nouveau système
-        structs = [e for e in world['entities'] if e.type == 'construct']
-        agents = [e for e in world['entities'] if e.type in ['actor', 'animal']]
+        # --- BILAN FINAL ---
+        structs = [e for e in world['entities'] if getattr(e, 'type', '') == 'construct']
+        cities = [e for e in structs if getattr(e, 'subtype', '') == 'city']
+        villages = [e for e in structs if getattr(e, 'subtype', '') == 'village']
+        fauna = [e for e in world['entities'] if getattr(e, 'type', '') == 'animal']
 
-        print("\n" + "="*40)
-        print(f"📜 Chroniques terminées à l'An {stats['year']}.")
-        print(f"📊 Bilan : {len(structs)} Structures | {len(agents)} Agents vivants.")
-        print(f"🌱 Seed de génération : {seed}")
-        print("="*40 + "\n")
+        print("\n" + "═" * 50)
+        print(f" 📜 CHRONIQUES DE {config.get('world_name', 'WORLD').upper()}")
+        print(f" 📅 Fin de la simulation : An {stats['year']}")
+        print(f" 🏙️  Cités fondées : {len(cities)}")
+        print(f" 🏠 Villages actifs : {len(villages)}")
+        print(f" 🐾 Faune restante : {len(fauna)}")
+        print(f" 🌱 Seed utilisée : {seed}")
+        print("═" * 50 + "\n")
 
 if __name__ == "__main__":
     main()
