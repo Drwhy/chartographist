@@ -63,7 +63,7 @@
     {"species": "fish", "type": "aquatic", "char": "🐟", "name": "Poisson"}
   ],
   "special": {
-    "ruin": "🏚️",
+    "ruin": "💀",
     "port": "⚓",
     "lava": "🔥"
   }

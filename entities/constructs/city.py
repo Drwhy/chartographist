@@ -17,6 +17,8 @@ class City(Construct):
         self.settler_cost = 1500       # Population "consommée" par l'envoi d'un groupe
         self.settler_cooldown = 0
         self.cooldown_duration = 100
+        self.infected_count = 0
+        self.is_infected = False
     def update(self, world, stats):
         # Capacité max théorique de la case (ex: 8000)
         max_pop = 10000

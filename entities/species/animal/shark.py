@@ -53,6 +53,10 @@ class Shark(Animal):
             if not e.is_edible:
                 continue
 
+            # 2. Filtre de comestibilité (ignore les récifs ou débris)
+            if not e.is_flying:
+                continue
+
             # 3. Filtre de zone : La cible est-elle dans l'eau ?
             # Cela couvre les poissons ET les pêcheurs en barque
             if e.is_in_water(world):
