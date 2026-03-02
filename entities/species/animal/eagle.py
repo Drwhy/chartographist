@@ -9,10 +9,6 @@ class Eagle(Animal):
     def __init__(self, x, y, culture, config, species_data):
         # C'est cette ligne qui crée self.target en appelant Animal.__init__
         super().__init__(x, y, culture, config, species_data)
-        self.type = "animal"
-        self.subtype = "eagle"
-        self._x, self._y = x, y
-        self.is_flying = True
 
     @staticmethod
     def try_spawn(x, y, world, config):
@@ -29,7 +25,7 @@ class Eagle(Animal):
 
         # 1. Recherche de cibles : Uniquement les poissons désormais
         if not self.target or self.target.is_expired:
-            self._find_fish(world)
+            self._find_prey_in_water(world)
 
         # 2. Logique de mouvement et action
         if self.target:
@@ -40,26 +36,40 @@ class Eagle(Animal):
         else:
             self._soar_around(world)
 
-    def _find_fish(self, world):
-        """L'aigle cherche le poisson le plus proche."""
-        fishes = [e for e in world['entities'] if getattr(e, 'subtype', '') == 'fish']
-        if fishes:
-            self.target = min(fishes, key=lambda f: math.dist(self.pos, f.pos))
+    def _find_prey_in_water(self, world):
+        """L'aigle cible des proies aquatiques, mais évite les prédateurs dangereux."""
+
+        potential_targets = []
+        for e in world['entities']:
+            if e.is_expired or e == self:
+                continue
+
+            # 1. Filtre de niche : Comestible et Aquatique
+            if not (getattr(e, 'is_edible', False) and e.is_aquatic):
+                continue
+
+            # 2. SÉCURITÉ : L'aigle ne s'attaque pas à quelque chose de trop dangereux
+            # Un poisson a un danger_level de 0, un requin a 0.8.
+            # L'aigle (danger_level 0.5) n'attaquera que ce qui est < 0.5.
+            if e.danger_level >= self.danger_level:
+                continue
+
+            potential_targets.append(e)
+
+        if potential_targets:
+            self.target = min(potential_targets, key=lambda p: math.dist(self.pos, p.pos))
 
     def _fly_logic(self, world, target_pos):
         """Déplacement aérien avec interdiction de survol de l'océan profond."""
         tx, ty = target_pos
-        dx = 1 if tx > self._x else -1 if tx < self._x else 0
-        dy = 1 if ty > self._y else -1 if ty < self._y else 0
-
-        nx, ny = self._x + dx, self._y + dy
-
+        dx = 1 if tx > self.x else -1 if tx < self.x else 0
+        dy = 1 if ty > self.y else -1 if ty < self.y else 0
+        nx, ny = self.x + dx, self.y + dy
         if 0 <= nx < world['width'] and 0 <= ny < world['height']:
             h_target = world['elev'][ny][nx]
             # Interdiction : L'aigle refuse de voler au-dessus de l'océan profond (ex: h < -0.6)
             if h_target > -0.6:
-                self._x, self._y = nx, ny
-                self.pos = (self._x, self._y)
+                self.pos = (nx, ny)
             else:
                 # Si c'est l'océan profond, il perd sa cible (trop loin/dangereux)
                 self.target = None
@@ -75,9 +85,13 @@ class Eagle(Animal):
     def _soar_around(self, world):
         """Errance au-dessus des terres et des côtes uniquement."""
         dx, dy = RandomService.choice([(0,1), (0,-1), (1,0), (-1,0)])
-        nx, ny = self._x + dx, self._y + dy
-
+        nx, ny = self.x + dx, self.y + dy
         if 0 <= nx < world['width'] and 0 <= ny < world['height']:
             if world['elev'][ny][nx] > -0.6: # Reste hors du grand large
-                self._x, self._y = nx, ny
-                self.pos = (self._x, self._y)
+                self.pos = (self.x + dx, self.y + dy)
+    @property
+    def danger_level(self):
+        return 0.2
+    @property
+    def is_flying(self):
+        return True

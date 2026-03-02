@@ -4,40 +4,32 @@ import sys
 from core.random_service import RandomService
 
 def get_char_at(x, y, world_data, config):
-    """Détermine le caractère unique pour une coordonnée (x, y) avec logique climatique complète."""
-    # 1. EXTRACTION DES DONNÉES
+    """
+    Rendu pur basé sur les couches (Z-Index).
+    L'intelligence métier est déportée dans les classes d'entités.
+    """
+    # 1. COUCHE ENTITÉS (La plus haute priorité)
+    # On filtre uniquement sur la position et l'existence
+    at_pos = [e for e in world_data['entities'] if e.pos == (x, y) and not e.is_expired]
+
+    if at_pos:
+        # On affiche uniquement l'entité avec le z_index le plus élevé
+        return max(at_pos, key=lambda e: e.z_index).char
+
+    # 2. COUCHE INFRASTRUCTURES
+    # Les routes et rivières sont des données "monde" sous les entités
     h = world_data['elev'][y][x]
-    r = world_data['riv'][y][x]
     rd = world_data['road'][y][x]
-    cycle = world_data.get('cycle', 0)
-    width = world_data['width']
-    height = world_data['height']
+    r = world_data['riv'][y][x]
 
-    # 2. PRIORITÉ 1 : ENTITÉS (Humain > Animal > Structure)
-    entities_at_pos = [e for e in world_data['entities'] if e.pos == (x, y)]
-    if entities_at_pos:
-        # On trie pour que les acteurs (🚶, 🏹) s'affichent par-dessus les villages (🏠)
-        entities_at_pos.sort(key=lambda e: 10 if e.type == 'human' else (5 if e.type == 'construct' else 1))
-        entity = entities_at_pos[-1]
-
-        # Logique spécifique aux ports (si village au bord de l'eau)
-        if getattr(entity, 'subtype', '') == "village":
-            for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                ny, nx = y + dy, x + dx
-                if 0 <= ny < height and 0 <= nx < width:
-                    if world_data['elev'][ny][nx] < 0:
-                        return entity.culture.get("port", config.get("special", {}).get("port", "⚓"))
-
-        return entity.char
-
-    # 3. PRIORITÉ 2 : INFRASTRUCTURES (Routes et Rivières)
     if rd and rd != "  " and h >= 0:
         return rd
     if r > 0 and h >= 0:
         return config.get("water", {}).get("river", "~~")
 
-    # 4. PRIORITÉ 3 : TERRAIN ET BIOMES (Logique climatique procédurale)
-    return _calculate_complex_biome(x, y, h, cycle, width, height, config)
+    # 3. COUCHE TERRAIN (Le fond de carte)
+    cycle = world_data.get('cycle', 0)
+    return _calculate_complex_biome(x, y, h, cycle, world_data['width'], world_data['height'], config)
 
 def _calculate_complex_biome(x, y, h, cycle, width, height, config):
     """Calcule le biome en fonction de l'altitude, de la latitude et des saisons (tilt)."""

@@ -1,6 +1,5 @@
 from entities.registry import WILD_SPECIES, STRUCTURE_TYPES
 from core.logger import GameLogger
-from entities.species.human.hunter import Hunter
 from core.random_service import RandomService
 
 def spawn_system(world, config):
@@ -35,28 +34,37 @@ def _spawn_fauna(world, config, width, height):
 
 def seed_initial_cities(world, config):
     """
-    FONCTION SPÉCIALE : Appelé une seule fois au début par world_factory.
-    C'est le seul moment où des cités apparaissent 'gratuitement'.
+    FONCTION SPÉCIALE : Pose les cités mères en évitant les collisions.
     """
     num_cities = config.get("initial_cities", 3)
     cities_placed = 0
     attempts = 0
-
     from entities.constructs.city import City
-
     while cities_placed < num_cities and attempts < 100:
+        attempts += 1
         rx, ry = RandomService.randint(0, world['width'] - 1), RandomService.randint(0, world['height'] - 1)
 
-        # Conditions idéales : Plaine (élévation basse mais positive) et rivière
-        is_land = world['elev'][ry][rx] > 0.1 and world['elev'][ry][rx] < 0.4
+        # 1. Vérification du terrain
+        h = world['elev'][ry][rx]
+        is_land = 0.1 < h < 0.4
         is_near_river = world['riv'][ry][rx] > 0
 
-        if is_land and is_near_river:
-            culture = RandomService.choice(config['cultures'])
-            mother_city = City(rx, ry, culture, config)
-            world['entities'].add(mother_city)
+        if not (is_land and is_near_river):
+            continue
 
-            cities_placed += 1
-            GameLogger.log(f"🏛️  La cité primordiale de {mother_city.name} a été fondée.")
+        # 2. SÉCURITÉ ANTI-CHEVAUCHEMENT : Personne sur cette case ?
+        # On vérifie si une entité occupe déjà exactement ces coordonnées
+        if any(e.x == rx and e.y == ry for e in world['entities']):
+            continue
 
-        attempts += 1
+        # OPTIONNEL : On peut aussi imposer une distance minimale entre les cités mères
+        # if any(math.dist((rx, ry), e.pos) < 10 for e in world['entities'] if isinstance(e, City)):
+        #     continue
+
+        # 3. Fondation
+        culture = RandomService.choice(config['cultures'])
+        mother_city = City(rx, ry, culture, config)
+        world['entities'].add(mother_city)
+
+        cities_placed += 1
+        GameLogger.log(f"🏛️  La cité primordiale de {mother_city.name} a été fondée en ({rx}, {ry}).")

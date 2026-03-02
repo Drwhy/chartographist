@@ -1,23 +1,17 @@
 import math
-from entities.actor import Actor
+from .base import Human
 from entities.registry import register_civ
 from core.logger import GameLogger
 from core.random_service import RandomService
 
 @register_civ
-class Fisherman(Actor):
+class Fisherman(Human):
     def __init__(self, x, y, culture, config, home_pos, home_city):
         # Initialisation via Actor (gère culture et config)
         super().__init__(x, y, culture, config)
-
         # Attributs d'identité
-        self.type = "human"
-        self.subtype = "fisherman"
         self.home_pos = home_pos
         self.home_city = home_city
-        # Coordonnées privées pour éviter les conflits de property
-        self._x, self._y = x, y
-        self.pos = (x, y)
         # Visuels (Emojis)
         self.land_char = culture.get("fisherman_emoji", "🎣")
         self.boat_char = culture.get("boat_emoji", "🛶")
@@ -40,7 +34,7 @@ class Fisherman(Actor):
 
             # 3. Intelligence de recherche
             if not self.target or self.target.is_expired:
-                self._find_fish(world)
+                self._find_prey_in_water(world)
 
             # 4. Action ou Déplacement
             if self.target:
@@ -73,41 +67,53 @@ class Fisherman(Actor):
 
     def _update_status(self, world):
         """Détermine si le pêcheur est à pied ou en barque."""
-        h = world['elev'][self._y][self._x]
+        h = world['elev'][self.y][self.x]
         if h < 0:
             self.char = self.boat_char
         else:
             self.char = self.land_char
 
-    def _find_fish(self, world):
-        """Cherche le poisson le plus proche sans limite de distance stricte."""
-        fishes = [e for e in world['entities'] if getattr(e, 'subtype', '') == 'fish']
-        if fishes:
-            # Utilisation de min avec une fonction lambda pour l'efficacité
-            self.target = min(fishes, key=lambda f: math.dist(self.pos, f.pos))
+    def _find_prey_in_water(self, world):
+        """L'aigle cible n'importe quelle entité comestible aquatique."""
+
+        # On cherche les entités qui sont :
+        # 1. Comestibles
+        # 2. Aquatiques
+        # 3. Non expirées
+        aquatic_preys = [
+            e for e in world['entities']
+            if getattr(e, 'is_edible', False)
+            and e.is_aquatic
+            and not e.is_expired
+        ]
+
+        if aquatic_preys:
+            # L'aigle a une vue perçante, il prend la plus proche
+            self.target = min(aquatic_preys, key=lambda p: math.dist(self.pos, p.pos))
+        else:
+            self.target = None
 
     def _move_logic(self, world, target_pos):
         """Avance vers la cible (Terre ou Eau peu profonde)."""
         tx, ty = target_pos
-        dx = 1 if tx > self._x else -1 if tx < self._x else 0
-        dy = 1 if ty > self._y else -1 if ty < self._y else 0
-
-        nx, ny = self._x + dx, self._y + dy
-
+        dx = 1 if tx > self.x else -1 if tx < self.x else 0
+        dy = 1 if ty > self.y else -1 if ty < self.y else 0
+        nx, ny = self.x + dx, self.y + dy
         if 0 <= nx < world['width'] and 0 <= ny < world['height']:
             h = world['elev'][ny][nx]
             # ACCÈS : Terre ferme OU Eau peu profonde (>-0.4)
             if h > -0.4:
-                self._x, self._y = nx, ny
-                self.pos = (self._x, self._y)
+                self.pos = (nx, ny)
             # Si c'est des abysses (<-0.4), il ne bouge pas (sécurité)
 
     def _idle_movement(self, world):
         """Flânerie côtière en attendant que le poisson morde."""
         dx, dy = RandomService.choice([(0,1), (0,-1), (1,0), (-1,0), (0,0)])
-        nx, ny = self._x + dx, self._y + dy
-
+        nx, ny = self.x + dx, self.y + dy
         if 0 <= nx < world['width'] and 0 <= ny < world['height']:
             if world['elev'][ny][nx] > -0.4:
-                self._x, self._y = nx, ny
-                self.pos = (self._x, self._y)
+                self.pos = (nx, ny)
+
+    @property
+    def danger_level(self):
+        return 0.3  # Très effrayant

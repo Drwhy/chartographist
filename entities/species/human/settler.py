@@ -1,18 +1,16 @@
 import math
-from entities.actor import Actor
+from .base import Human
 from core.logger import GameLogger
 from entities.constructs.village import Village
 from history.history_engine import connect_with_road
 from entities.registry import register_civ
 from core.random_service import RandomService
-
+from entities.registry import STRUCTURE_TYPES
 @register_civ
-class Settler(Actor):
+class Settler(Human):
     def __init__(self, x, y, culture, config, home_city=None):
         # Respect de l'ordre strict des paramètres de Actor
         super().__init__(x, y, culture, config)
-        self.type = "human"
-        self.subtype = "settler"
         self.char = culture.get("settler_emoji", "🚶")
         self.home_city = home_city # La ville d'origine pour la route
         # Logique de mouvement
@@ -54,40 +52,42 @@ class Settler(Actor):
         tx, ty = self.target_pos
         dx = 1 if tx > self.x else -1 if tx < self.x else 0
         dy = 1 if ty > self.y else -1 if ty < self.y else 0
-
-        new_x, new_y = self.x + dx, self.y + dy
-
+        nx, ny = self.x + dx, self.y + dy
         # Collision simple : on évite l'eau profonde (h < 0)
-        if 0 <= new_x < world['width'] and 0 <= new_y < world['height']:
-            if world['elev'][new_y][new_x] >= 0:
+        if 0 <= nx < world['width'] and 0 <= ny < world['height']:
+            if world['elev'][ny][nx] >= 0:
                 # Utilisation des membres privés pour éviter le bug de "Property no setter"
-                self._x, self._y = new_x, new_y
-                self.pos = (self._x, self._y)
+                self.pos = (nx, ny)
             else:
                 # Si on touche l'eau, on change de direction
                 self.target_pos = self._choose_exploration_direction()
 
     def _is_ideal_spot(self, world):
         """
-        Détermine si la case actuelle est valide pour un village.
-        Tolérance maximale : Tout sauf Eau, Peaks (>0.85) et Volcans (>0.90).
+        Détermine si la case est valide pour fonder un village.
+        Critères : Pas d'eau, pas de sommets, pas de voisinage urbain trop proche.
         """
         h = world['elev'][self.y][self.x]
 
-        # REGLÈS D'EXCLUSION STRICTES
-        if h < 0: return False      # Eau
-        if h > 0.85: return False   # Peaks et Volcans (selon tes seuils de rendu)
+        # 1. RÈGLES GÉOGRAPHIQUES (0 = Plage, 0.85 = Haute montagne)
+        if not (0 <= h <= 0.85):
+            return False
 
-        # Vérification si une entité occupe déjà la place
+        # 2. VÉRIFICATION DU VOISINAGE (Registry & Proximité)
         for e in world['entities']:
+            if e.is_expired: continue
+
+            # Empêche de spawner deux entités exactement au même endroit
             if e.pos == self.pos and e != self:
                 return False
-            if getattr(e, 'type', '') == 'construct':
-                    dist = math.dist(self.pos, e.pos)
-                    if dist < 8: return False
 
-        # PROBABILITÉ DE FONDATION
-        # Bonus si près d'une rivière, sinon chance standard
+            # RÈGLE DE DISTANCE : Pas d'autre structure dans un rayon de 8
+            if type(e) in STRUCTURE_TYPES:
+                if math.dist(self.pos, e.pos) < 8:
+                    return False
+
+        # 3. PROBABILITÉ DE FONDATION
+        # Une rivière (riv > 0) rend le terrain beaucoup plus attractif
         is_near_river = world['riv'][self.y][self.x] > 0
         chance = 0.25 if is_near_river else 0.08
 

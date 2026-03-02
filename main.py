@@ -25,6 +25,7 @@ def main():
     # Création du monde et du dictionnaire de statistiques
     # world['entities'] est un EntityManager
     world, stats = core.assemble_world(WIDTH, HEIGHT, config, seed)
+    entities_spawn.seed_initial_cities(world, config)
 
     # Initialisation du moteur de rendu modulaire
     renderer = RenderEngine(WIDTH, HEIGHT, config)
@@ -108,11 +109,20 @@ def main():
         # Nettoyage final systématique
         core.restore_terminal()
 
-        # --- BILAN FINAL ---
-        structs = [e for e in world['entities'] if getattr(e, 'type', '') == 'construct']
-        cities = [e for e in structs if getattr(e, 'subtype', '') == 'city']
-        villages = [e for e in structs if getattr(e, 'subtype', '') == 'village']
-        fauna = [e for e in world['entities'] if getattr(e, 'type', '') == 'animal']
+        # --- BILAN FINAL BASÉ SUR LES CLASSES ---
+        # On importe les classes spécifiques pour le comptage
+        from entities.constructs.city import City
+        from entities.constructs.village import Village
+        from entities.registry import WILD_SPECIES
+
+        # On utilise isinstance pour gérer l'héritage proprement
+        all_entities = [e for e in world['entities'] if not e.is_expired]
+
+        cities = [e for e in all_entities if isinstance(e, City)]
+        villages = [e for e in all_entities if isinstance(e, Village)]
+
+        # La faune regroupe toutes les classes présentes dans WILD_SPECIES
+        fauna = [e for e in all_entities if type(e) in WILD_SPECIES]
 
         print("\n" + "═" * 50)
         print(f" 📜 CHRONIQUES DE {config.get('world_name', 'WORLD').upper()}")

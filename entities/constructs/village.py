@@ -9,14 +9,12 @@ from core.random_service import RandomService
 class Village(Construct):
     def __init__(self, x, y, culture, config):
         super().__init__(x, y, culture, config)
-        self.type = "construct"
-        self.subtype = "village"
         self.population = RandomService.randint(50, 150)
         self.city_threshold = 1000 # Population requise pour devenir une ville
         self.char = culture.get("village", "🏛️ ")
-
+        self.active_worker = None
         # Logique de gestion du chasseur
-        self.check_interval = 15   # Fréquence de vérification du chasseur
+        self.check_interval = 20   # Fréquence de vérification du chasseur
         self.timer = 0
 
     def update(self, world, stats):
@@ -27,76 +25,51 @@ class Village(Construct):
         # 2. Gestion du chasseur unique
         self.timer += 1
         if self.timer >= self.check_interval:
-            self._verify_and_spawn_hunter(world)
+            self._manage_workforce(world)
             self.timer = 0
 
         # 3. TRANSFORMATION EN CITÉ
         if self.population >= self.city_threshold:
             self._evolve_to_city(world)
 
-    def _verify_and_spawn_hunter(self, world):
-        # On cherche n'importe quel travailleur (chasseur ou pêcheur) lié au village
-        my_worker = next((e for e in world['entities']
-                         if getattr(e, 'subtype', '') in ['hunter', 'fisherman']
-                         and getattr(e, 'home_pos', None) == self.pos), None)
+    def _manage_workforce(self, world):
+            """Vérifie l'état du travailleur via la référence interne."""
 
-        if not my_worker and self.population > 50:
-            # Est-ce un village côtier ?
-            is_coastal = False
-            for dy, dx in [(-1,0), (1,0), (0,-1), (0,1)]:
-                ny, nx = self.y + dy, self.x + dx
-                if 0 <= ny < world['height'] and 0 <= nx < world['width']:
-                    if world['elev'][ny][nx] < 0:
-                        is_coastal = True
-                        break
+            # Si on a une référence mais que l'entité est expirée (morte/supprimée)
+            if self.active_worker and self.active_worker.is_expired:
+                self.active_worker = None
 
-            if is_coastal:
-                self._spawn_fisherman(world)
-            else:
-                self._spawn_village_hunter(world)
+            # Si pas de travailleur actif, on en crée un
+            if self.active_worker is None and self.population > 60:
+                if self._is_coastal(world):
+                    self._spawn_fisherman(world)
+                else:
+                    self._spawn_hunter(world)
 
-    def _spawn_village_hunter(self, world):
-        """Crée un unique chasseur attaché à ce village."""
+    def _is_coastal(self, world):
+        for dy, dx in [(-1,0), (1,0), (0,-1), (0,1)]:
+            ny, nx = self.y + dy, self.x + dx
+            if 0 <= ny < world['height'] and 0 <= nx < world['width']:
+                if world['elev'][ny][nx] < 0:
+                    return True
+        return False
 
-        # On passe self.pos comme home_pos
-        new_hunter = Hunter(self.x, self.y, self.culture, self.config, self.pos, self)
-
-        # IMPORTANT : On s'assure que le subtype est mis AVANT l'ajout au monde
-        new_hunter.subtype = "hunter"
-        new_hunter.home_pos = self.pos
-
-        world['entities'].add(new_hunter)
-
-        # Log optionnel pour vérifier en console si ça boucle encore
-        # print(f"DEBUG: Village à {self.pos} a spawn un chasseur.")
-
-    def _evolve_to_city(self, world):
-        """Transforme le village en ville et nettoie les unités associées."""
-        from entities.constructs.city import City
-
-        # --- DISPARITION DU HUNTER ASSOCIÉ ---
-        # On cherche le chasseur lié à ce village avant de muter
-        my_hunter = next((e for e in world['entities']
-                         if getattr(e, 'subtype', '') == 'hunter'
-                         and getattr(e, 'home_pos', None) == self.pos), None)
-
-        if my_hunter:
-            my_hunter.is_expired = True # Le chasseur disparaît avec le village
-            # Optionnel : GameLogger.log("🏹 Le chasseur local rejoint la nouvelle cité.")
-
-        # --- CRÉATION DE LA CITÉ ---
-        # On crée la cité au même endroit
-        new_city = City(self.x, self.y, self.culture, self.config)
-        new_city.population = self.population # Transfert de population
-
-        # On ajoute la cité au monde
-        world['entities'].add(new_city)
-
-        # On marque le village comme expiré pour qu'il soit retiré au prochain tour
-        self.is_expired = True
-
-        GameLogger.log(f"🏛️  Le village de {self.name} est devenu une cité florissante !")
+    def _spawn_hunter(self, world):
+        # On stocke l'instance directement dans self.active_worker
+        self.active_worker = Hunter(self.x, self.y, self.culture, self.config, self.pos, self)
+        world['entities'].add(self.active_worker)
 
     def _spawn_fisherman(self, world):
-        new_fisher = Fisherman(self.x, self.y, self.culture, self.config, self.pos, self)
-        world['entities'].add(new_fisher)
+        self.active_worker = Fisherman(self.x, self.y, self.culture, self.config, self.pos, self)
+        world['entities'].add(self.active_worker)
+
+    def _evolve_to_city(self, world):
+        from entities.constructs.city import City
+        # Nettoyage immédiat via la référence
+        if self.active_worker:
+            self.active_worker.is_expired = True
+
+        new_city = City(self.x, self.y, self.culture, self.config)
+        new_city.population = self.population
+        world['entities'].add(new_city)
+        self.is_expired = True

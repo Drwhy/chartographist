@@ -8,10 +8,6 @@ from core.logger import GameLogger
 class Deer(Animal):
     def __init__(self, x, y, culture, config, species_data):
         super().__init__(x, y, culture, config, species_data)
-        self.type = "animal"
-        self.subtype = "deer"
-        self.is_flying = False
-        self.is_aquatic = False
         self.fleeing = False # État de fuite
     @staticmethod
     def try_spawn(x, y, world, config):
@@ -36,33 +32,38 @@ class Deer(Animal):
             self._graze_around(world)
 
     def _check_for_danger(self, world):
-        """Cherche un prédateur ou un humain à proximité (rayon de 4)."""
+        """Cherche toute entité menaçante dans un rayon de 4."""
         for e in world['entities']:
-            if e.is_expired or e == self: continue
+            if e.is_expired or e == self:
+                continue
 
-            # La biche a peur des loups, ours et humains (chasseurs/colons)
-            if getattr(e, 'subtype', '') in ['wolf', 'bear', 'hunter', 'settler']:
+            # Si l'entité a un niveau de danger significatif
+            if e.danger_level > 0.5:
+                # On ne calcule la distance que si l'entité est potentiellement dangereuse
                 if math.dist(self.pos, e.pos) < 4:
                     return e
         return None
 
     def _flee_from(self, world, danger_pos):
         """Se déplace dans la direction opposée au danger."""
-        dx = 1 if self._x > danger_pos[0] else -1 if self._x < danger_pos[0] else 0
-        dy = 1 if self._y > danger_pos[1] else -1 if self._y < danger_pos[1] else 0
-
-        nx, ny = self._x + dx, self._y + dy
+        dx = 1 if self.x > danger_pos[0] else -1 if self.x < danger_pos[0] else 0
+        dy = 1 if self.y > danger_pos[1] else -1 if self.y < danger_pos[1] else 0
+        nx, ny = self.x + dx, self.y + dy
         if 0 <= nx < world['width'] and 0 <= ny < world['height']:
             if world['elev'][ny][nx] >= 0: # Reste sur terre
-                self._x, self._y = nx, ny
-                self.pos = (self._x, self._y)
+                self.pos = (nx, ny)
 
     def _graze_around(self, world):
         """Mouvement erratique lent (pâturage)."""
         if RandomService.random() < 0.3: # Ne bouge pas à chaque tour
             dx, dy = RandomService.choice([(0,1), (0,-1), (1,0), (-1,0)])
-            nx, ny = self._x + dx, self._y + dy
+            nx, ny = self.x + dx, self.y + dy
             if 0 <= nx < world['width'] and 0 <= ny < world['height']:
                 if world['elev'][ny][nx] >= 0:
-                    self._x, self._y = nx, ny
-                    self.pos = (self._x, self._y)
+                    self.pos = (nx, ny)
+    @property
+    def danger_level(self):
+        return 0.2  # Très effrayant
+    @property
+    def food_value(self):
+        return RandomService.randint(5, 12)

@@ -10,8 +10,6 @@ class Wolf(Animal):
         # Tu peux ensuite ajouter des spécificités au loup
         self.perception_range = 6 # Un loup a un meilleur flair que l'animal de base
         self.danger = 0.3
-        self.type = "animal"
-        self.subtype = "wolf"
     @staticmethod
     def try_spawn(x, y, world, config):
         h = world['elev'][y][x]
@@ -37,3 +35,9 @@ class Wolf(Animal):
         else:
             # S'il n'y a rien à manger, on erre
             self._wander(world, valid_elev_range=(0.05, 0.5))
+    @property
+    def danger_level(self):
+        return 0.6  # Très effrayant
+    @property
+    def food_value(self):
+        return RandomService.randint(15, 20)

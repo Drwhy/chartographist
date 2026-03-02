@@ -8,12 +8,8 @@ from core.random_service import RandomService
 class City(Construct):
     def __init__(self, x, y, culture, config):
         super().__init__(x, y, culture, config)
-        
         # Identité
-        self.type = "construct"
-        self.subtype = "city"
         self.char = culture.get("city", "🏛️ ")
-        
         # Économie et Population
         self.population = RandomService.randint(500, 1000)
         self.growth_rate = config.get("city_growth", 1.005) # +2% par tour
