@@ -15,20 +15,31 @@ class City(Construct):
         self.growth_rate = config.get("city_growth", 1.005) # +2% par tour
         self.settler_threshold = 5000 # Population nécessaire pour envoyer des colons
         self.settler_cost = 1500       # Population "consommée" par l'envoi d'un groupe
-
+        self.settler_cooldown = 0
+        self.cooldown_duration = 100
     def update(self, world, stats):
-        """Évolution de la cité à chaque cycle."""
-        
-        # 1. Croissance démographique
-        # On applique un facteur de croissance basé sur l'accès à l'eau
-        near_water = world['riv'][self.y][self.x] > 0
-        current_growth = self.growth_rate if near_water else (self.growth_rate * 0.98)
-        
-        self.population = int(self.population * current_growth)
+        # Capacité max théorique de la case (ex: 8000)
+        max_pop = 10000
 
-        # 2. Logique d'Expansion (Génération de Colons)
-        if self.population >= self.settler_threshold:
-            self._spawn_settler(world)
+        # Facteur de freinage : plus on est proche de max_pop, plus growth_rate tend vers 1.0
+        # Si pop = 10000, saturation = 0, donc croissance = 0.
+        saturation = max(0, (max_pop - self.population) / max_pop)
+
+        near_water = world['riv'][self.y][self.x] > 0
+        base_growth = 0.01 if near_water else 0.005 # +1% ou +0.5%
+
+        # Nouvelle population avec freinage logistique
+        self.population += int(self.population * base_growth * saturation)
+        # Gestion du timer de colonisation
+        if self.settler_cooldown > 0:
+            self.settler_cooldown -= 1
+
+        # 2. Logique d'Expansion
+        if self.population >= self.settler_threshold and self.settler_cooldown == 0:
+            if self._spawn_settler(world):
+                # On ne déclenche le cooldown et le coût que si le spawn réussit
+                self.population -= self.settler_cost
+                self.settler_cooldown = self.cooldown_duration
 
     def _spawn_settler(self, world):
         """Crée un colon qui partira fonder un village relié par une route."""

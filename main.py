@@ -7,6 +7,7 @@ import entities.spawn_system as entities_spawn
 from render.render_engine import RenderEngine
 from core.logger import GameLogger
 from core.random_service import RandomService
+from events.event_manager import EventManager
 
 # --- CONFIGURATION GLOBALE ---
 WIDTH, HEIGHT = 60, 30
@@ -79,7 +80,7 @@ def main():
                         f"Fichier: {filename.split('/')[-1]} (Ligne {line})"
                     )
                     stats['logs'].append(error_msg)
-
+            EventManager.update(world, stats)
             # --- D. SYNCHRONISATION DES LOGS ---
             # On récupère les messages envoyés au GameLogger (ex: fondations de villes)
             stats['logs'].extend(GameLogger.get_new_logs())
