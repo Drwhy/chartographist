@@ -32,6 +32,7 @@
     "header_line_2": "🏹 HUMAINS: {humans} | 🐾 FAUNE: {fauna} | 🌱 SEED: {seed}"
   },
   "system": {
-    "user_interrupt": "🛑 Simulation interrompue par l'utilisateur."
+    "user_interrupt": "🛑 Simulation interrompue par l'utilisateur.",
+    "world_init": "🌍 Le monde s'est éveillé (Seed: {seed_val})"
   }
 }

@@ -86,7 +86,7 @@ class Animal(Entity):
 
         # --- CAS : LA CIBLE EST DÉVORÉE (Défense trop faible ou jet raté) ---
         self.target.is_expired = True
-        GameLogger.log(Translator.translate("events.hunt_fail", hunter_name=self.target.name, prey_name=self.name))
+        GameLogger.log(Translator.translate("events.hunt_fail", hunter_name=self.name, prey_name=self.target.name))
         self.target = None
 
     def _wander(self, world, valid_elev_range=(0.0, 1.0)):

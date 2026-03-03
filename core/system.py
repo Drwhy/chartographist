@@ -1,10 +1,11 @@
-# core/system.py
-import sys, random
+import sys
+import random
+import argparse
 from . import culture
-from core.random_service import RandomService
+from core.translator import Translator
 
 def init_terminal():
-    """Prépare le terminal pour le rendu ANSI."""
+    """Prépare le terminal pour le rendu ANSI (Nettoie et cache le curseur)."""
     sys.stdout.write("\033[2J\033[H\033[?25l")
 
 def restore_terminal():
@@ -12,20 +13,29 @@ def restore_terminal():
     sys.stdout.write("\033[?25h\n")
 
 def load_arguments():
-    """Gère la récupération du template et de la seed."""
-    if len(sys.argv) > 1:
-        raw_seed = sys.argv[1]
+    """Gère la récupération des paramètres nommés (seed, template, lang)."""
+    parser = argparse.ArgumentParser(description="Simulation Procedural World Engine")
+
+    # 1. Définition des arguments nommés
+    parser.add_argument("--seed", type=str, help="Seed du monde (nombre ou texte)")
+    parser.add_argument("--template", type=str, default="template.json", help="Chemin vers le fichier template JSON")
+    parser.add_argument("--lang", type=str, default="fr", help="Langue de la simulation (fr, en...)")
+
+    args = parser.parse_args()
+
+    # 2. Gestion de la Seed (Logique de hashage conservée)
+    if args.seed:
         try:
-            # On tente de convertir la chaîne "123" en entier 123
-            seed_val = int(raw_seed)
+            seed_val = int(args.seed)
         except ValueError:
-            # Si l'utilisateur a entré du texte (ex: "map1"),
-            # on utilise le hash du texte pour rester sur un nombre entier
-                seed_val = hash(raw_seed)
+            seed_val = hash(args.seed)
     else:
-        # 2. Génération d'un INT pur si aucun argument n'est fourni
         seed_val = random.randint(0, 99999)
-    template_path = sys.argv[2] if len(sys.argv) > 1 and sys.argv[1].endswith(".json") else "template.json"
-    config = culture.load_template(template_path)
+
+    # 3. Initialisation de la Locale (Chargement du JSON de langue)
+    Translator.load(args.lang)
+
+    # 4. Chargement du Template
+    config = culture.load_template(args.template)
 
     return config, seed_val

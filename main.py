@@ -19,7 +19,6 @@ def main():
     # On prépare le terminal (cache le curseur, nettoie l'écran)
     core.init_terminal()
     config, seed = core.load_arguments()
-    Translator.load("fr")
     # On initialise le service central ici
     RandomService.initialize(seed)
 

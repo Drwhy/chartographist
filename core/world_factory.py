@@ -3,6 +3,7 @@ from core.entities import EntityManager
 from entities.constructs.city import City  # Changement : On commence par des Cités
 from core.random_service import RandomService
 from core.logger import GameLogger
+from core.translator import Translator
 
 def assemble_world(width, height, config, seed_val):
     """
@@ -28,12 +29,12 @@ def assemble_world(width, height, config, seed_val):
         # Gestionnaire d'entités vide au départ
         'entities': EntityManager()
     }
-
+    msg = Translator.translate("system.world_init", seed_val=seed_val)
     # 3. INITIALISATION DES STATISTIQUES
     stats = {
         'year': 0,
         'seed': seed_val,
-        'logs': [f"🌍 Le monde s'est éveillé (Seed: {seed_val})"]
+        'logs': [msg]
     }
 
     return world, stats
