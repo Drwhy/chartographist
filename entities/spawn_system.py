@@ -1,6 +1,7 @@
 from entities.registry import WILD_SPECIES, STRUCTURE_TYPES
 from core.logger import GameLogger
 from core.random_service import RandomService
+from core.translator import Translator
 
 def spawn_system(world, config):
     """
@@ -67,4 +68,4 @@ def seed_initial_cities(world, config):
         world['entities'].add(mother_city)
 
         cities_placed += 1
-        GameLogger.log(f"🏛️  La cité primordiale de {mother_city.name} a été fondée en ({rx}, {ry}).")
+        GameLogger.log(Translator.translate("entities.city_founded", name=mother_city.name, x=rx, y=ry))

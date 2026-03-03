@@ -79,8 +79,6 @@ class Eagle(Animal):
         if self.target and not self.target.is_expired:
             self.target.is_expired = True
             self.target = None
-            # Log discret car c'est un événement naturel fréquent
-            GameLogger.log("🦅 Un aigle a plongé pour capturer un poisson.")
 
     def _soar_around(self, world):
         """Errance au-dessus des terres et des côtes uniquement."""

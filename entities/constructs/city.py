@@ -3,6 +3,7 @@ from entities.registry import register_structure
 from entities.species.human.settler import Settler
 from core.logger import GameLogger
 from core.random_service import RandomService
+from core.translator import Translator
 
 @register_structure
 class City(Construct):
@@ -55,12 +56,11 @@ class City(Construct):
         
         # Ajout au gestionnaire d'entités
         world['entities'].add(new_settler)
-        
-        GameLogger.log(f"🚶Trop peuplée ! Un groupe de colons part de {self.name} vers l'inconnu.")
+        GameLogger.log(Translator.translate("entities.settler_spawn", name=self.name))
 
     def take_damage(self, amount):
         """La population peut baisser en cas de catastrophe ou d'attaque."""
         self.population -= amount
         if self.population <= 0:
             self.is_expired = True
-            GameLogger.log(f"🏚️  La cité de {self.name} a été abandonnée.")
+            GameLogger.log(Translator.translate("entities.ruins_desc", name=self.name))

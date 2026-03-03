@@ -1,9 +1,10 @@
+import math
 from .event_registry import register_event
 from .base_event import BaseEvent
 from core.random_service import RandomService
 from core.logger import GameLogger
 from entities.constructs.ruins import Ruins
-import math
+from core.translator import Translator
 
 @register_event
 class VolcanoEruption(BaseEvent):
@@ -19,8 +20,7 @@ class VolcanoEruption(BaseEvent):
         epicenter = RandomService.choice(volcano_points)
         # Rayon de détection des volcans voisins (chaîne de sommets)
         erupting_cluster = [p for p in volcano_points if math.dist(p, epicenter) < 5]
-
-        GameLogger.log(f"🌋 ÉRUPTION : Une chaîne de {len(erupting_cluster)} volcans s'est réveillée !")
+        GameLogger.log(Translator.translate("events.volcano_start", count=len(erupting_cluster)))
 
         radius = 3 # Rayon fixe imposé
 
@@ -40,8 +40,8 @@ class VolcanoEruption(BaseEvent):
                         # On spawn une ruine avant de supprimer la ville
                         ruin = Ruins(e.x, e.y, e.culture, e.config, e.name)
                         world['entities'].add(ruin)
-
-                    e.is_expired = True
+                        e.is_expired = True
+                        GameLogger.log(Translator.translate("events.volcano_ruin", name=e.name))
     def tick(self, world, stats):
         """Gère la dissipation naturelle des flammes sur la carte."""
         for y in range(world['height']):

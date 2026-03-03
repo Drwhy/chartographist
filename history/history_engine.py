@@ -1,9 +1,3 @@
-def evolve_world(width, height, roads, entities, cycle):
-    """Gère uniquement l'évolution des infrastructures passives (routes)."""
-    # Ici, on pourrait imaginer une dégradation des routes avec le temps
-    # ou laisser les entités (Settlers) tracer les routes en marchant.
-    return roads, []
-
 def connect_with_road(roads, start_pos, end_pos, width, height):
     """
     Trace une route (simple algorithme de ligne) entre deux points.

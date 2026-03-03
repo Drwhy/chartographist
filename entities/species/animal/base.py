@@ -2,6 +2,7 @@ import math
 from core.entities import Entity, Z_ANIMAL
 from core.logger import GameLogger
 from core.random_service import RandomService
+from core.translator import Translator
 
 class Animal(Entity):
     def __init__(self, x, y, culture, config, species_data):
@@ -74,18 +75,18 @@ class Animal(Entity):
             # VICTOIRE DE LA CIBLE (L'animal meurt)
             if defense_roll > (defense_base + self.danger / 2):
                 self.is_expired = True
-                GameLogger.log(f"🗡️ {self.target.name} a abattu un {self.name} !")
+                GameLogger.log(Translator.translate("events.hunt_success", hunter_name=self.target.name, prey_name=self.name))
                 return
 
             # MATCH NUL (Fuite)
             elif defense_roll > self.danger:
-                GameLogger.log(f"🏃 {self.target.name} a repoussé le {self.name}.")
+                GameLogger.log(Translator.translate("events.hunt_flee", hunter_name=self.target.name, prey_name=self.name))
                 self.target = None
                 return
 
         # --- CAS : LA CIBLE EST DÉVORÉE (Défense trop faible ou jet raté) ---
         self.target.is_expired = True
-        GameLogger.log(f"🍴 Un {self.name} a dévoré {self.target.name}.")
+        GameLogger.log(Translator.translate("events.hunt_fail", hunter_name=self.target.name, prey_name=self.name))
         self.target = None
 
     def _wander(self, world, valid_elev_range=(0.0, 1.0)):

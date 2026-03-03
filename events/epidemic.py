@@ -3,6 +3,7 @@ from .base_event import BaseEvent
 from core.random_service import RandomService
 from core.logger import GameLogger
 from entities.constructs.city import City
+from core.translator import Translator
 
 @register_event
 class Epidemic(BaseEvent):
@@ -27,7 +28,7 @@ class Epidemic(BaseEvent):
             # On commence avec 5 à 10% de la population touchée
             target.infected_count = int(target.population * RandomService.uniform(0.05, 0.10))
             target.infection_turns = 0
-            GameLogger.log(f"🦠 ALERTE : Une maladie mystérieuse s'est déclarée à {target.name} !")
+            GameLogger.log(Translator.translate("events.epidemic_start", name=target.name))
 
     def tick(self, world, stats):
         """Gère l'évolution des villes déjà infectées."""
@@ -65,11 +66,11 @@ class Epidemic(BaseEvent):
         if RandomService.random() < cure_chance or city.infected_count <= 0:
            city.is_infected = False
            city.infected_count = 0
-           GameLogger.log(f"💊 L'épidémie s'est enfin éteinte à {city.name} après de lourdes pertes.")
+           GameLogger.log(Translator.translate("events.epidemic_end", name=city.name))
 
         # 4. TRANSFORMATION EN RUINES
         if city.population <= 10:
            ruin = Ruins(city.x, city.y, city.culture, city.config, city.name)
            world['entities'].add(ruin)
            city.is_expired = True
-           GameLogger.log(f"💀 {city.name} n'est plus qu'un cimetière à ciel ouvert.")
+           GameLogger.log(Translator.translate("events.epidemic_death", name=city.name))

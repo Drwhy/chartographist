@@ -3,6 +3,7 @@ from .base import Human
 from entities.registry import register_civ
 from core.logger import GameLogger
 from core.random_service import RandomService
+from core.translator import Translator
 
 @register_civ
 class Fisherman(Human):
@@ -56,7 +57,14 @@ class Fisherman(Human):
             self.target = None
 
             # --- MODIFICATION DU LOG ---
-            GameLogger.log(f"{self.char} {self.name} de {self.home_city.name} a ramené une belle prise !")
+            GameLogger.log(
+                Translator.translate(
+                    "events.fishing_success",
+                    fisherman_char=self.char,
+                    fisherman_name=self.name,
+                    fisherman_city=self.home_city.name
+                )
+            )
             # Optionnel : Bonus de population pour le village d'origine
             # On cherche l'entité à la position home_pos
             for e in world['entities']:

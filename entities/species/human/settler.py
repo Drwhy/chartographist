@@ -6,6 +6,8 @@ from history.history_engine import connect_with_road
 from entities.registry import register_civ
 from core.random_service import RandomService
 from entities.registry import STRUCTURE_TYPES
+from core.translator import Translator
+
 @register_civ
 class Settler(Human):
     def __init__(self, x, y, culture, config, home_city=None):
@@ -37,7 +39,7 @@ class Settler(Human):
         # 3. Si trop vieux ou perdu, le colon disparaît
         if self.distance_traveled > self.max_travel_time:
             self.is_expired = True
-            GameLogger.log(f"💀 Un groupe de {self.home_city.name} colons s'est perdu dans les terres sauvages.")
+            GameLogger.log(Translator.translate("events.settler_lost", settler_city_name=self.home_city.name))
 
     def _choose_exploration_direction(self):
         """Choisit un point lointain au hasard pour migrer."""
@@ -106,8 +108,8 @@ class Settler(Human):
                 world['width'],
                 world['height']
             )
-            GameLogger.log(f"{new_village.char}️  Nouveau village de {new_village.name} fondé ! Une route le relie à {self.home_city.name}.")
+            GameLogger.log(Translator.translate("events.settler_found_village", new_village_char=new_village.char, new_village_name=new_village.name, home_city_name=self.home_city.name))
         else:
-            GameLogger.log(f"{new_village.char}️  Le village indépendant de {new_village.name} a été fondé.")
+            GameLogger.log(Translator.translate("events.settler_found_village_independant", new_village_char=new_village.char, new_village_name=new_village.name))
 
         self.is_expired = True

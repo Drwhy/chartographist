@@ -4,6 +4,7 @@ from entities.registry import register_civ
 from core.logger import GameLogger
 from core.random_service import RandomService
 from entities.registry import WILD_SPECIES
+from core.translator import Translator
 
 @register_civ
 class Hunter(Human):
@@ -68,9 +69,19 @@ class Hunter(Human):
             # On stocke la valeur pour la livraison future
             self.pending_food_boost = reward
             self._update_status()
-            msg = f"🏹 {self.name} rapporte du gibier ({entity.species}) à {self.home_city.name}."
+            msg = Translator.translate(
+                            "events.hunter_mission_success",
+                            hunter_name=self.name,
+                            species=entity.species,
+                            hunter_city_name=self.home_city.name
+                        )
         else:
-            msg = f"🛡️ {self.name} a éliminé une menace ({entity.species}) pour sécuriser {self.home_city.name}."
+            msg = Translator.translate(
+                "events.hunter_secure_city",
+                hunter_name=self.name,
+                species=entity.species,
+                hunter_city_name=self.home_city.name
+            )
 
         GameLogger.log(msg)
         self.target_prey = None
@@ -102,7 +113,14 @@ class Hunter(Human):
 
         self.has_game = False
         self._update_status()
-        GameLogger.log(f"🏠 {self.name} a livré de la viande. {self.home_city.name} gagne {boost} habitants.")
+        GameLogger.log(
+            Translator.translate(
+                "events.hunt_food_delivery",
+                hunter_name=self.name,
+                hunter_city_name=self.home_city.name,
+                new_pop=boost
+            )
+        )
 
     def _find_prey(self, world):
         """Cherche l'espèce sauvage comestible la plus proche."""

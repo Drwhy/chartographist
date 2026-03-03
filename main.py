@@ -8,7 +8,7 @@ from render.render_engine import RenderEngine
 from core.logger import GameLogger
 from core.random_service import RandomService
 from events.event_manager import EventManager
-
+from core.translator import Translator
 # --- CONFIGURATION GLOBALE ---
 WIDTH, HEIGHT = 60, 30
 MAX_CYCLES = 2000
@@ -19,7 +19,7 @@ def main():
     # On prépare le terminal (cache le curseur, nettoie l'écran)
     core.init_terminal()
     config, seed = core.load_arguments()
-
+    Translator.load("fr")
     # On initialise le service central ici
     RandomService.initialize(seed)
 
@@ -39,17 +39,6 @@ def main():
             world['cycle'] += 1
             # Convention : 1 cycle = 10 ans dans l'histoire du monde
             stats['year'] = world['cycle'] * 10
-
-            # --- A. ÉVOLUTION DES INFRASTRUCTURES ---
-            # Gère principalement le tracé passif des routes
-            world['road'], new_logs = history.evolve_world(
-                WIDTH,
-                HEIGHT,
-                world['road'],
-                world['entities'],
-                world['cycle']
-            )
-            stats['logs'].extend(new_logs)
 
             # --- B. SYSTÈME DE SPAWN DYNAMIQUE ---
             # Renouvelle la faune sauvage (Loups, Ours)
