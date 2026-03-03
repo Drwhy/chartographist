@@ -51,7 +51,7 @@ class Eagle(Animal):
             # 2. SÉCURITÉ : L'aigle ne s'attaque pas à quelque chose de trop dangereux
             # Un poisson a un danger_level de 0, un requin a 0.8.
             # L'aigle (danger_level 0.5) n'attaquera que ce qui est < 0.5.
-            if e.danger_level >= self.danger_level:
+            if e.danger_level <= self.danger_level:
                 continue
 
             potential_targets.append(e)

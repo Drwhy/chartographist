@@ -88,8 +88,7 @@ def main():
     except KeyboardInterrupt:
         # Sortie propre sur Ctrl+C
         print("\033[?25h") # Réaffiche le curseur
-        print("\n🛑 Simulation interrompue par l'utilisateur.")
-
+        print(f"\n{Translator.translate('system.user_interrupt')}")
     except Exception:
         # En cas de crash critique, on restaure le terminal avant d'afficher l'erreur
         core.restore_terminal()
@@ -114,13 +113,15 @@ def main():
         # La faune regroupe toutes les classes présentes dans WILD_SPECIES
         fauna = [e for e in all_entities if type(e) in WILD_SPECIES]
 
+        # --- BILAN FINAL ---
+        world_name = config.get('world_name', 'WORLD').upper()
         print("\n" + "═" * 50)
-        print(f" 📜 CHRONIQUES DE {config.get('world_name', 'WORLD').upper()}")
-        print(f" 📅 Fin de la simulation : An {stats['year']}")
-        print(f" 🏙️  Cités fondées : {len(cities)}")
-        print(f" 🏠 Villages actifs : {len(villages)}")
-        print(f" 🐾 Faune restante : {len(fauna)}")
-        print(f" 🌱 Seed utilisée : {seed}")
+        print(Translator.translate("ui.chronicles_title", world_name=world_name))
+        print(Translator.translate("ui.end_year", year=stats['year']))
+        print(Translator.translate("ui.cities_count", count=len(cities)))
+        print(Translator.translate("ui.villages_count", count=len(villages)))
+        print(Translator.translate("ui.fauna_count", count=len(fauna)))
+        print(Translator.translate("ui.seed_info", seed=seed))
         print("═" * 50 + "\n")
 
 if __name__ == "__main__":

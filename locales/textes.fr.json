@@ -20,5 +20,18 @@
     "city_founded": "🏛️  La cité primordiale de {name} a été fondée en ({x}, {y}).",
     "settler_spawn": "🚶Trop peuplée ! Un groupe de colons part de {name} vers l'inconnu.",
     "ruins_desc": "🏚️ {name} a été abandonné."
+  },
+  "ui": {
+    "chronicles_title": " 📜 CHRONIQUES DE {world_name}",
+    "end_year": " 📅 Fin de la simulation : An {year}",
+    "cities_count": " 🏙️  Cités fondées : {count}",
+    "villages_count": " 🏠 Villages actifs : {count}",
+    "fauna_count": " 🐾 Faune restante : {count}",
+    "seed_info": " 🌱 Seed utilisée : {seed}",
+    "header_line_1": "--- 🗺️  {name} | AN: {year} | 🏛️  STRUCTURES: {structs} ---",
+    "header_line_2": "🏹 HUMAINS: {humans} | 🐾 FAUNE: {fauna} | 🌱 SEED: {seed}"
+  },
+  "system": {
+    "user_interrupt": "🛑 Simulation interrompue par l'utilisateur."
   }
 }
