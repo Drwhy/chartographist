@@ -11,7 +11,7 @@ from entities.special.ufo import UFO
 @register_event
 class Abduction(BaseEvent):
     name = "Abduction"
-    chance = 0.5
+    chance = 0.002
 
     def condition(self, world, stats):
         """Vérifie les cibles valides ET l'absence d'autre UFO."""
