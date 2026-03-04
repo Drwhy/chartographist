@@ -89,7 +89,10 @@ class EntityManager:
 
             # Optionnel : renvoyer le nombre de morts pour le log
             return initial_count - len(self.entities)
-
+    def remove(self, entity):
+        """Supprime une entité de la collection."""
+        if entity in self.entities: # En supposant que tu stockes dans self.entities
+            self.entities.remove(entity)
     def __iter__(self):
         return iter(self.entities)
 

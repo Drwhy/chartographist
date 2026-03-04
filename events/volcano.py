@@ -11,7 +11,7 @@ class VolcanoEruption(BaseEvent):
     name = "Éruption Volcanique"
     chance = 0.001
 
-    def trigger(self, world, stats):
+    def trigger(self, world, stats, config):
         volcano_points = [(x, y) for y in range(world['height'])
                           for x in range(world['width']) if world['elev'][y][x] > 0.9]
 

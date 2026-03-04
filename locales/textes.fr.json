@@ -3,18 +3,20 @@
     "volcano_start": "🌋 ALERTE : Une chaîne de {count} volcans s'est réveillée !",
     "volcano_ruin": "🔥 L'éruption a ravagé la ville de {name}.",
     "epidemic_start": "🦠 ALERTE : Une peste noire a été signalée à {name} !",
-    "epidemic_end": "💊 L'épidémie s'est enfin éteinte à {city.name} après de lourdes pertes.",
+    "epidemic_end": "💊 L'épidémie s'est enfin éteinte à {name} après de lourdes pertes.",
     "epidemic_death": "💀 {name} n'est plus qu'un cimetière à ciel ouvert.",
     "hunt_success": "🗡️ {hunter_name} a abattu un {prey_name} !",
     "hunt_flee": "🏃 {hunter_name} a repoussé le {prey_name}.",
     "hunt_fail": "🍴 Un {hunter_name} a dévoré {prey_name}.",
-    "fishing_success": "{fisherman_char} {fisherman_name} de {fisherman_city.name} a ramené une belle prise !",
+    "fishing_success": "{fisherman_char} {fisherman_name} de {fisherman_city} a ramené une belle prise !",
     "hunt_food_delivery": "🏠 {hunter_name} a livré de la viande. {hunter_city_name} gagne {new_pop} habitants.",
     "hunter_mission_success": "🏹 {hunter_name} rapporte du gibier ({species}) à {hunter_city_name}.",
     "hunter_secure_city": "🛡️ {hunter_name} a éliminé une menace ({species}) pour sécuriser {hunter_city_name}.",
     "settler_lost": "💀 Un groupe de {settler_city_name} colons s'est perdu dans les terres sauvages.",
     "settler_found_village": "{new_village_char}️  Nouveau village de {new_village_name} fondé ! Une route le relie à {home_city_name}.",
-    "settler_found_village_independant": "{new_village_char}️  Le village indépendant de {new_village_name} a été fondé."
+    "settler_found_village_independant": "{new_village_char}️  Le village indépendant de {new_village_name} a été fondé.",
+    "abduction_start": "🛸 Une lueur étrange descend du ciel... {name} a disparu !",
+    "abduction_end": "✨ {name} est réapparu dans un champ, l'air confus."
   },
   "entities": {
     "city_founded": "🏛️  La cité primordiale de {name} a été fondée en ({x}, {y}).",

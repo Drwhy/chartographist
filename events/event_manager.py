@@ -3,7 +3,7 @@ from core.random_service import RandomService
 
 class EventManager:
     @staticmethod
-    def update(world, stats):
+    def update(world, stats, config):
         for event in EVENT_CATALOG:
             event.tick(world, stats)
             # 1. Jet de dés basé sur la chance propre à l'événement
@@ -11,4 +11,4 @@ class EventManager:
                 # 2. Vérification des conditions spécifiques
                 if event.condition(world, stats):
                     # 3. Explosion !
-                    event.trigger(world, stats)
+                    event.trigger(world, stats, config)

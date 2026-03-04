@@ -68,7 +68,7 @@ def main():
                         f"Fichier: {filename.split('/')[-1]} (Ligne {line})"
                     )
                     stats['logs'].append(error_msg)
-            EventManager.update(world, stats)
+            EventManager.update(world, stats, config)
             # --- D. SYNCHRONISATION DES LOGS ---
             # On récupère les messages envoyés au GameLogger (ex: fondations de villes)
             stats['logs'].extend(GameLogger.get_new_logs())

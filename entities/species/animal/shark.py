@@ -45,13 +45,14 @@ class Shark(Animal):
         potential_targets = []
 
         for e in world['entities']:
+            if not e.is_edible:
+                continue
             # 1. Filtres de base (Vivant, Pas moi, Pas un autre requin)
             if e.is_expired or e == self or e.species == self.species:
                 continue
 
             # 2. Filtre de comestibilité (ignore les récifs ou débris)
-            if not e.is_edible:
-                continue
+
 
             # 2. Filtre de comestibilité (ignore les récifs ou débris)
             if not e.is_flying:

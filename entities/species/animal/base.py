@@ -22,18 +22,20 @@ class Animal(Entity):
         for entity in world['entities']:
             if entity.is_expired or entity == self:
                 continue
-
+            # FILTRE MÉTIER : Uniquement ce qui se mange
+            if not entity.is_edible:
+                continue
             # 1. ACCESSIBILITÉ : Si la cible vole et que moi non, je ne peux pas l'attraper
             if entity.is_flying and not self.is_flying:
                 continue
 
             # 2. SÉCURITÉ : Pas de cannibalisme
-            if entity.species == self.species:
+            target_species = getattr(entity, 'species', None)
+
+            if target_species == self.species:
                 continue
 
-            # 3. FILTRE MÉTIER : Uniquement ce qui se mange
-            if not entity.is_edible:
-                continue
+
 
             dist = math.dist(self.pos, entity.pos)
             if dist < min_dist:

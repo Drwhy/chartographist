@@ -10,7 +10,7 @@ class Epidemic(BaseEvent):
     name = "Épidémie"
     chance = 0.0008
 
-    def trigger(self, world, stats):
+    def trigger(self, world, stats, config):
         """Déclenche le "Patient Zéro" dans une ville aléatoire."""
         # Filtre précis :
         # 1. Doit être une instance de City
