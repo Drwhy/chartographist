@@ -9,7 +9,7 @@ from core.translator import Translator
 @register_civ
 class Hunter(Human):
     def __init__(self, x, y, culture, config, home_pos, home_city):
-        super().__init__(x, y, culture, config)
+        super().__init__(x, y, culture, config, 1.1)
         self.char = culture.get("hunter_emoji", "🏹")
         self.home_pos = home_pos
         self.home_city = home_city
@@ -20,6 +20,8 @@ class Hunter(Human):
         # Nouvel état : transport de nourriture
         self.has_game = False
         self.range_shot = 2
+        self.perception_range = 10
+        self.fear_sensitivity = 2.5
     def _update_status(self):
         """Détermine si le chasseur transporte de la nourriture."""
         if self.has_game:
@@ -123,36 +125,89 @@ class Hunter(Human):
         )
 
     def _find_prey(self, world):
-        """Cherche l'espèce sauvage comestible la plus proche."""
-        potential_preys = [
-            e for e in world['entities']
-            if type(e) in WILD_SPECIES
-            and not e.is_expired
-            and getattr(e, 'is_edible', False)
-            and not getattr(e, 'is_flying', False)
-        ]
+            """Cherche une proie réelle ou suit les traces sur la Heatmap."""
+            # 1. On cherche d'abord une proie visible
+            potential_preys = [
+                e for e in world['entities']
+                if type(e) in WILD_SPECIES
+                and not e.is_expired
+                and getattr(e, 'is_edible', False)
+                and not getattr(e, 'is_flying', False)
+            ]
 
-        if potential_preys:
-            self.target_prey = min(potential_preys, key=lambda d: math.dist(self.pos, d.pos))
+            if potential_preys:
+                # On évalue la meilleure cible (Distance vs Danger autour d'elle)
+                best_target = None
+                max_score = -float('inf')
+
+                for prey in potential_preys:
+                    dist = math.dist(self.pos, prey.pos)
+                    if dist > self.perception_range: continue
+
+                    # On récupère le danger à la position de la proie
+                    fear_at_target = world['influence'].get_fear(prey.x, prey.y)
+
+                    # Score : Proximité + Sécurité (on n'attaque pas un cerf à côté d'un ours)
+                    score = (1 - (dist / self.perception_range)) + (fear_at_target * 2.0)
+
+                    if score > max_score:
+                        max_score = score
+                        best_target = prey
+
+                self.target_prey = best_target
 
     def _move_towards(self, target_pos, world):
-        """Se dirige vers une coordonnée cible."""
-        tx, ty = target_pos
-        dx = 1 if tx > self.x else -1 if tx < self.x else 0
-        dy = 1 if ty > self.y else -1 if ty < self.y else 0
-        nx, ny = self.x + dx, self.y + dy
-        if 0 <= nx < world['width'] and 0 <= ny < world['height']:
-            if world['elev'][ny][nx] >= 0: # Ne marche pas sur l'eau
-                self.pos = (nx, ny)
+        """Se déplace vers une cible en évitant les obstacles et le danger."""
+        possible_moves = self._get_accessible_neighbors(world)
+        if not possible_moves: return
+
+        best_move = self.pos
+        min_dist = math.dist(self.pos, target_pos)
+        max_safety = -float('inf')
+
+        for nx, ny in possible_moves:
+            d = math.dist((nx, ny), target_pos)
+            safety = world['influence'].get_fear(nx, ny)
+
+            # On cherche à réduire la distance tout en restant en sécurité
+            # Si la case est mortelle (lave), safety sera -10, ce qui disqualifie la case
+            if safety > -5.0: # Seuil de survie
+                if d < min_dist:
+                    min_dist = d
+                    best_move = (nx, ny)
+
+        self.pos = best_move
 
     def _wander(self, world):
-        """Déplacement aléatoire."""
-        dirs = [(0,1), (0,-1), (1,0), (-1,0)]
-        dx, dy = RandomService.choice(dirs)
-        nx, ny = self.x + dx, self.y + dy
-        if 0 <= nx < world['width'] and 0 <= ny < world['height']:
-            if world['elev'][ny][nx] >= 0:
-                self.pos = (nx, ny)
+        """Erre intelligemment en suivant les odeurs (Scent) et fuyant la peur."""
+        possible_moves = self._get_accessible_neighbors(world)
+        if not possible_moves: return
+
+        scored_moves = []
+        for nx, ny in possible_moves:
+            # On lit les deux grilles
+            fear = world['influence'].get_fear(nx, ny)
+            scent = world['influence'].get_scent(nx, ny)
+
+            # Un chasseur est attiré par le scent (odeur de gibier)
+            # Mais repoussé par la peur (danger mortel)
+            score = (fear * self.fear_sensitivity) + (scent * 1.5)
+
+            scored_moves.append(((nx, ny), score + RandomService.random() * 0.2))
+
+        # On choisit la meilleure case (la plus riche en traces ou la plus sûre)
+        self.pos = max(scored_moves, key=lambda m: m[1])[0]
+
+    def _get_accessible_neighbors(self, world):
+        """Retourne les cases adjacentes marchables (pas d'eau)."""
+        neighbors = []
+        for dx, dy in [(0,0), (0,1), (0,-1), (1,0), (-1,0), (1,1), (1,-1), (-1,1), (-1,-1)]:
+            nx, ny = self.x + dx, self.y + dy
+            if 0 <= nx < world['width'] and 0 <= ny < world['height']:
+                if world['elev'][ny][nx] >= 0: # Check biome terrestre
+                    neighbors.append((nx, ny))
+        return neighbors
+
     def get_defense_power(self):
         """Hunter is armed and dangerous"""
         return 0.6 # Sa base de défense

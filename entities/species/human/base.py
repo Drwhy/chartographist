@@ -2,9 +2,9 @@ from core.entities import Entity, Z_HUMAN
 from core.naming import NameGenerator
 
 class Human(Entity):
-    def __init__(self, x, y, culture, config):
+    def __init__(self, x, y, culture, config, speed):
         # On initialise l'entité de base
-        super().__init__(x, y, "?", Z_HUMAN, 1)
+        super().__init__(x, y, "?", Z_HUMAN, speed)
         self.culture = culture # Le dictionnaire de la culture (ex: Empire)
         self.config = config   # Le template.json complet
         self.age = 0

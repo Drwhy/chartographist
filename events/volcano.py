@@ -54,7 +54,7 @@ class VolcanoEruption(BaseEvent):
                         if not e.is_expired and e.pos == (x, y):
                             if not getattr(e, 'is_flying', False):
                                 e.is_expired = True
-                                Translator.volcano_kill("events.volcano_ruin", name=e.name)
+                                GameLogger.log(Translator.translate("events.volcano_kill", name=e.name))
                     # 5% de chance de s'éteindre ou de devenir de la cendre
                     if RandomService.random() < 0.05:
                         world['road'][y][x] = "  "

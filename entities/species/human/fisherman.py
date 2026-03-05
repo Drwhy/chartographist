@@ -9,7 +9,7 @@ from core.translator import Translator
 class Fisherman(Human):
     def __init__(self, x, y, culture, config, home_pos, home_city):
         # Initialisation via Actor (gère culture et config)
-        super().__init__(x, y, culture, config)
+        super().__init__(x, y, culture, config, 1)
         # Attributs d'identité
         self.home_pos = home_pos
         self.home_city = home_city

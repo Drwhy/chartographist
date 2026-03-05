@@ -12,7 +12,7 @@ from core.translator import Translator
 class Settler(Human):
     def __init__(self, x, y, culture, config, home_city=None):
         # Respect de l'ordre strict des paramètres de Actor
-        super().__init__(x, y, culture, config)
+        super().__init__(x, y, culture, config,1)
         self.char = culture.get("settler_emoji", "🚶")
         self.home_city = home_city # La ville d'origine pour la route
         # Logique de mouvement
