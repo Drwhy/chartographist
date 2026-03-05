@@ -2,6 +2,7 @@
   "events": {
     "volcano_start": "🌋 ALERTE : Une chaîne de {count} volcans s'est réveillée !",
     "volcano_ruin": "🔥 L'éruption a ravagé la ville de {name}.",
+    "volcano_kill": "🔥 L'éruption a tué {name}.",
     "epidemic_start": "🦠 ALERTE : Une peste noire a été signalée à {name} !",
     "epidemic_end": "💊 L'épidémie s'est enfin éteinte à {name} après de lourdes pertes.",
     "epidemic_death": "💀 {name} n'est plus qu'un cimetière à ciel ouvert.",

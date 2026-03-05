@@ -4,7 +4,7 @@ from core.entities import Entity, Z_CONSTRUCT
 class Construct(Entity):
     """Base pour tout ce qui est bâti sur la carte."""
     def __init__(self, x, y, culture, config):
-        super().__init__(x, y, "?", Z_CONSTRUCT)
+        super().__init__(x, y, "?", Z_CONSTRUCT, 1)
         self.pos = (x, y)
         self.culture = culture
         self.config = config

@@ -58,7 +58,7 @@ def main():
 
                 try:
                     # Chaque entité (City, Settler, Wolf, Hunter) exécute sa propre logique
-                    entity.update(world, stats)
+                    entity.process_turn(world, stats)
                     entity.update_influence(world)
                 except Exception as e:
                     # Système de Log de Bug robuste

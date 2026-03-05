@@ -32,7 +32,7 @@ class VolcanoEruption(BaseEvent):
                     if 0 <= nx < world['width'] and 0 <= ny < world['height']:
                         if math.dist((vx, vy), (nx, ny)) <= radius:
                             world['road'][ny][nx] = "🔥"
-
+                            world['influence'].add_influence(nx, ny, value=-10.0, radius=2)
             # 2. Destruction et Transformation des entités
             for e in list(world['entities']):
                 if math.dist(e.pos, (vx, vy)) <= radius:
@@ -47,6 +47,14 @@ class VolcanoEruption(BaseEvent):
         for y in range(world['height']):
             for x in range(world['width']):
                 if world['road'][y][x] == "🔥":
+                    world['influence'].add_influence(x, y, value=-5.0, radius=1)
+                    # 2. LÉTALITÉ (Le Check)
+                    # On regarde si une entité non-volante est sur cette case précise
+                    for e in world['entities']:
+                        if not e.is_expired and e.pos == (x, y):
+                            if not getattr(e, 'is_flying', False):
+                                e.is_expired = True
+                                Translator.volcano_kill("events.volcano_ruin", name=e.name)
                     # 5% de chance de s'éteindre ou de devenir de la cendre
                     if RandomService.random() < 0.05:
                         world['road'][y][x] = "  "

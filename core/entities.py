@@ -8,13 +8,18 @@ Z_HUMAN = 40     # Chasseurs, Pêcheurs, Colons
 Z_EFFECT = 50    # Sang, Explosions, Fumée
 
 class Entity:
-    def __init__(self, x, y, char, z_index):
+    def __init__(self, x, y, char, z_index, speed):
         # On utilise une liste interne pour la mutabilité,
         # mais on expose une propriété pour la sécurité.
         self._pos = [x, y]
         self.char = char
         self.is_expired = False # Sera utilisé pour supprimer l'entité proprement
         self.z_index = z_index #height on the map
+        self.speed = speed
+        self.action_meter = 0.0
+    @property
+    def can_act(self):
+        return self.action_meter >= 1.0
     @property
     def pos(self):
         """Retourne la position sous forme de tuple (x, y) pour le rendu."""
@@ -88,6 +93,20 @@ class Entity:
             radius = int(danger * 5) + 1
 
             world['influence'].add_influence(self.x, self.y, value, radius)
+    def process_turn(self, world, stats):
+        """
+        Gère l'accumulation d'énergie et déclenche l'update
+        uniquement quand l'entité est prête.
+        """
+        if self.is_expired:
+            return
+
+        self.action_meter += self.speed
+
+        # Tant qu'on a assez d'énergie, on agit
+        while self.action_meter >= 1.0:
+            self.update(world, stats)
+            self.action_meter -= 1.0
 class EntityManager:
     def __init__(self):
         self.entities = []

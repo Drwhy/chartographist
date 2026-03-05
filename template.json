@@ -55,12 +55,12 @@
     }
   ],
   "fauna": [
-    {"species": "wolf", "type": "predator", "char": "🐺", "name": "Loup"},
-    {"species": "bear", "type": "predator", "char": "🐻", "name": "Ours"},
-    {"species": "deer", "type": "game", "char": "🦌", "name": "Biche"},
-    {"species": "eagle", "type": "flyer", "char": "🦅", "name": "Aigle"},
-    {"species": "shark", "type": "aquatic", "char": "🦈", "name": "Requin"},
-    {"species": "fish", "type": "aquatic", "char": "🐟", "name": "Poisson"}
+    {"species": "wolf", "type": "predator", "char": "🐺", "name": "Loup", "speed": 1.1},
+    {"species": "bear", "type": "predator", "char": "🐻", "name": "Ours", "speed": 0.7},
+    {"species": "deer", "type": "game", "char": "🦌", "name": "Biche", "speed": 1},
+    {"species": "eagle", "type": "flyer", "char": "🦅", "name": "Aigle", "speed": 1.5},
+    {"species": "shark", "type": "aquatic", "char": "🦈", "name": "Requin", "speed": 1.3},
+    {"species": "fish", "type": "aquatic", "char": "🐟", "name": "Poisson", "speed": 1}
   ],
   "special": {
     "ruin": "💀",

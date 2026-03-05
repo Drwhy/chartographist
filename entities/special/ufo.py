@@ -6,7 +6,7 @@ import math
 
 class UFO(Entity):
     def __init__(self, x, y, char, z_index):
-        super().__init__(x, y, char, z_index)
+        super().__init__(x, y, char, z_index, 1)
         self.target_entity = None
         self.abducted_entity = None
         self.wait_timer = 0

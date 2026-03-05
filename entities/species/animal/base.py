@@ -6,7 +6,7 @@ from core.translator import Translator
 
 class Animal(Entity):
     def __init__(self, x, y, culture, config, species_data):
-        super().__init__(x, y, species_data['char'], Z_ANIMAL)
+        super().__init__(x, y, species_data['char'], Z_ANIMAL, species_data.get('speed', 1.0))
         self.pos = (x, y)
         self.species = species_data['species']
         self.char = species_data['char']
@@ -64,26 +64,30 @@ class Animal(Entity):
         best_target = None
         max_score = -float('inf')
 
+        # 1. On définit la tolérance au danger de l'entité
+        # Plus l'entité est dangereuse elle-même, plus elle tolère l'influence négative
+        # Un ours (0.9) sera beaucoup plus brave qu'une biche (0.1)
+        courage_threshold = (self.danger_level * 10) - 15
+        # Exemple :
+        # Biche (0.1) -> Seuil à -14 (très prudente)
+        # Ours (0.9)  -> Seuil à -6  (beaucoup plus brave)
+
         for target in targets:
-            # On récupère les deux infos séparément
-            fear_level = world['influence'].get_fear(target.x, target.y)  # ex: -5.0
-            scent_level = world['influence'].get_scent(target.x, target.y) # ex: +2.0
+            fear_val = world['influence'].get_fear(target.x, target.y)
+            scent_val = world['influence'].get_scent(target.x, target.y)
 
-            # REGLE D'EMERGENCE : La survie est prioritaire
-            # Si la peur est trop forte, le score devient catastrophique
-            # même si la proie est juste à côté.
-            if fear_level < -1.0:
-                survival_penalty = fear_level * 10
-            else:
-                survival_penalty = 0
-
+            # Calcul du score...
             dist_score = 1 - (math.dist(self.pos, target.pos) / self.perception_range)
-
-            total_score = dist_score + survival_penalty
+            total_score = dist_score + scent_val + (fear_val * self.fear_sensitivity)
 
             if total_score > max_score:
                 max_score = total_score
                 best_target = target
+
+        # 2. VALIDATION FINALE : Indexée sur le danger_level
+        # Si le meilleur choix reste en dessous de notre courage, on abandonne.
+        if max_score < courage_threshold:
+            return None
 
         return best_target
 
@@ -198,15 +202,8 @@ class Animal(Entity):
         return elevation >= water_limit
 
     def update(self, world, stats):
-            """Boucle de vie universelle."""
-            if self.is_expired:
-                return
-
-            # 1. THINK : On décide quoi faire
-            self._think(world)
-
-            # 2. PERFORM : On agit
-            self._perform_action(world)
+        self._think(world)
+        self._perform_action(world)
     def _think(self, world):
             """Logique de décision : Chasse ou Errance ?"""
             # Si on a une cible mais qu'elle est morte ou trop loin, on l'oublie
