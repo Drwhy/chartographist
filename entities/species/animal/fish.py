@@ -25,29 +25,15 @@ class Fish(Animal):
 
         return None
 
-    def _move_logic(self, world):
-        """Déplacement aléatoire restreint à son biome aquatique."""
-        # On choisit une direction au hasard (y compris l'immobilité)
-        dx, dy = RandomService.choice([(0, 1), (0, -1), (1, 0), (-1, 0), (0, 0)])
-        nx, ny = self.x + dx, self.y + dy
-        # Vérification des limites du monde
-        if 0 <= nx < world['width'] and 0 <= ny < world['height']:
-            h_next = world['elev'][ny][nx]
-            # Le poisson refuse de sortir de l'eau ou de descendre trop profond
-            if -0.4 < h_next < 0:
-                self.pos = (nx, ny)
-
-    def update(self, world, stats):
-        """Le poisson ne chasse pas, il se contente de nager."""
-        if self.is_expired:
-            return
-        self._move_logic(world)
-    @property
-    def danger_level(self):
-        return 0.0
     @property
     def food_value(self):
         return RandomService.randint(5, 10)
     @property
     def is_aquatic(self):
         return True
+    @property
+    def diet(self):
+        return "herbivore"
+    @property
+    def fear_sensitivity(self):
+        return 5.0

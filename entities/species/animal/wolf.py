@@ -20,21 +20,6 @@ class Wolf(Animal):
                 species_data = next((f for f in config['fauna'] if f['species'] == 'wolf'), None)
                 return Wolf(x, y, None, config, species_data)
         return None
-
-    def think(self, world):
-        # Si la cible est morte ou partie, on en cherche une nouvelle
-        if self.target and self.target.is_expired:
-            self.target = None
-
-        if not self.target:
-            self._find_target(world)
-
-    def perform_action(self, world):
-        if self.target:
-            self._approach_target(world)
-        else:
-            # S'il n'y a rien à manger, on erre
-            self._wander(world, valid_elev_range=(0.05, 0.5))
     @property
     def danger_level(self):
         return 0.6  # Très effrayant

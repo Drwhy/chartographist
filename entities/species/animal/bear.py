@@ -20,22 +20,6 @@ class Bear(Animal):
                 return Bear(x, y, None, config, species_data)
         return None
 
-    def think(self, world):
-        # Si la cible est morte ou partie, on en cherche une nouvelle
-        if self.target and self.target.is_expired:
-            self.target = None
-
-        if not self.target:
-            self._find_target(world)
-
-    def perform_action(self, world):
-        if self.target:
-            # L'approche de cible doit aussi être permissive sur le terrain
-            self._approach_target(world)
-        else:
-            # On élargit la plage : de la forêt (0.1) aux hauts sommets (0.9)
-            # Cela lui permet de descendre chasser en plaine ET de remonter dormir
-            self._wander(world, valid_elev_range=(0.1, 0.9))
     @property
     def danger_level(self):
         return 0.8  # Très effrayant

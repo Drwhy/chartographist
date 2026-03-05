@@ -4,6 +4,7 @@ from entities.constructs.city import City  # Changement : On commence par des Ci
 from core.random_service import RandomService
 from core.logger import GameLogger
 from core.translator import Translator
+from core.influence import InfluenceSystem
 
 def assemble_world(width, height, config, seed_val):
     """
@@ -27,7 +28,8 @@ def assemble_world(width, height, config, seed_val):
         # Grille de routes vide
         'road': [["  " for _ in range(width)] for _ in range(height)],
         # Gestionnaire d'entités vide au départ
-        'entities': EntityManager()
+        'entities': EntityManager(),
+        'influence': InfluenceSystem(width, height, config)
     }
     msg = Translator.translate("system.world_init", seed_val=seed_val)
     # 3. INITIALISATION DES STATISTIQUES

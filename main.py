@@ -1,8 +1,4 @@
-import time
-import sys
-import traceback
-import core
-import history
+import time, select, sys, traceback, core, history
 import entities.spawn_system as entities_spawn
 from render.render_engine import RenderEngine
 from core.logger import GameLogger
@@ -14,6 +10,12 @@ WIDTH, HEIGHT = 60, 30
 MAX_CYCLES = 2000
 TICK_SPEED = 0.15  # Légèrement accéléré pour voir l'expansion
 
+def check_input():
+    """Vérifie si une touche a été pressée sans bloquer le script."""
+    if select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
+        return sys.stdin.read(1)
+    return None
+
 def main():
     # 1. INITIALISATION DU TERMINAL ET DES DONNÉES
     # On prépare le terminal (cache le curseur, nettoie l'écran)
@@ -21,7 +23,7 @@ def main():
     config, seed = core.load_arguments()
     # On initialise le service central ici
     RandomService.initialize(seed)
-
+    show_heatmap = False
     # Création du monde et du dictionnaire de statistiques
     # world['entities'] est un EntityManager
     world, stats = core.assemble_world(WIDTH, HEIGHT, config, seed)
@@ -43,7 +45,8 @@ def main():
             # Renouvelle la faune sauvage (Loups, Ours)
             # Les humains ne spawnent plus ici (ils naissent des cités/villages)
             entities_spawn.spawn_system(world, config)
-
+            #handle influence / heat decay
+            world['influence'].update()
             # --- C. MISE À JOUR DES ENTITÉS (IA) ---
             # On travaille sur une copie de la liste pour éviter les erreurs de mutation
             all_entities = list(world['entities'])
@@ -56,6 +59,7 @@ def main():
                 try:
                     # Chaque entité (City, Settler, Wolf, Hunter) exécute sa propre logique
                     entity.update(world, stats)
+                    entity.update_influence(world)
                 except Exception as e:
                     # Système de Log de Bug robuste
                     tb = traceback.extract_tb(e.__traceback__)

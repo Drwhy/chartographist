@@ -67,5 +67,6 @@
     "port": "⚓",
     "lava": "🔥",
     "ufo": "🛸"
-  }
+  },
+  "influence_decay": 0.95
 }

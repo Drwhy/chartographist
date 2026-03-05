@@ -31,15 +31,15 @@ class Entity:
     @property
     def y(self): return self._pos[1]
     def update(self, world, stats):
-            """À définir dans les classes filles (Hunter, Wolf, etc.)"""
-            if self.is_expired:
-                return
+        """À définir dans les classes filles (Hunter, Wolf, etc.)"""
+        if self.is_expired:
+            return
 
-            # 1. On réfléchit (trouver une proie, etc.)
-            self.think(world)
+        # 1. On réfléchit (trouver une proie, etc.)
+        self.think(world)
 
-            # 2. On agit (bouger, attaquer)
-            self.perform_action(world)
+        # 2. On agit (bouger, attaquer)
+        self.perform_action(world)
     def think(self, world):
         """À définir dans les classes filles (Hunter, Wolf, etc.)"""
         pass
@@ -73,6 +73,21 @@ class Entity:
     def is_aquatic(self):
         """Par défaut, les entités ne sont pas purement aquatiques."""
         return False
+    def update_influence(self, world):
+        """Gère l'empreinte de l'entité sur la heatmap mondiale."""
+        if self.is_expired:
+            return
+
+        # On récupère le niveau de danger (ou d'attrait) de l'entité
+        # getattr par sécurité si une entité n'a pas encore de danger_level
+        danger = getattr(self, 'danger_level', 0)
+
+        if danger > 0:
+            # Formule : Plus c'est dangereux, plus c'est négatif (répulsion)
+            value = danger * -5.0
+            radius = int(danger * 5) + 1
+
+            world['influence'].add_influence(self.x, self.y, value, radius)
 class EntityManager:
     def __init__(self):
         self.entities = []
