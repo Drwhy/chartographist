@@ -23,11 +23,13 @@ class Hunter(Human):
         self.perception_range = 10
         self.fear_sensitivity = 2.5
     def _update_status(self):
-        """Détermine si le chasseur transporte de la nourriture."""
+        """Ajuste l'apparence et la vitesse selon la charge."""
         if self.has_game:
             self.char = self.meat_transportation_char
+            self.speed = 0.7  # Le chasseur est ralenti par le poids du gibier
         else:
             self.char = self.land_char
+            self.speed = 1.1  # Vitesse de traque normale
     def think(self, world):
         """Logique de décision du chasseur."""
         # Si le chasseur a déjà du gibier, son but unique est de rentrer

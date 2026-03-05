@@ -14,55 +14,93 @@ class Settler(Human):
         # Respect de l'ordre strict des paramètres de Actor
         super().__init__(x, y, culture, config,1)
         self.char = culture.get("settler_emoji", "🚶")
-        self.home_city = home_city # La ville d'origine pour la route
-        # Logique de mouvement
-        self.target_pos = self._choose_exploration_direction()
+        self.home_city = home_city
         self.distance_traveled = 0
-        self.min_distance_from_home = 20 # Distance mini pour fonder un village
-        self.max_travel_time = 100       # Un peu plus de temps pour trouver un spot
+        self.min_distance_from_home = 20
+        self.max_travel_time = 120
+        # Paramètres de survie
+        self.fear_sensitivity = 4.0  # Très prudent : porte l'avenir de sa cité
+        self.perception_range = 10
+    def think(self, world):
+            """Phase de réflexion : le colon cherche-t-il un spot ou fuit-il ?"""
+            if self.is_expired: return
 
-    def update(self, world, stats):
-        """Logique de déplacement et de fondation."""
-        if self.is_expired:
-            return
+            # Le colon n'a pas de "target" fixe, son but est le meilleur score local
+            self.distance_traveled += 1
 
-        # 1. On avance vers la terre promise
-        self._move_towards_target(world)
-        self.distance_traveled += 1
+            # Si trop vieux ou perdu dans une zone stérile
+            if self.distance_traveled > self.max_travel_time:
+                self.is_expired = True
+                GameLogger.log(Translator.translate("events.settler_lost", settler_city_name=self.home_city.name))
 
-        # 2. On vérifie si le terrain est propice à la fondation
+    def perform_action(self, world):
+        """Phase de mouvement et de fondation."""
+        # 1. Tentative de fondation si on est assez loin
         if self.distance_traveled > self.min_distance_from_home:
             if self._is_ideal_spot(world):
                 self._found_village(world)
                 return
 
-        # 3. Si trop vieux ou perdu, le colon disparaît
-        if self.distance_traveled > self.max_travel_time:
-            self.is_expired = True
-            GameLogger.log(Translator.translate("events.settler_lost", settler_city_name=self.home_city.name))
+        # 2. Déplacement intelligent (Heatmap)
+        self._move_smart(world)
 
-    def _choose_exploration_direction(self):
-        """Choisit un point lointain au hasard pour migrer."""
-        angle = RandomService.uniform(0, 2 * math.pi)
-        dist = RandomService.randint(15, 30)
-        tx = int(self.x + math.cos(angle) * dist)
-        ty = int(self.y + math.sin(angle) * dist)
-        return (tx, ty)
+    def _move_smart(self, world):
+        """Se déplace en maximisant la sécurité et le potentiel du terrain."""
+        possible_moves = self._get_accessible_neighbors(world)
+        if not possible_moves: return
 
-    def _move_towards_target(self, world):
-        """Marche simple vers la destination."""
-        tx, ty = self.target_pos
-        dx = 1 if tx > self.x else -1 if tx < self.x else 0
-        dy = 1 if ty > self.y else -1 if ty < self.y else 0
-        nx, ny = self.x + dx, self.y + dy
-        # Collision simple : on évite l'eau profonde (h < 0)
-        if 0 <= nx < world['width'] and 0 <= ny < world['height']:
-            if world['elev'][ny][nx] >= 0:
-                # Utilisation des membres privés pour éviter le bug de "Property no setter"
-                self.pos = (nx, ny)
-            else:
-                # Si on touche l'eau, on change de direction
-                self.target_pos = self._choose_exploration_direction()
+        scored_moves = []
+        for nx, ny in possible_moves:
+            # Facteurs de la Heatmap
+            fear = world['influence'].get_fear(nx, ny)
+            scent = world['influence'].get_scent(nx, ny) # Attraction des ressources
+
+            # Facteur géographique : bonus pour les rivières et les plaines
+            h = world['elev'][ny][nx]
+            is_river = world['riv'][ny][nx] > 0
+            geo_score = (0.5 if is_river else 0) + (0.3 if 0.2 < h < 0.6 else 0)
+
+            # Score global : On fuit le rouge, on suit le bleu/vert et la géo
+            score = (fear * self.fear_sensitivity) + (scent * 1.5) + geo_score
+
+            # Biais d'exploration : on s'éloigne de la maison
+            dist_to_home = math.dist((nx, ny), self.home_city.pos) if self.home_city else 0
+            exploration_push = (dist_to_home / 100)
+
+            scored_moves.append(((nx, ny), score + exploration_push + RandomService.random() * 0.1))
+
+        self.pos = max(scored_moves, key=lambda m: m[1])[0]
+
+    def _get_accessible_neighbors(self, world):
+        """Le colon évite l'eau et les pentes trop raides (>0.85)."""
+        neighbors = []
+        for dx, dy in [(0,1), (0,-1), (1,0), (-1,0), (1,1), (1,-1), (-1,1), (-1,-1)]:
+            nx, ny = self.x + dx, self.y + dy
+            if 0 <= nx < world['width'] and 0 <= ny < world['height']:
+                h = world['elev'][ny][nx]
+                if 0 <= h <= 0.85: # Pas d'eau, pas de haute montagne
+                    neighbors.append((nx, ny))
+        return neighbors
+
+    def _is_ideal_spot(self, world):
+        """Critères de fondation utilisant les données du monde."""
+        h = world['elev'][self.y][self.x]
+
+        # Trop près d'un danger immédiat ?
+        if world['influence'].get_fear(self.x, self.y) < -1.0:
+            return False
+
+        # Trop près d'une autre ville ?
+        for e in world['entities']:
+            if type(e) in STRUCTURE_TYPES and not e.is_expired:
+                if math.dist(self.pos, e.pos) < 10: # Distance de voisinage
+                    return False
+
+        # Bonus rivière
+        is_near_river = world['riv'][self.y][self.x] > 0
+        chance = 0.35 if is_near_river else 0.10
+
+        return RandomService.random() < chance
 
     def _is_ideal_spot(self, world):
         """
