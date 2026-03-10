@@ -45,27 +45,40 @@ class Settler(Human):
         self._move_smart(world)
 
     def _move_smart(self, world):
-        """Se déplace en maximisant la sécurité et le potentiel du terrain."""
+        """Se déplace en maximisant la sécurité, le potentiel et l'éloignement social."""
         possible_moves = self._get_accessible_neighbors(world)
         if not possible_moves: return
 
         scored_moves = []
         for nx, ny in possible_moves:
-            # Facteurs de la Heatmap
+            # 1. Facteurs classiques (Fear, Scent, Géo)
             fear = world['influence'].get_fear(nx, ny)
-            scent = world['influence'].get_scent(nx, ny) # Attraction des ressources
-
-            # Facteur géographique : bonus pour les rivières et les plaines
+            scent = world['influence'].get_scent(nx, ny)
             h = world['elev'][ny][nx]
             is_river = world['riv'][ny][nx] > 0
             geo_score = (0.5 if is_river else 0) + (0.3 if 0.2 < h < 0.6 else 0)
 
-            # Score global : On fuit le rouge, on suit le bleu/vert et la géo
-            score = (fear * self.fear_sensitivity) + (scent * 1.5) + geo_score
+            # 2. REPULSION SOCIALE (La "Communication")
+            # On calcule la gêne causée par les structures existantes
+            social_repulsion = 0
+            for e in world['entities']:
+                if type(e) in STRUCTURE_TYPES and not e.is_expired:
+                    dist = math.dist((nx, ny), e.pos)
+                    # Si on est trop près d'une ville (moins de 15 cases),
+                    # on génère une pénalité forte pour pousser le colon à partir
+                    if dist < 15:
+                        social_repulsion += (15 - dist) * 0.5
+                if isinstance(e, Settler) and e != self:
+                    if math.dist((nx, ny), e.pos) < 5:
+                        social_repulsion += 2.0
 
-            # Biais d'exploration : on s'éloigne de la maison
+            # 3. SCORE FINAL
+            # Le social_repulsion est soustrait pour que le colon fuit les zones encombrées
+            score = (fear * self.fear_sensitivity) + (scent * 1.5) + geo_score - social_repulsion
+
+            # Biais d'exploration : plus il voyage, plus il est poussé à s'éloigner de sa source
             dist_to_home = math.dist((nx, ny), self.home_city.pos) if self.home_city else 0
-            exploration_push = (dist_to_home / 100)
+            exploration_push = (dist_to_home / 50) # On augmente l'influence de l'éloignement
 
             scored_moves.append(((nx, ny), score + exploration_push + RandomService.random() * 0.1))
 
