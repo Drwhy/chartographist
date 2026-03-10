@@ -6,6 +6,8 @@
     "epidemic_start": "🦠 ALERTE : Une peste noire a été signalée à {name} !",
     "epidemic_end": "💊 L'épidémie s'est enfin éteinte à {name} après de lourdes pertes.",
     "epidemic_death": "💀 {name} n'est plus qu'un cimetière à ciel ouvert.",
+    "epidemic_spread": "☣️ Le marchand {merchant_name} a apporté la peste noire à {city_name} ! La population est en déclin.",
+    "human_epidemic_death": "💀 {name} a succombé à la peste en plein voyage.",
     "hunt_success": "🗡️ {hunter_name} a abattu un {prey_name} !",
     "hunt_flee": "🏃 {hunter_name} a repoussé le {prey_name}.",
     "hunt_fail": "🍴 Un {hunter_name} a dévoré {prey_name}.",
@@ -17,7 +19,10 @@
     "settler_found_village": "{new_village_char}️  Nouveau village de {new_village_name} fondé ! Une route le relie à {home_city_name}.",
     "settler_found_village_independant": "{new_village_char}️  Le village indépendant de {new_village_name} a été fondé.",
     "abduction_start": "🛸 Une lueur étrange descend du ciel... {name} a disparu !",
-    "abduction_end": "✨ {name} est réapparu dans un champ, l'air confus."
+    "abduction_end": "✨ {name} est réapparu dans un champ, l'air confus.",
+    "trader_spawn": "📦 {city_name} a affrété un nouveau marchand,",
+    "trade_success": "💰 Commerce établi entre {home_city} et {target_city} (+{bonus} pop)",
+    "cultural_mutation": "🎭 {name} a adopté les coutumes du {new_culture} (anciennement {old_culture})."
   },
   "entities": {
     "city_founded": "🏛️  La cité primordiale de {name} a été fondée en ({x}, {y}).",

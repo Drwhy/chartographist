@@ -200,16 +200,6 @@ class Hunter(Human):
         # On choisit la meilleure case (la plus riche en traces ou la plus sûre)
         self.pos = max(scored_moves, key=lambda m: m[1])[0]
 
-    def _get_accessible_neighbors(self, world):
-        """Retourne les cases adjacentes marchables (pas d'eau)."""
-        neighbors = []
-        for dx, dy in [(0,0), (0,1), (0,-1), (1,0), (-1,0), (1,1), (1,-1), (-1,1), (-1,-1)]:
-            nx, ny = self.x + dx, self.y + dy
-            if 0 <= nx < world['width'] and 0 <= ny < world['height']:
-                if world['elev'][ny][nx] >= 0: # Check biome terrestre
-                    neighbors.append((nx, ny))
-        return neighbors
-
     def get_defense_power(self):
         """Hunter is armed and dangerous"""
         return 0.6 # Sa base de défense

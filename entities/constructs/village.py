@@ -31,6 +31,7 @@ class Village(Construct):
         # 3. TRANSFORMATION EN CITÉ
         if self.population >= self.city_threshold:
             self._evolve_to_city(world)
+        self._check_cultural_drift(world)
 
     def _manage_workforce(self, world):
             """Vérifie l'état du travailleur via la référence interne."""

@@ -71,17 +71,6 @@ class Settler(Human):
 
         self.pos = max(scored_moves, key=lambda m: m[1])[0]
 
-    def _get_accessible_neighbors(self, world):
-        """Le colon évite l'eau et les pentes trop raides (>0.85)."""
-        neighbors = []
-        for dx, dy in [(0,1), (0,-1), (1,0), (-1,0), (1,1), (1,-1), (-1,1), (-1,-1)]:
-            nx, ny = self.x + dx, self.y + dy
-            if 0 <= nx < world['width'] and 0 <= ny < world['height']:
-                h = world['elev'][ny][nx]
-                if 0 <= h <= 0.85: # Pas d'eau, pas de haute montagne
-                    neighbors.append((nx, ny))
-        return neighbors
-
     def _is_ideal_spot(self, world):
         """Critères de fondation utilisant les données du monde."""
         h = world['elev'][self.y][self.x]

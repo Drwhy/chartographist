@@ -1,6 +1,7 @@
 from .base import Construct
-from entities.registry import register_structure
+from entities.registry import register_structure, STRUCTURE_TYPES
 from entities.species.human.settler import Settler
+from entities.species.human.trader import Trader
 from core.logger import GameLogger
 from core.random_service import RandomService
 from core.translator import Translator
@@ -43,7 +44,17 @@ class City(Construct):
                 # On ne déclenche le cooldown et le coût que si le spawn réussit
                 self.population -= self.settler_cost
                 self.settler_cooldown = self.cooldown_duration
-
+        # --- LOGIQUE DE SPAWN DES MARCHANDS ---
+        # Condition : Population > 50 et 1% de chance par tick
+        if self.population > 50 and RandomService.random() < 0.01:
+            other_cities = [
+                e for e in world['entities']
+                    if type(e) in STRUCTURE_TYPES and e != self and not e.is_expired
+            ]
+            # Si le monde est trop vide, le marchand ne spawn pas
+            if len(other_cities) > 0:
+                self._spawn_trader(world)
+        self._check_cultural_drift(world)
     def _spawn_settler(self, world):
         """Crée un colon qui partira fonder un village relié par une route."""
         
@@ -64,3 +75,30 @@ class City(Construct):
         if self.population <= 0:
             self.is_expired = True
             GameLogger.log(Translator.translate("entities.ruins_desc", name=self.name))
+    def _spawn_trader(self, world):
+        """Génère un marchand en respectant l'architecture et les traductions."""
+
+        # Comptage via isinstance
+        my_traders = [
+            e for e in world['entities']
+            if isinstance(e, Trader) and e.home_city == self and not e.is_expired
+        ]
+
+        # Seuil de population (ex: 1 marchand par tranche de 100)
+        max_allowed = 1
+
+        if len(my_traders) < max_allowed:
+            # Création du marchand
+            new_trader = Trader(self.x, self.y, self.culture, self.config, self)
+            world['entities'].add(new_trader)
+
+            # Log via Translator (en utilisant ta clé de log pour le spawn)
+            # Note: Assure-toi d'avoir une clé "events.trader_spawn" ou similaire dans tes JSON
+            GameLogger.log(
+                Translator.translate(
+                    "events.trader_spawn",
+                    city_name=self.name,
+                    count=len(my_traders) + 1,
+                    max=max_allowed
+                )
+            )

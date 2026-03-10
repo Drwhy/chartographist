@@ -17,30 +17,33 @@
       "name": "Empire",
       "city": "🏰", "village": "🏡", "port": "⚓", "road": ". ",
       "settler_emoji": "🚶", "hunter_emoji": "🏹","fisherman_emoji": "🎣","boat_emoji": "🛶","food": "🍖",
+      "trader_emoji": "🪙",
       "naming": {
-        "prefixes": ["Valer", "Luc", "Aurel", "Sever", "Marc", "Tiber", "August"],
-        "suffixes_person": ["ius", "ian", "us", "ander"],
-        "suffixes_place": ["ia", "ium", "burg", "polis", "castel"]
+        "prefixes": ["Valer", "Luc", "Aurel", "Sever", "Marc", "Tiber", "August", "Septim", "Flav", "Clod", "Corn", "Domi", "Grat", "Hadri", "Iul", "Livi", "Maxi", "Nerv", "Octav", "Quin", "Tull", "Vespas", "Traj", "Aemil", "Anto"],
+        "suffixes_person": ["ius", "ian", "us", "ander", "inus", "entis", "onius", "erius", "atus", "icus", "illa", "ina", "orix"],
+        "suffixes_place": ["ia", "ium", "burg", "polis", "castel", "orum", "vallis", "fons", "mons", "portus", "briga", "acum", "aria"]
       }
     },
     {
       "name": "Sultanat",
       "city": "🕌", "village": "🧱", "port": "🛶", "road": "° ",
       "settler_emoji": "🐪", "hunter_emoji": "🏹", "fisherman_emoji": "🎣","boat_emoji": "🛶","food": "🥙",
+      "trader_emoji": "🪙",
       "naming": {
-        "prefixes": ["Al", "Zar", "Sul", "Oman", "Khel", "Bakir", "Emir"],
-        "suffixes_person": ["'jin", " al-Din", " ahad", " emir"],
-        "suffixes_place": [" bazar", " oasis", " kash", " abad", " dar"]
+        "prefixes": ["Al", "Zar", "Sul", "Oman", "Khel", "Bakir", "Emir", "Mansu", "Rash", "Zay", "Ibr", "Sal", "Hak", "Far", "Qas", "Uth", "Nas", "Mal", "Jal", "Hab", "Must", "Ami", "Yus", "Ham", "Zaid"],
+        "suffixes_person": ["'jin", " al-Din", " ahad", " emir", " bashir", " i-Azam", " ud-Daula", " allah", " zadeh", " khan", " fari", " din", " sani"],
+        "suffixes_place": [" bazar", " oasis", " kash", " abad", " dar", " stan", " gahr", " saray", " medina", " uq", " masjed", " bab", " qila"]
       }
     },
     {
       "name": "Dynastie",
       "city": "🏯", "village": "🏮", "port": "⛵", "road": "+ ",
       "settler_emoji": "👨‍🌾", "hunter_emoji": "🏹","fisherman_emoji": "🎣","boat_emoji": "🛶","food": "🍱",
+      "trader_emoji": "🪙",
       "naming": {
-        "prefixes": ["Han", "Xian", "Zhen", "Kuan", "Lao", "Jin", "Yuan"],
-        "suffixes_person": ["-Ho", "-Do", "-Ti", "-Shen"],
-        "suffixes_place": ["-Do", " Shan", " Zhou", " Gwan", " Hei"]
+        "prefixes": ["Han", "Xian", "Zhen", "Kuan", "Lao", "Jin", "Yuan", "Feng", "Zhao", "Kang", "Shun", "Ming", "Qing", "Sheng", "Tao", "Wun", "Xue", "Yue", "Ling", "Gao", "Ryu", "Ken", "Shi", "Cho", "Hao"],
+        "suffixes_person": ["-Ho", "-Do", "-Ti", "-Shen", "-An", "-Ru", "-Po", "-Wu", "-Xi", "-Mei", "-Long", "-Zhi", "-Fan"],
+        "suffixes_place": ["-Do", " Shan", " Zhou", " Gwan", " Hei", " Kyo", " Ji", " Men", " Hai", " Wan", " Jima", " Maru", " Hara"]
       }
     },
     {
@@ -48,9 +51,9 @@
       "city": "🛖", "village": "⛺", "port": "⛵", "road": "  ",
       "settler_emoji": "🧗", "hunter_emoji": "🏹","fisherman_emoji": "🎣","boat_emoji": "🛶","food": "🥩",
       "naming": {
-        "prefixes": ["Bjorn", "Grim", "Thor", "Ulf", "Ragn", "Sig", "Skarde"],
-        "suffixes_person": ["son", "ir", "ald", "sen"],
-        "suffixes_place": ["gard", "heim", "stad", "vik", "fjord"]
+        "prefixes": ["Bjorn", "Grim", "Thor", "Ulf", "Ragn", "Sig", "Skarde", "Hald", "Erik", "Gunn", "Ivar", "Leif", "Olaf", "Sven", "Ketil", "Arne", "Egil", "Fro", "Hrolf", "Vid", "Agn", "Knud", "Yng", "Torv", "Bram"],
+        "suffixes_person": ["son", "ir", "ald", "sen", "bjorg", "und", "gar", "kell", "grim", "unn", "thorp", "stein", "borg"],
+        "suffixes_place": ["gard", "heim", "stad", "vik", "fjord", "holm", "lund", "by", "berg", "ey", "ness", "thwait", "toft"]
       }
     }
   ],

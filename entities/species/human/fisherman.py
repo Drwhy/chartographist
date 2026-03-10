@@ -115,17 +115,6 @@ class Fisherman(Human):
         if scored_moves:
             self.pos = max(scored_moves, key=lambda m: m[1])[0]
 
-    def _get_accessible_neighbors(self, world):
-        """Retourne les cases : Terre ferme OU Eau peu profonde (>-0.4)."""
-        neighbors = []
-        for dx, dy in [(0,0), (0,1), (0,-1), (1,0), (-1,0)]:
-            nx, ny = self.x + dx, self.y + dy
-            if 0 <= nx < world['width'] and 0 <= ny < world['height']:
-                h = world['elev'][ny][nx]
-                if h > -0.4: # Limite de navigation pour une barque
-                    neighbors.append((nx, ny))
-        return neighbors
-
     def update(self, world, stats):
         if self.is_expired:
             return

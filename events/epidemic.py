@@ -36,41 +36,59 @@ class Epidemic(BaseEvent):
             if getattr(e, 'is_infected', False) and not e.is_expired:
                 self._update_infection(e, world)
 
-    def _update_infection(self, city, world):
+    def _update_infection(self, entity, world):
+        """
+        Gère l'évolution de la maladie pour une entité (Cité ou Humain).
+        """
         from entities.constructs.ruins import Ruins
+        from entities.species.human.base import Human
 
-        city.infection_turns += 1
+        # On initialise le compteur si c'est le premier tour
+        if not hasattr(entity, 'infection_turns'):
+            entity.infection_turns = 0
+        entity.infection_turns += 1
 
-        # 1. MORTALITÉ ACCRUE
-        # On passe à 20-25% de décès chez les infectés à chaque tour
-        mortality_rate = 0.22
-        deaths = int(city.infected_count * mortality_rate)
-        city.population -= deaths
-        city.infected_count -= deaths
+        # --- CAS 1 : L'ENTITÉ EST UN HUMAIN (Marchand, Chasseur, etc.) ---
+        if isinstance(entity, Human):
+            # 1. Émission de peur : Les autres sentent qu'il est malade
+            world['influence'].add_influence(entity.x, entity.y, value=-5.0, radius=1)
 
-        # 2. PROPAGATION (Vitesse de contagion)
-        transmission_rate = 0.4  # Un malade infecte 0.4 personne par tour
-        new_cases = int(city.infected_count * transmission_rate)
-        city.infected_count = min(city.population, city.infected_count + new_cases)
+            # 2. Chance de mort subite (Létalité mobile)
+            # Un humain a moins de "réserves" qu'une ville
+            if RandomService.random() < 0.05: # 15% de chance de mourir par tour
+                entity.is_expired = True
+                GameLogger.log(Translator.translate("events.human_epidemic_death", name=entity.name))
+                return
 
-        # 3. RÉSORPTION RÉALISTE (La courbe en cloche)
-        # Au lieu d'une montée linéaire immédiate, on rend la guérison rare au début.
-        # On utilise une chance fixe très basse, qui n'augmente qu'après 20 tours.
-        if city.infection_turns < 20:
-           cure_chance = 0.01  # Quasi impossible de guérir au début
+            # 3. Chance de guérison (Système immunitaire)
+            if RandomService.random() < 0.05:
+                entity.is_infected = False
+                entity.infection_turns = 0
+
+        # --- CAS 2 : L'ENTITÉ EST UNE CITÉ (Ton code original adapté) ---
         else:
-           # Augmente très lentement après le pic
-           cure_chance = 0.01 + ((city.infection_turns - 20) * 0.005)
+            # On garde ta logique de mortalité de masse
+            mortality_rate = 0.22
+            deaths = int(entity.infected_count * mortality_rate)
+            entity.population -= deaths
+            entity.infected_count -= deaths
 
-        # Tentative de guérison
-        if RandomService.random() < cure_chance or city.infected_count <= 0:
-           city.is_infected = False
-           city.infected_count = 0
-           GameLogger.log(Translator.translate("events.epidemic_end", name=city.name))
+            # Propagation interne
+            transmission_rate = 0.4
+            new_cases = int(entity.infected_count * transmission_rate)
+            entity.infected_count = min(entity.population, entity.infected_count + new_cases)
 
-        # 4. TRANSFORMATION EN RUINES
-        if city.population <= 10:
-           ruin = Ruins(city.x, city.y, city.culture, city.config, city.name)
-           world['entities'].add(ruin)
-           city.is_expired = True
-           GameLogger.log(Translator.translate("events.epidemic_death", name=city.name))
+            # Courbe de guérison
+            cure_chance = 0.01 if entity.infection_turns < 20 else 0.01 + ((entity.infection_turns - 20) * 0.005)
+
+            if RandomService.random() < cure_chance or entity.infected_count <= 0:
+                entity.is_infected = False
+                entity.infected_count = 0
+                GameLogger.log(Translator.translate("events.epidemic_end", name=entity.name))
+
+            # Ruines
+            if entity.population <= 10:
+                ruin = Ruins(entity.x, entity.y, entity.culture, entity.config, entity.name)
+                world['entities'].add(ruin)
+                entity.is_expired = True
+                GameLogger.log(Translator.translate("events.epidemic_death", name=entity.name))
