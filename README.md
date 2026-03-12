@@ -63,34 +63,57 @@ Controls during simulation:
     Ctrl+C: Stop the simulation and display the Final Chronicles (world statistics).
 
 🛠️ Project Structure
-Plaintext
 
+```
 chartographist/
 ├── core/
-│   ├── random_service.py   # Centralized determinism service
-│   ├── translator.py       # Multi-language support (EN, FR, ES)
-│   └── logger.py           # Global world event tracking
+│   ├── discovery_service.py # Shared world knowledge for entities
+│   ├── entities.py          # Base Entity class & Z-Index constants
+│   ├── logger.py            # Global event logging system
+│   ├── naming.py            # Procedural name generator
+│   ├── random_service.py    # Centralized deterministic PRNG
+│   └── translator.py        # I18n engine (Supporting EN, FR, ES)
 ├── entities/
 │   ├── species/
-│   │   ├── human/          # Settlers, Hunters, Fishermen, Traders
-│   │   └── animal/         # Wolves, Bears, Fish, Sharks
-│   └── constructs/         # Cities, Villages, Ruins, Roads
+│   │   ├── human/
+│   │   │   ├── base.py      # Human base class & shared AI logic
+│   │   │   ├── fisherman.py # Coastal resource gathering
+│   │   │   ├── hunter.py    # Predator control & food supply
+│   │   │   ├── settler.py   # Expansion & village foundation
+│   │   │   └── trader.py    # Inter-city economy & plague vector
+│   │   └── animal/
+│   │       ├── base.py      # Predator/Prey & Heatmap navigation
+│   │       ├── bear.py      # Highland territorial predator
+│   │       ├── deer.py      # Lowland herbivore (prey)
+│   │       ├── eagle.py     # High-altitude flying predator
+│   │       ├── fish.py      # Aquatic prey
+│   │       ├── shark.py     # Deep-sea predator
+│   │       └── wolf.py      # Pack-hunter (plains)
+│   ├── constructs/
+│   │   ├── base.py          # Construct base & Cultural Drift logic
+│   │   ├── city.py          # Expansion hubs & growth logic
+│   │   ├── ruins.py         # Abandoned settlement markers
+│   │   └── village.py       # Early-stage settlements
+│   ├── special/
+│   │   └── ufo.py           # Special event actor (Abductions)
+│   ├── registry.py          # Global entity categorization decorators
+│   └── spawn_system.py      # Fauna regulation & initial seeding
 ├── events/
-│   ├── event_manager.py    # Global orchestrator (Plagues, UFOs, Volcanoes)
-│   └── base_event.py       # Abstract event interface
+│   ├── abduction.py         # UFO spawning logic
+│   ├── base_event.py        # Abstract event interface
+│   ├── epidemic.py          # Disease spread & mortality logic
+│   ├── event_manager.py     # Global event orchestrator
+│   └── volcano.py           # Tectonic disaster logic
+├── history/
+│   └── history_engine.py    # Road generation & world chronicles
+├── locales/
+│   ├── textes.en.json       # English localization
+│   ├── textes.es.json       # Spanish localization
+│   └── textes.fr.json       # French localization
 ├── render/
-│   └── render_engine.py    # UI/UX, Map rendering, and Biome logic
-└── main.py                 # Simulation entry point
+│   └── render_engine.py     # ASCII/Emoji UI & Biome visualization
+└── main.py                  # Simulation entry point
+```
 
-⚖️ Combat Balancing
-
-The combat resolution follows a specific formula based on the entity's danger_level:
-Victory:roll>(0.6+2danger​)
-Flee:roll>danger
-Defeat:roll≤danger
-Animal	Danger	Type
-🐺 Wolf	0.3	Terrestrial
-🐻 Bear	0.8	Terrestrial
-🦈 Shark	0.7	Aquatic
 
 Developed with ❤️ by Drwhy
