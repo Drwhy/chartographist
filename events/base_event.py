@@ -1,16 +1,30 @@
 class BaseEvent:
+    """
+    Abstract base class for all global simulation events.
+    Defines the standard interface for triggers, conditions, and maintenance ticks.
+    """
     name = "Base Event"
-    chance = 0.001  # Probabilité par tour
+    chance = 0.001  # Probability of triggering per simulation tick
 
     @staticmethod
     def condition(world, stats):
-        """Vérifie si l'événement PEUT se produire."""
+        """
+        Validates if the environmental conditions allow this event to occur.
+        Returns:
+            bool: True if the event can trigger, False otherwise.
+        """
         return True
 
     @staticmethod
-    def trigger(world, stats):
-        """Exécute l'événement."""
+    def trigger(world, stats, config):
+        """
+        Executes the main logic of the event (e.g., spawning fires, starting plagues).
+        """
         pass
+
     def tick(self, world, stats):
-        """Optionnel : Logique de maintenance à chaque tour (ex: dissipation)."""
+        """
+        Optional: Logic executed every turn regardless of whether the event triggers.
+        Useful for lingering effects like heat dissipation or disease progression.
+        """
         pass

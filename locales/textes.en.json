@@ -1,0 +1,46 @@
+{
+  "events": {
+    "volcano_start": "🌋 ALERT: A chain of {count} volcanoes has awakened!",
+    "volcano_ruin": "🔥 The eruption has ravaged the city of {name}.",
+    "volcano_kill": "🔥 The eruption killed {name}.",
+    "epidemic_start": "🦠 ALERT: A black plague has been reported in {name}!",
+    "epidemic_end": "💊 The epidemic has finally died out in {name} after heavy losses.",
+    "epidemic_death": "💀 {name} is now nothing more than an open-air graveyard.",
+    "epidemic_spread": "☣️ The merchant {merchant_name} has brought the black plague to {city_name}! The population is declining.",
+    "human_epidemic_death": "💀 {name} succumbed to the plague while traveling.",
+    "hunt_success": "🗡️ {hunter_name} has taken down a {prey_name}!",
+    "hunt_flee": "🏃 {hunter_name} repelled the {prey_name}.",
+    "hunt_fail": "🍴 A {hunter_name} devoured {prey_name}.",
+    "fishing_success": "{fisherman_char} {fisherman_name} from {fisherman_city} brought back a great catch!",
+    "hunt_food_delivery": "🏠 {hunter_name} delivered meat. {hunter_city_name} gains {new_pop} inhabitants.",
+    "hunter_mission_success": "🏹 {hunter_name} brings game ({species}) back to {hunter_city_name}.",
+    "hunter_secure_city": "🛡️ {hunter_name} eliminated a threat ({species}) to secure {hunter_city_name}.",
+    "settler_lost": "💀 A group of settlers from {settler_city_name} got lost in the wildlands.",
+    "settler_found_village": "{new_village_char}️  New village of {new_village_name} founded! A road connects it to {home_city_name}.",
+    "settler_found_village_independant": "{new_village_char}️  The independent village of {new_village_name} has been founded.",
+    "abduction_start": "🛸 A strange glow descends from the sky... {name} has vanished!",
+    "abduction_end": "✨ {name} reappeared in a field, looking confused.",
+    "trader_spawn": "📦 {city_name} has commissioned a new merchant.",
+    "trade_success": "💰 Trade established between {home_city} and {target_city} (+{bonus} pop)",
+    "cultural_mutation": "🎭 {name} has adopted the customs of {new_culture} (formerly {old_culture})."
+  },
+  "entities": {
+    "city_founded": "🏛️  The primordial city of {name} was founded at ({x}, {y}).",
+    "settler_spawn": "🚶 Overpopulated! A group of settlers leaves {name} for the unknown.",
+    "ruins_desc": "🏚️ {name} has been abandoned."
+  },
+  "ui": {
+    "chronicles_title": " 📜 CHRONICLES OF {world_name}",
+    "end_year": " 📅 Simulation End: Year {year}",
+    "cities_count": " 🏙️  Cities founded: {count}",
+    "villages_count": " 🏠 Active villages: {count}",
+    "fauna_count": " 🐾 Remaining fauna: {count}",
+    "seed_info": " 🌱 Seed used: {seed}",
+    "header_line_1": "--- 🗺️  {name} | YEAR: {year} | 🏛️  STRUCTURES: {structs} ---",
+    "header_line_2": "🏹 HUMANS: {humans} | 🐾 FAUNA: {fauna} | 🌱 SEED: {seed}"
+  },
+  "system": {
+    "user_interrupt": "🛑 Simulation interrupted by user.",
+    "world_init": "🌍 The world has awakened (Seed: {seed_val})"
+  }
+}

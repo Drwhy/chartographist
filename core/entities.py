@@ -1,33 +1,39 @@
-# Échelle de priorité d'affichage (Z-Index)
-# Plus la valeur est élevée, plus l'entité s'affiche "au-dessus" des autres.
-Z_FLOOR = 0      # Biomes, Eau (géré par le moteur de rendu)
-Z_DECOR = 10     # Routes, Ruines, Arbres morts
-Z_CONSTRUCT = 20 # Villes, Villages, Ports
-Z_ANIMAL = 30    # Loups, Ours, Poissons
-Z_HUMAN = 40     # Chasseurs, Pêcheurs, Colons
-Z_EFFECT = 50    # Sang, Explosions, Fumée
+# Display Priority Scale (Z-Index)
+# Higher values render "on top" of others.
+Z_FLOOR = 0      # Biomes, Water (Handled by the rendering engine)
+Z_DECOR = 10     # Roads, Ruins, Dead Trees
+Z_CONSTRUCT = 20 # Cities, Villages, Ports
+Z_ANIMAL = 30    # Wolves, Bears, Fish
+Z_HUMAN = 40     # Hunters, Fishermen, Settlers
+Z_EFFECT = 50    # Blood, Explosions, Smoke
 
 class Entity:
+    """
+    Base class for all interactive objects in the simulation.
+    Handles positioning, energy accumulation (speed), and influence.
+    """
     def __init__(self, x, y, char, z_index, speed):
-        # On utilise une liste interne pour la mutabilité,
-        # mais on expose une propriété pour la sécurité.
+        # Internal list for mutability, exposed via properties for safety.
         self._pos = [x, y]
         self.char = char
-        self.is_expired = False # Sera utilisé pour supprimer l'entité proprement
-        self.z_index = z_index #height on the map
+        self.is_expired = False
+        self.z_index = z_index
         self.speed = speed
         self.action_meter = 0.0
+
     @property
     def can_act(self):
+        """Checks if the entity has accumulated enough energy to perform an action."""
         return self.action_meter >= 1.0
+
     @property
     def pos(self):
-        """Retourne la position sous forme de tuple (x, y) pour le rendu."""
+        """Returns position as a (x, y) tuple for rendering and distance calculations."""
         return tuple(self._pos)
 
     @pos.setter
     def pos(self, value):
-        """Permet de mettre à jour la position proprement."""
+        """Updates internal position coordinates."""
         self._pos = list(value)
 
     @property
@@ -35,98 +41,110 @@ class Entity:
 
     @property
     def y(self): return self._pos[1]
+
     def update(self, world, stats):
-        """À définir dans les classes filles (Hunter, Wolf, etc.)"""
+        """Main logic loop: defines how an entity thinks and acts during a turn."""
         if self.is_expired:
             return
 
-        # 1. On réfléchit (trouver une proie, etc.)
+        # 1. Thought phase (finding targets, assessing threats)
         self.think(world)
 
-        # 2. On agit (bouger, attaquer)
+        # 2. Action phase (moving, attacking, interacting)
         self.perform_action(world)
+
     def think(self, world):
-        """À définir dans les classes filles (Hunter, Wolf, etc.)"""
+        """Logic implementation for child classes (AI/Behavior)."""
         pass
 
     def perform_action(self, world):
-        """À définir dans les classes filles"""
+        """Action implementation for child classes."""
         pass
+
     def get_defense_power(self):
-        """By default no defense"""
+        """Returns defensive strength. 0.0 by default."""
         return 0.0
+
     @property
     def is_edible(self):
-        """Par défaut, une entité n'est pas comestible (ex: rochers, bâtiments)."""
+        """Defines if the entity can be consumed as food."""
         return False
+
     @property
     def danger_level(self):
-        """0.0 = Inoffensif, >0.5 = Effrayant pour les proies."""
+        """0.0 = Harmless, >0.5 = Threatening to prey."""
         return 0.0
+
     def is_in_water(self, world):
-        """Vérifie si l'entité est sur une case d'élévation négative."""
+        """Checks if the entity's current elevation is below sea level."""
         return world['elev'][self.y][self.x] < 0
+
     @property
     def food_value(self):
-        """Valeur de croissance apportée à la cité. 0 par défaut."""
+        """Growth value provided to a city when consumed or harvested."""
         return 0
+
     @property
     def is_flying(self):
-        """Par défaut, personne ne vole."""
+        """Standard entities are ground-based by default."""
         return False
+
     @property
     def is_aquatic(self):
-        """Par défaut, les entités ne sont pas purement aquatiques."""
+        """Standard entities are terrestrial by default."""
         return False
+
     def update_influence(self, world):
-        """Gère l'empreinte de l'entité sur la heatmap mondiale."""
+        """Projects the entity's danger or attraction onto the global influence heatmap."""
         if self.is_expired:
             return
 
-        # On récupère le niveau de danger (ou d'attrait) de l'entité
-        # getattr par sécurité si une entité n'a pas encore de danger_level
         danger = getattr(self, 'danger_level', 0)
 
         if danger > 0:
-            # Formule : Plus c'est dangereux, plus c'est négatif (répulsion)
+            # Dangerous entities push others away (negative influence)
             value = danger * -5.0
             radius = int(danger * 5) + 1
-
             world['influence'].add_influence(self.x, self.y, value, radius)
+
     def process_turn(self, world, stats):
         """
-        Gère l'accumulation d'énergie et déclenche l'update
-        uniquement quand l'entité est prête.
+        Accumulates energy based on speed.
+        Triggers update() multiple times if energy exceeds 1.0 (multi-action ticks).
         """
         if self.is_expired:
             return
 
         self.action_meter += self.speed
 
-        # Tant qu'on a assez d'énergie, on agit
         while self.action_meter >= 1.0:
             self.update(world, stats)
             self.action_meter -= 1.0
+
 class EntityManager:
+    """
+    Collection manager for all entities.
+    Handles spawning, cleanup of dead entities, and iteration.
+    """
     def __init__(self):
         self.entities = []
 
     def add(self, entity):
+        """Adds a new entity to the simulation."""
         if entity:
             self.entities.append(entity)
 
     def remove_dead(self):
-            """Supprime définitivement les entités marquées comme expirées."""
-            initial_count = len(self.entities)
-            # On ne garde que les entités qui n'ont PAS is_expired à True
-            self.entities = [e for e in self.entities if not getattr(e, 'is_expired', False)]
+        """Permanently deletes entities marked as expired."""
+        initial_count = len(self.entities)
+        self.entities = [e for e in self.entities if not getattr(e, 'is_expired', False)]
+        return initial_count - len(self.entities)
 
-            # Optionnel : renvoyer le nombre de morts pour le log
-            return initial_count - len(self.entities)
     def remove(self, entity):
-        """Supprime une entité de la collection."""
-        if entity in self.entities: # En supposant que tu stockes dans self.entities
+        """Manual removal of a specific entity."""
+        if entity in self.entities:
             self.entities.remove(entity)
+
     def __iter__(self):
         return iter(self.entities)
 

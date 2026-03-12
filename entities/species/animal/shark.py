@@ -6,23 +6,24 @@ from core.random_service import RandomService
 class Shark(Animal):
     def __init__(self, x, y, culture, config, species_data):
         super().__init__(x, y, culture, config, species_data)
-        # Configuration spécifique si non présente dans le JSON
+        # Specific configuration if not present in the JSON
         self.perception_range = species_data.get('perception_range', 8)
 
     @staticmethod
     def try_spawn(x, y, world, config):
-        """Le requin apparaît dans les eaux plus profondes que le poisson."""
+        """The shark appears in deeper waters than the fish."""
         species_data = next((f for f in config['fauna'] if f['species'] == 'shark'), None)
         h = world['elev'][y][x]
-        # Il préfère l'océan (-0.6) au rivage (0)
+        # It prefers the ocean (-0.6) over the shore (0)
         if -0.8 < h < -0.3:
-            if RandomService.random() < 0.2: # Rare
+            if RandomService.random() < 0.2: # Rare spawn chance
                 return Shark(x, y, None, config, species_data)
         return None
 
-    # --- Propriétés de milieu ---
+    # --- Environmental Properties ---
     @property
     def is_aquatic(self):
+        """Restricts movement strictly to deep water tiles."""
         return True
 
     @property
@@ -31,7 +32,8 @@ class Shark(Animal):
 
     @property
     def danger_level(self):
-        return 0.8  # Provoque une forte répulsion sur la Heatmap
+        """Causes strong repulsion on the Heatmap (fear factor)."""
+        return 0.8
 
     @property
     def food_value(self):

@@ -1,31 +1,40 @@
-# core/services/discovery_service.py
+import math
 from entities.registry import STRUCTURE_TYPES
 from entities.constructs.ruins import Ruins
 
 class DiscoveryService:
+    """
+    Handles global geographic intelligence and settlement tracking.
+    Centralizes shared knowledge between all human entities.
+    """
+
     @staticmethod
     def get_known_settlements(world):
         """
-        Retourne la liste des cités actives et habitées.
-        Centralise l'intelligence partagée entre les humains.
+        Returns a list of active, inhabited, and non-ruined settlements.
+        Acts as the primary registry for trade and expansion targets.
         """
         return [
-            e for e in world['entities']
-            if type(e) in STRUCTURE_TYPES
-            and not e.is_expired
-            and not isinstance(e, Ruins)
-            and getattr(e, 'population', 0) > 0
+            entity for entity in world['entities']
+            if type(entity) in STRUCTURE_TYPES
+            and not entity.is_expired
+            and not isinstance(entity, Ruins)
+            and getattr(entity, 'population', 0) > 0
         ]
 
     @staticmethod
     def get_nearest_settlement(origin_pos, world, exclude=None):
-        """Trouve la cité la plus proche, utile pour les replis d'urgence."""
-        cities = DiscoveryService.get_known_settlements(world)
-        if exclude:
-            cities = [c for c in cities if c != exclude]
+        """
+        Finds the closest valid settlement to a specific position.
+        Used for emergency retreats or localized pathfinding.
+        """
+        settlements = DiscoveryService.get_known_settlements(world)
 
-        if not cities:
+        if exclude:
+            settlements = [s for s in settlements if s != exclude]
+
+        if not settlements:
             return None
 
-        import math
-        return min(cities, key=lambda c: math.dist(origin_pos, c.pos))
+        # Distance calculation using the provided origin point
+        return min(settlements, key=lambda s: math.dist(origin_pos, s.pos))

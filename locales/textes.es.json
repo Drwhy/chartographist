@@ -1,0 +1,46 @@
+{
+  "events": {
+    "volcano_start": "🌋 ALERTA: ¡Una cadena de {count} volcanes ha despertado!",
+    "volcano_ruin": "🔥 La erupción ha devastado la ciudad de {name}.",
+    "volcano_kill": "🔥 La erupción mató a {name}.",
+    "epidemic_start": "🦠 ALERTA: ¡Se ha reportado la peste negra en {name}!",
+    "epidemic_end": "💊 La epidemia finalmente se ha extinguido en {name} tras graves pérdidas.",
+    "epidemic_death": "💀 {name} no es más que un cementerio a cielo abierto.",
+    "epidemic_spread": "☣️ ¡El mercader {merchant_name} ha traído la peste negra a {city_name}! La población está en declive.",
+    "human_epidemic_death": "💀 {name} sucumbió a la peste en pleno viaje.",
+    "hunt_success": "🗡️ ¡{hunter_name} ha abatido un {prey_name}!",
+    "hunt_flee": "🏃 {hunter_name} ahuyentó al {prey_name}.",
+    "hunt_fail": "🍴 Un {hunter_name} devoró a {prey_name}.",
+    "fishing_success": "¡{fisherman_char} {fisherman_name} de {fisherman_city} ha traído una buena pesca!",
+    "hunt_food_delivery": "🏠 {hunter_name} entregó carne. {hunter_city_name} gana {new_pop} habitantes.",
+    "hunter_mission_success": "🏹 {hunter_name} trae caza ({species}) a {hunter_city_name}.",
+    "hunter_secure_city": "🛡️ {hunter_name} eliminó una amenaza ({species}) para asegurar {hunter_city_name}.",
+    "settler_lost": "💀 Un grupo de colonos de {settler_city_name} se perdió en las tierras salvajes.",
+    "settler_found_village": "{new_village_char}️ ¡Nuevo pueblo de {new_village_name} fundado! Un camino lo conecta con {home_city_name}.",
+    "settler_found_village_independant": "{new_village_char}️ Se ha fundado el pueblo independiente de {new_village_name}.",
+    "abduction_start": "🛸 Un brillo extraño baja del cielo... ¡{name} ha desaparecido!",
+    "abduction_end": "✨ {name} reapareció en un campo, luciendo confundido.",
+    "trader_spawn": "📦 {city_name} ha fletado un nuevo mercader.",
+    "trade_success": "💰 Comercio establecido entre {home_city} y {target_city} (+{bonus} pop)",
+    "cultural_mutation": "🎭 {name} ha adoptado las costumbres de {new_culture} (antes {old_culture})."
+  },
+  "entities": {
+    "city_founded": "🏛️ La ciudad primordial de {name} fue fundada en ({x}, {y}).",
+    "settler_spawn": "🚶 ¡Superpoblación! Un grupo de colonos parte de {name} hacia lo desconocido.",
+    "ruins_desc": "🏚️ {name} ha sido abandonado."
+  },
+  "ui": {
+    "chronicles_title": " 📜 CRÓNICAS DE {world_name}",
+    "end_year": " 📅 Fin de la simulación: Año {year}",
+    "cities_count": " 🏙️ Ciudades fundadas: {count}",
+    "villages_count": " 🏠 Pueblos activos: {count}",
+    "fauna_count": " 🐾 Fauna restante: {count}",
+    "seed_info": " 🌱 Semilla utilizada: {seed}",
+    "header_line_1": "--- 🗺️ {name} | AÑO: {year} | 🏛️ ESTRUCTURAS: {structs} ---",
+    "header_line_2": "🏹 HUMANOS: {humans} | 🐾 FAUNA: {fauna} | 🌱 SEMILLA: {seed}"
+  },
+  "system": {
+    "user_interrupt": "🛑 Simulación interrumpida por el usuario.",
+    "world_init": "🌍 El mundo ha despertado (Semilla: {seed_val})"
+  }
+}

@@ -5,15 +5,18 @@ from core.random_service import RandomService
 @register_wild
 class Bear(Animal):
     def __init__(self, x, y, culture, config, species_data):
-        # C'est cette ligne qui crée self.target en appelant Animal.__init__
+        # This line creates self.target by calling Animal.__init__
         super().__init__(x, y, culture, config, species_data)
-        # Tu peux ensuite ajouter des spécificités au loup
-        self.perception_range = 3 # Un loup a un meilleur flair que l'animal de base
+
+        # Specific traits for the bear
+        self.perception_range = 3  # A bear has better scent tracking than the base animal
         self.danger = 0.8
+
     @staticmethod
     def try_spawn(x, y, world, config):
-        """L'ours apparaît en haute altitude."""
+        """The bear appears at high altitudes."""
         h = world['elev'][y][x]
+        # Check for mountain/highland elevation and spawn chance
         if 0.5 < h < 0.85 and RandomService.random() < 0.05:
             species_data = next((f for f in config['fauna'] if f['species'] == 'bear'), None)
             if species_data:
@@ -22,7 +25,8 @@ class Bear(Animal):
 
     @property
     def danger_level(self):
-        return 0.8  # Très effrayant
+        return 0.8  # Very frightening
+
     @property
     def food_value(self):
         return RandomService.randint(15, 30)

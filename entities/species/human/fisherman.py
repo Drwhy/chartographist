@@ -8,42 +8,42 @@ from core.translator import Translator
 @register_civ
 class Fisherman(Human):
     def __init__(self, x, y, culture, config, home_pos, home_city):
-        # Initialisation via Actor (gère culture et config)
+        # Initialization via Actor (handles culture and config)
         super().__init__(x, y, culture, config, 1)
-        # Attributs d'identité
+        # Identity attributes
         self.home_pos = home_pos
         self.home_city = home_city
-        # Visuels (Emojis)
+        # Visuals (Emojis)
         self.land_char = culture.get("fisherman_emoji", "🎣")
         self.boat_char = culture.get("boat_emoji", "🛶")
         self.char = self.land_char
-        # Logique métier
+        # Business logic
         self.target = None
         self.fishing_cooldown = 0
-        self.perception_range = 12  # Bonne vue sur l'horizon marin
-        self.fear_sensitivity = 4.0 # Très prudent (une barque coule vite !)
+        self.perception_range = 12  # Good view of the sea horizon
+        self.fear_sensitivity = 4.0 # Very cautious (a small boat sinks fast!)
 
     def think(self, world):
-        """Phase de décision (Cerveau)."""
+        """Decision phase (Brain)."""
         if self.fishing_cooldown > 0:
             self.fishing_cooldown -= 1
             return
 
-        # 1. Mise à jour visuelle selon le terrain
+        # 1. Visual update based on terrain
         self._update_status(world)
 
-        # 2. Recherche de cible si nécessaire
+        # 2. Search for target if necessary
         if not self.target or self.target.is_expired:
             self._find_best_fishing_spot(world)
 
     def perform_action(self, world):
-        """Phase d'exécution (Corps)."""
+        """Execution phase (Body)."""
         if self.fishing_cooldown > 0:
             return
 
         if self.target:
             dist = math.dist(self.pos, self.target.pos)
-            # Portée de pêche (2 cases)
+            # Fishing range (2 tiles)
             if dist <= 2.1:
                 self._fish_action(world)
             else:
@@ -52,7 +52,7 @@ class Fisherman(Human):
             self._wander_on_coast(world)
 
     def _find_best_fishing_spot(self, world):
-        """Cherche soit un poisson visible, soit une zone riche en 'Scent' aquatique."""
+        """Searches for either a visible fish or a spot rich in aquatic 'Scent'."""
         aquatic_preys = [
             e for e in world['entities']
             if getattr(e, 'is_edible', False) and getattr(e, 'is_aquatic', False) and not e.is_expired
@@ -66,10 +66,10 @@ class Fisherman(Human):
                 dist = math.dist(self.pos, fish.pos)
                 if dist > self.perception_range: continue
 
-                # On évalue la sécurité du spot (peur des requins/lave)
+                # Evaluate spot safety (fear of sharks/lava)
                 fear = world['influence'].get_fear(fish.x, fish.y)
 
-                # Score = Proximité + Sécurité
+                # Score = Proximity + Safety
                 score = (1 - (dist / self.perception_range)) + (fear * 2.0)
 
                 if score > max_score:
@@ -79,7 +79,7 @@ class Fisherman(Human):
             self.target = best_spot
 
     def _move_towards_with_safety(self, target_pos, world):
-        """Se déplace vers le poisson en évitant les zones de danger et les abysses."""
+        """Moves toward the fish while avoiding danger zones and deep abysses."""
         possible_moves = self._get_accessible_neighbors(world)
         if not possible_moves: return
 
@@ -90,8 +90,8 @@ class Fisherman(Human):
             dist_to_target = math.dist((nx, ny), target_pos)
             fear = world['influence'].get_fear(nx, ny)
 
-            # On veut réduire la distance mais la PEUR est un multiplicateur de blocage
-            # Si fear < -1.0, on évite activement la case
+            # We want to reduce distance, but FEAR is a blocking multiplier
+            # If fear < -1.0, we actively avoid the tile
             score = (1 - (dist_to_target / 50)) + (fear * self.fear_sensitivity)
 
             if score > max_score:
@@ -101,14 +101,14 @@ class Fisherman(Human):
         self.pos = best_move
 
     def _wander_on_coast(self, world):
-        """Si pas de poisson, suit les odeurs de poisson (Scent) le long des côtes."""
+        """If no fish, follows fish scents (Scent) along the coasts."""
         possible_moves = self._get_accessible_neighbors(world)
         scored_moves = []
 
         for nx, ny in possible_moves:
             fear = world['influence'].get_fear(nx, ny)
             scent = world['influence'].get_scent(nx, ny)
-            # Le pêcheur est attiré par les zones où les poissons passent souvent
+            # The fisherman is attracted to areas where fish pass frequently
             score = (fear * self.fear_sensitivity) + (scent * 1.5)
             scored_moves.append(((nx, ny), score + RandomService.random() * 0.2))
 
@@ -119,35 +119,36 @@ class Fisherman(Human):
         if self.is_expired:
             return
 
-        # 1. Gestion du repos après pêche
+        # 1. Post-fishing rest management
         if self.fishing_cooldown > 0:
             self.fishing_cooldown -= 1
             return
 
-        # 2. Mise à jour de l'apparence selon le terrain
+        # 2. Update appearance according to terrain
         self._update_status(world)
 
-        # 3. Intelligence de recherche
+        # 3. Search intelligence
         if not self.target or self.target.is_expired:
             self._find_prey_in_water(world)
 
-        # 4. Action ou Déplacement
+        # 4. Action or Movement
         if self.target:
-            # --- MODIFICATION ICI : Portée de pêche augmentée à 2 cases ---
+            # --- MODIFICATION: Fishing range increased to 2 tiles ---
             dist_to_fish = math.dist(self.pos, self.target.pos)
 
-            if dist_to_fish <= 2.1: # 2.1 pour couvrir les diagonales de 2 cases
+            if dist_to_fish <= 2.1: # 2.1 to cover 2-tile diagonals
                 self._fish_action(world)
             else:
                 self._move_logic(world, self.target.pos)
         else:
             self._idle_movement(world)
+
     def _fish_action(self, world):
         if self.target and not self.target.is_expired:
             self.target.is_expired = True
-            self.fishing_cooldown = 15 # Un peu plus long pour simuler le temps de pêche
+            self.fishing_cooldown = 15 # Slightly longer to simulate fishing time
 
-            # Livraison directe via la référence home_city
+            # Direct delivery via home_city reference
             boost = RandomService.randint(5, 12)
             self.home_city.population += boost
 
@@ -162,7 +163,7 @@ class Fisherman(Human):
             )
 
     def _update_status(self, world):
-        """Détermine si le pêcheur est à pied ou en barque."""
+        """Determines if the fisherman is on foot or in a boat."""
         h = world['elev'][self.y][self.x]
         if h < 0:
             self.char = self.boat_char
@@ -170,40 +171,39 @@ class Fisherman(Human):
             self.char = self.land_char
 
     def _find_prey_in_water(self, world):
-        """L'aigle cible n'importe quelle entité comestible aquatique."""
-
-        # On cherche les entités qui sont :
-        # 1. Comestibles
-        # 2. Aquatiques
-        # 3. Non expirées
+        """Targets any edible aquatic entity."""
+        # Searching for entities that are:
+        # 1. Edible
+        # 2. Aquatic
+        # 3. Not expired
         aquatic_preys = [
             e for e in world['entities']
             if getattr(e, 'is_edible', False)
-            and e.is_aquatic
+            and getattr(e, 'is_aquatic', False)
             and not e.is_expired
         ]
 
         if aquatic_preys:
-            # L'aigle a une vue perçante, il prend la plus proche
+            # Fishermen have sharp eyes; they take the closest one
             self.target = min(aquatic_preys, key=lambda p: math.dist(self.pos, p.pos))
         else:
             self.target = None
 
     def _move_logic(self, world, target_pos):
-        """Avance vers la cible (Terre ou Eau peu profonde)."""
+        """Moves toward the target (Land or Shallow Water)."""
         tx, ty = target_pos
         dx = 1 if tx > self.x else -1 if tx < self.x else 0
         dy = 1 if ty > self.y else -1 if ty < self.y else 0
         nx, ny = self.x + dx, self.y + dy
         if 0 <= nx < world['width'] and 0 <= ny < world['height']:
             h = world['elev'][ny][nx]
-            # ACCÈS : Terre ferme OU Eau peu profonde (>-0.4)
+            # ACCESS: Dry land OR Shallow water (>-0.4)
             if h > -0.4:
                 self.pos = (nx, ny)
-            # Si c'est des abysses (<-0.4), il ne bouge pas (sécurité)
+            # If it's the abyss (<-0.4), they don't move (safety)
 
     def _idle_movement(self, world):
-        """Flânerie côtière en attendant que le poisson morde."""
+        """Coastal wandering while waiting for a fish to bite."""
         dx, dy = RandomService.choice([(0,1), (0,-1), (1,0), (-1,0), (0,0)])
         nx, ny = self.x + dx, self.y + dy
         if 0 <= nx < world['width'] and 0 <= ny < world['height']:
@@ -212,4 +212,4 @@ class Fisherman(Human):
 
     @property
     def danger_level(self):
-        return 0.3  # Très effrayant
+        return 0.3

@@ -2,21 +2,25 @@ import json
 import os
 
 class Translator:
+    """
+    Static service for handling multi-language support.
+    Loads and parses JSON locale files to provide formatted strings for the UI.
+    """
     _data = {}
 
     @classmethod
     def load(cls, lang="fr"):
-        """Charge le fichier JSON correspondant à la langue."""
+        """Loads the JSON file corresponding to the specified language."""
         file_path = f"locales/textes.{lang}.json"
         if os.path.exists(file_path):
             with open(file_path, 'r', encoding='utf-8') as f:
                 cls._data = json.load(f)
         else:
-            print(f"⚠️ Erreur : Fichier de langue {file_path} introuvable.")
+            print(f"⚠️ Error: Language file {file_path} not found.")
 
     @classmethod
     def translate(cls, path, **kwargs):
-        """Récupère et formate le texte depuis le dictionnaire chargé."""
+        """Retrieves and formats text from the loaded dictionary."""
         keys = path.split('.')
         content = cls._data
         try:

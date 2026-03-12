@@ -1,93 +1,94 @@
 📜 Chartographist
 
-Chartographist est un moteur de simulation de monde procédural en Python, tournant intégralement dans le terminal. Il simule l'évolution d'un écosystème complexe où la géographie, le climat et les formes de vie (humains et animaux) interagissent de manière déterministe.
-🌍 Fonctionnalités principales
-🧬 Génération procédurale & Déterminisme
+Chartographist is a procedural world simulation engine written in Python that runs entirely within your terminal. It simulates the evolution of a complex ecosystem where geography, climate, and lifeforms (humans and animals) interact through deterministic logic.
+🌍 Core Features
+🧬 Procedural Generation & Determinism
 
-    Système de Seed Centralisé : Grâce au RandomService, une même seed générera exactement la même carte, les mêmes déplacements d'animaux et la même évolution de civilisation.
+    Centralized Seeding System: Powered by a custom RandomService, a single seed will generate the exact same map, identical animal movements, and the same civilizational trajectory every time.
 
-    Biomes Dynamiques : Calcul de la température basé sur l'altitude, la latitude et l'inclinaison axiale (saisons).
+    Dynamic Biomes: Advanced terrain generation including temperature calculations based on altitude, latitude, and axial tilt.
 
-    Rendu ASCII/Emoji : Une interface visuelle riche directement dans votre console.
+    ASCII/Emoji Rendering: A rich visual interface delivered directly to your console, optimized for modern terminal emulators.
 
-👥 Civilisation & Acteurs
+👥 Civilization & Actors
 
-    Expansion Intelligente : Les colons fondent des villages qui évoluent en cités selon leur population.
+    Intelligent Expansion: Settlers seek ideal locations to found villages, which dynamically evolve into massive Cities as their population grows.
 
-    Métiers spécialisés :
+    Specialized Roles:
 
-        🏹 Chasseurs : Protègent les villages des prédateurs terrestres.
+        🏹 Hunters: Protect settlements from terrestrial predators and bring back food to boost population.
 
-        🎣 Pêcheurs : Opèrent dans les villages côtiers, capables d'utiliser des barques (🛶) pour traquer les poissons en mer.
+        🎣 Fishermen: Operate in coastal villages, utilizing boats (🛶) to track aquatic prey in open waters.
 
-    Logique de survie : Les acteurs doivent récolter des ressources pour assurer la croissance du village.
+    Survival Logic: All actors must gather resources and navigate environmental hazards to ensure the survival of their home culture.
 
-🦁 Faune & Danger
+🦁 Fauna & Hazards
 
-    Écosystème terrestre : Loups (rapides) et Ours (puissants et territoriaux).
+    Terrestrial Ecosystem: Features high-speed Wolves and powerful, territorial Bears.
 
-    Écosystème marin :
+    Marine Ecosystem:
 
-        🐟 Poissons : Évoluent dans les eaux peu profondes.
+        🐟 Fish: Dwell in shallow waters and serve as a primary food source for coastal cultures.
 
-        🦈 Requins : Prédateurs redoutables qui chassent les poissons et les pêcheurs en barque.
+        🦈 Sharks: Fearsome predators that hunt both fish and fishermen.
 
-    Système de Combat : Basé sur un facteur de dangerosité propre à chaque espèce, avec des issues variées (Victoire, Fuite ou Mort).
+    Combat System: A probability-based resolution system influenced by species-specific danger levels, resulting in various outcomes (Victory, Fleeing, or Death).
 
 🚀 Installation
 
-    Clonez le dépôt :
+    Clone the repository:
     Bash
 
     git clone https://github.com/Drwhy/chartographist.git
     cd chartographist
 
-    Installez les dépendances :
+    Install dependencies:
     Bash
 
     pip install -r requirements.txt
 
-🎮 Utilisation
+🎮 How to Use
 
-Lancez la simulation avec une seed spécifique pour générer un monde unique :
+Launch the simulation with a specific seed to generate a unique world:
 Bash
 
-python main.py [votre_seed]
+python main.py [your_seed]
 
-Si aucune seed n'est fournie, une seed aléatoire sera générée automatiquement.
-Commandes (en cours de simulation) :
+If no seed is provided, a random one will be generated automatically.
 
-    Ctrl+C : Arrêter la simulation et afficher les statistiques finales.
+Controls during simulation:
 
-🛠️ Structure du Projet
+    Ctrl+C: Stop the simulation and display the Final Chronicles (world statistics).
+
+🛠️ Project Structure
 Plaintext
 
 chartographist/
 ├── core/
-│   ├── random_service.py   # Service central de déterminisme
-│   ├── system.py           # Gestion des arguments et config
-│   └── logger.py           # Historique des événements du monde
+│   ├── random_service.py   # Centralized determinism service
+│   ├── translator.py       # Multi-language support (EN, FR, ES)
+│   └── logger.py           # Global world event tracking
 ├── entities/
-│   ├── actors/             # Humains (Settlers, Hunters, Fishermen)
-│   ├── animals/            # Faune (Wolf, Bear, Fish, Shark)
-│   └── constructs/         # Infrastructures (Village, Road)
+│   ├── species/
+│   │   ├── human/          # Settlers, Hunters, Fishermen, Traders
+│   │   └── animal/         # Wolves, Bears, Fish, Sharks
+│   └── constructs/         # Cities, Villages, Ruins, Roads
+├── events/
+│   ├── event_manager.py    # Global orchestrator (Plagues, UFOs, Volcanoes)
+│   └── base_event.py       # Abstract event interface
 ├── render/
-│   └── ui_map.py           # Logique d'affichage et biomes
-└── main.py                 # Point d'entrée de la simulation
+│   └── render_engine.py    # UI/UX, Map rendering, and Biome logic
+└── main.py                 # Simulation entry point
 
-⚖️ Équilibrage du Combat
+⚖️ Combat Balancing
 
-Le système de combat utilise la formule suivante dans Animal.py :
-
-    Victoire : roll > (0.6 + danger / 2)
-
-    Fuite : roll > danger
-
-    Défaite : roll < danger
-
+The combat resolution follows a specific formula based on the entity's danger_level:
+Victory:roll>(0.6+2danger​)
+Flee:roll>danger
+Defeat:roll≤danger
 Animal	Danger	Type
-🐺 Loup	0.3	Terrestre
-🐻 Ours	0.8	Terrestre
-🦈 Requin	0.7	Aquatique
+🐺 Wolf	0.3	Terrestrial
+🐻 Bear	0.8	Terrestrial
+🦈 Shark	0.7	Aquatic
 
-Développé avec ❤️ par Drwhy
+Developed with ❤️ by Drwhy

@@ -14,63 +14,66 @@ class Hunter(Human):
         self.home_pos = home_pos
         self.home_city = home_city
         self.target_prey = None
-        self.land_char = culture.get("hunter_emoji", "🎣")
+        self.land_char = culture.get("hunter_emoji", "🏹")
         self.meat_transportation_char = culture.get("food", "🍖")
         self.char = self.land_char
-        # Nouvel état : transport de nourriture
+
+        # New state: food transportation
         self.has_game = False
         self.range_shot = 2
         self.perception_range = 10
         self.fear_sensitivity = 2.5
+
     def _update_status(self):
-        """Ajuste l'apparence et la vitesse selon la charge."""
+        """Adjusts appearance and speed based on the load."""
         if self.has_game:
             self.char = self.meat_transportation_char
-            self.speed = 0.7  # Le chasseur est ralenti par le poids du gibier
+            self.speed = 0.7  # The hunter is slowed down by the weight of the game
         else:
             self.char = self.land_char
-            self.speed = 1.1  # Vitesse de traque normale
+            self.speed = 1.1  # Normal tracking speed
+
     def think(self, world):
-        """Logique de décision du chasseur."""
-        # Si le chasseur a déjà du gibier, son but unique est de rentrer
+        """Hunter decision logic."""
+        # If the hunter already has game, his sole goal is to return home
         if self.has_game:
             self._update_status()
             return
 
-        # Sinon, il cherche à abattre une cible
+        # Otherwise, he searches for a target to take down
         self._check_surroundings(world)
 
     def _check_surroundings(self, world):
-        """Vérifie si une proie sauvage est à portée de tir."""
+        """Checks if wild prey is within firing range."""
         for entity in world['entities']:
-            # 1. Filtre Registry : Uniquement les espèces sauvages
+            # 1. Registry Filter: Wild species only
             if type(entity) not in WILD_SPECIES or entity.is_expired:
                 continue
 
-            # 2. Filtre comportemental : On ne tire pas sur ce qui vole
+            # 2. Behavioral Filter: We don't shoot at flying targets
             if getattr(entity, 'is_flying', False):
                 continue
 
-            # 3. Vérification de la distance
+            # 3. Distance check
             if math.dist(self.pos, entity.pos) <= self.range_shot:
-                if RandomService.random() < 0.4:  # 40% de réussite
+                if RandomService.random() < 0.4:  # 40% success rate
                     self._execute_kill(entity)
                     return
 
-        # Si rien n'est à portée, on cherche une trace
+        # If nothing is in range, search for tracks
         if not self.target_prey:
             self._find_prey(world)
 
     def _execute_kill(self, entity):
-        """Gère la mort de la cible et stocke la valeur de nourriture si existante."""
+        """Handles target death and stores food value if it exists."""
         entity.is_expired = True
 
-        # On récupère la valeur nutritive de l'entité
+        # Retrieve the entity's nutritional value
         reward = getattr(entity, 'food_value', 0)
 
         if reward > 0:
             self.has_game = True
-            # On stocke la valeur pour la livraison future
+            # Store the value for future delivery
             self.pending_food_boost = reward
             self._update_status()
             msg = Translator.translate(
@@ -91,8 +94,8 @@ class Hunter(Human):
         self.target_prey = None
 
     def perform_action(self, world):
-        """Exécute les mouvements ou la livraison de nourriture."""
-        # 1. État : Chargé de viande -> Retour à la maison
+        """Executes movement or food delivery."""
+        # 1. State: Loaded with meat -> Return home
         if self.has_game:
             if self.pos == self.home_pos:
                 self._deliver_food(world)
@@ -100,18 +103,18 @@ class Hunter(Human):
                 self._move_towards(self.home_pos, world)
             return
 
-        # 2. État : En chasse -> Poursuite de la cible
+        # 2. State: Hunting -> Pursue target
         if self.target_prey:
             if self.target_prey.is_expired:
                 self.target_prey = None
             else:
                 self._move_towards(self.target_prey.pos, world)
         else:
-            # Errance si aucune proie n'est détectée
+            # Wander if no prey is detected
             self._wander(world)
 
     def _deliver_food(self, world):
-        """Dépose le gibier au village, augmentant sa population."""
+        """Drops game at the village, increasing its population."""
         boost = RandomService.randint(5, 12)
         self.home_city.population += boost
 
@@ -127,8 +130,8 @@ class Hunter(Human):
         )
 
     def _find_prey(self, world):
-            """Cherche une proie réelle ou suit les traces sur la Heatmap."""
-            # 1. On cherche d'abord une proie visible
+            """Searches for actual prey or follows tracks on the Heatmap."""
+            # 1. First, search for visible prey
             potential_preys = [
                 e for e in world['entities']
                 if type(e) in WILD_SPECIES
@@ -138,7 +141,7 @@ class Hunter(Human):
             ]
 
             if potential_preys:
-                # On évalue la meilleure cible (Distance vs Danger autour d'elle)
+                # Evaluate best target (Distance vs Danger around it)
                 best_target = None
                 max_score = -float('inf')
 
@@ -146,10 +149,10 @@ class Hunter(Human):
                     dist = math.dist(self.pos, prey.pos)
                     if dist > self.perception_range: continue
 
-                    # On récupère le danger à la position de la proie
+                    # Retrieve danger level at prey's position
                     fear_at_target = world['influence'].get_fear(prey.x, prey.y)
 
-                    # Score : Proximité + Sécurité (on n'attaque pas un cerf à côté d'un ours)
+                    # Score: Proximity + Safety (don't attack a deer next to a bear)
                     score = (1 - (dist / self.perception_range)) + (fear_at_target * 2.0)
 
                     if score > max_score:
@@ -159,21 +162,20 @@ class Hunter(Human):
                 self.target_prey = best_target
 
     def _move_towards(self, target_pos, world):
-        """Se déplace vers une cible en évitant les obstacles et le danger."""
+        """Moves toward a target while avoiding obstacles and danger."""
         possible_moves = self._get_accessible_neighbors(world)
         if not possible_moves: return
 
         best_move = self.pos
         min_dist = math.dist(self.pos, target_pos)
-        max_safety = -float('inf')
 
         for nx, ny in possible_moves:
             d = math.dist((nx, ny), target_pos)
             safety = world['influence'].get_fear(nx, ny)
 
-            # On cherche à réduire la distance tout en restant en sécurité
-            # Si la case est mortelle (lave), safety sera -10, ce qui disqualifie la case
-            if safety > -5.0: # Seuil de survie
+            # Attempt to reduce distance while staying safe
+            # If the tile is lethal (lava), safety will be -10, disqualifying the tile
+            if safety > -5.0: # Survival threshold
                 if d < min_dist:
                     min_dist = d
                     best_move = (nx, ny)
@@ -181,28 +183,29 @@ class Hunter(Human):
         self.pos = best_move
 
     def _wander(self, world):
-        """Erre intelligemment en suivant les odeurs (Scent) et fuyant la peur."""
+        """Wanders intelligently following scents (Scent) and fleeing fear."""
         possible_moves = self._get_accessible_neighbors(world)
         if not possible_moves: return
 
         scored_moves = []
         for nx, ny in possible_moves:
-            # On lit les deux grilles
+            # Read both grids
             fear = world['influence'].get_fear(nx, ny)
             scent = world['influence'].get_scent(nx, ny)
 
-            # Un chasseur est attiré par le scent (odeur de gibier)
-            # Mais repoussé par la peur (danger mortel)
+            # A hunter is attracted to scent (game smell)
+            # But repelled by fear (mortal danger)
             score = (fear * self.fear_sensitivity) + (scent * 1.5)
 
             scored_moves.append(((nx, ny), score + RandomService.random() * 0.2))
 
-        # On choisit la meilleure case (la plus riche en traces ou la plus sûre)
+        # Choose the best tile (richest in tracks or safest)
         self.pos = max(scored_moves, key=lambda m: m[1])[0]
 
     def get_defense_power(self):
         """Hunter is armed and dangerous"""
-        return 0.6 # Sa base de défense
+        return 0.6 # Base defense value
+
     @property
     def danger_level(self):
-        return 0.5  # Très effrayant
+        return 0.5  # Quite frightening

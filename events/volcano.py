@@ -8,53 +8,78 @@ from core.translator import Translator
 
 @register_event
 class VolcanoEruption(BaseEvent):
-    name = "Éruption Volcanique"
+    """
+    Simulates a volcanic eruption event.
+    High-altitude points (> 0.9) trigger lava flows that destroy structures,
+    kill non-flying entities, and leave persistent ruins.
+    """
+    name = "Volcanic Eruption"
     chance = 0.001
 
     def trigger(self, world, stats, config):
+        # Identify all volcanic peaks based on elevation
         volcano_points = [(x, y) for y in range(world['height'])
                           for x in range(world['width']) if world['elev'][y][x] > 0.9]
 
-        if not volcano_points: return
+        if not volcano_points:
+            return
 
         epicenter = RandomService.choice(volcano_points)
-        # Rayon de détection des volcans voisins (chaîne de sommets)
-        erupting_cluster = [p for p in volcano_points if math.dist(p, epicenter) < 5]
-        GameLogger.log(Translator.translate("events.volcano_start", count=len(erupting_cluster)))
 
-        radius = 3 # Rayon fixe imposé
+        # Determine the cluster of erupting peaks (neighboring summits)
+        erupting_cluster = [p for p in volcano_points if math.dist(p, epicenter) < 5]
+
+        GameLogger.log(
+            Translator.translate("events.volcano_start", count=len(erupting_cluster))
+        )
+
+        impact_radius = 3
 
         for vx, vy in erupting_cluster:
-            # 1. Propagation des flammes sur la grille 'road'
-            for dy in range(-radius, radius + 1):
-                for dx in range(-radius, radius + 1):
+            # 1. Spread flames and fear on the world grids
+            for dy in range(-impact_radius, impact_radius + 1):
+                for dx in range(-impact_radius, impact_radius + 1):
                     nx, ny = vx + dx, vy + dy
                     if 0 <= nx < world['width'] and 0 <= ny < world['height']:
-                        if math.dist((vx, vy), (nx, ny)) <= radius:
+                        if math.dist((vx, vy), (nx, ny)) <= impact_radius:
+                            # Set the ground on fire and generate high fear
                             world['road'][ny][nx] = "🔥"
                             world['influence'].add_influence(nx, ny, value=-10.0, radius=2)
-            # 2. Destruction et Transformation des entités
-            for e in list(world['entities']):
-                if math.dist(e.pos, (vx, vy)) <= radius:
-                    if hasattr(e, 'population'): # C'est une ville/village
-                        # On spawn une ruine avant de supprimer la ville
-                        ruin = Ruins(e.x, e.y, e.culture, e.config, e.name)
+
+            # 2. Destruction and Entity Transformation
+            # Iterate through a copy of the list to allow safe modification during loops
+            for entity in list(world['entities']):
+                if math.dist(entity.pos, (vx, vy)) <= impact_radius:
+                    if hasattr(entity, 'population'): # Check if it's a City or Village
+                        # Replace the thriving settlement with a Ruin
+                        ruin = Ruins(entity.x, entity.y, entity.culture, entity.config, entity.name)
                         world['entities'].add(ruin)
-                        e.is_expired = True
-                        GameLogger.log(Translator.translate("events.volcano_ruin", name=e.name))
+                        entity.is_expired = True
+
+                        GameLogger.log(
+                            Translator.translate("events.volcano_ruin", name=entity.name)
+                        )
+
     def tick(self, world, stats):
-        """Gère la dissipation naturelle des flammes sur la carte."""
+        """
+        Handles the natural dissipation of flames and ongoing lethality of lava.
+        """
         for y in range(world['height']):
             for x in range(world['width']):
                 if world['road'][y][x] == "🔥":
+                    # Ongoing fire creates a local fear field
                     world['influence'].add_influence(x, y, value=-5.0, radius=1)
-                    # 2. LÉTALITÉ (Le Check)
-                    # On regarde si une entité non-volante est sur cette case précise
-                    for e in world['entities']:
-                        if not e.is_expired and e.pos == (x, y):
-                            if not getattr(e, 'is_flying', False):
-                                e.is_expired = True
-                                GameLogger.log(Translator.translate("events.volcano_kill", name=e.name))
-                    # 5% de chance de s'éteindre ou de devenir de la cendre
+
+                    # LETHALITY CHECK
+                    # Any non-flying entity standing on fire is consumed
+                    for entity in world['entities']:
+                        if not entity.is_expired and entity.pos == (x, y):
+                            if not getattr(entity, 'is_flying', False):
+                                entity.is_expired = True
+                                GameLogger.log(
+                                    Translator.translate("events.volcano_kill", name=entity.char)
+                                )
+
+                    # 5% chance per tick for the fire to extinguish
                     if RandomService.random() < 0.05:
                         world['road'][y][x] = "  "

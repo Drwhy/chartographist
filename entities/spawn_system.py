@@ -5,67 +5,70 @@ from core.translator import Translator
 
 def spawn_system(world, config):
     """
-    Gère l'apparition dynamique des entités mobiles.
-    Les cités sont EXCLUES : elles ne naissent que par évolution de villages.
+    Manages the dynamic spawning of mobile entities.
+    Note: Primary Cities are excluded from this system; they only emerge
+    through initial seeding or the evolution of existing villages.
     """
     width = world['width']
     height = world['height']
 
-    # 1. RÉGULATION DE LA FAUNE (Loups, Ours, etc.)
+    # 1. FAUNA REGULATION (Wolves, Bears, etc.)
     _spawn_fauna(world, config, width, height)
 
 def _spawn_fauna(world, config, width, height):
-    """Gère le spawn des animaux enregistrés via @register_wild."""
+    """Handles spawning of wild species registered via @register_wild."""
     max_fauna = config.get("max_fauna", 20)
     current_fauna = len([e for e in world['entities'] if getattr(e, 'type', '') == 'animal'])
 
     if current_fauna < max_fauna:
-        # On tente de faire apparaître une espèce au hasard parmi celles enregistrées
+        # Attempt to spawn a random species from the global wild species registry
         if WILD_SPECIES:
             species_class = RandomService.choice(WILD_SPECIES)
 
-            # On choisit un point au hasard sur la carte
-            rx, ry = RandomService.randint(0, width - 1), RandomService.randint(0, height - 1)
+            # Select a random point on the map
+            spawn_x = RandomService.randint(0, width - 1)
+            spawn_y = RandomService.randint(0, height - 1)
 
-            # La classe gère elle-même ses conditions (biome, probabilité)
-            new_animal = species_class.try_spawn(rx, ry, world, config)
+            # The species class handles its own environmental conditions (biome, probability)
+            new_animal = species_class.try_spawn(spawn_x, spawn_y, world, config)
 
             if new_animal:
                 world['entities'].add(new_animal)
 
 def seed_initial_cities(world, config):
     """
-    FONCTION SPÉCIALE : Pose les cités mères en évitant les collisions.
+    SPECIAL INITIALIZATION: Places mother cities while avoiding collisions.
+    Ensures viable starting conditions for the world's civilizations.
     """
     num_cities = config.get("initial_cities", 3)
     cities_placed = 0
     attempts = 0
     from entities.constructs.city import City
+
     while cities_placed < num_cities and attempts < 100:
         attempts += 1
-        rx, ry = RandomService.randint(0, world['width'] - 1), RandomService.randint(0, world['height'] - 1)
+        spawn_x = RandomService.randint(0, world['width'] - 1)
+        spawn_y = RandomService.randint(0, world['height'] - 1)
 
-        # 1. Vérification du terrain
-        h = world['elev'][ry][rx]
-        is_land = 0.1 < h < 0.4
-        is_near_river = world['riv'][ry][rx] > 0
+        # 1. Terrain Validation
+        h = world['elev'][spawn_y][spawn_x]
+        # Cities prefer stable land near water sources
+        is_habitable_land = 0.1 < h < 0.4
+        is_near_river = world['riv'][spawn_y][spawn_x] > 0
 
-        if not (is_land and is_near_river):
+        if not (is_habitable_land and is_near_river):
             continue
 
-        # 2. SÉCURITÉ ANTI-CHEVAUCHEMENT : Personne sur cette case ?
-        # On vérifie si une entité occupe déjà exactement ces coordonnées
-        if any(e.x == rx and e.y == ry for e in world['entities']):
+        # 2. OVERLAP PREVENTION: Is the tile occupied?
+        if any(entity.x == spawn_x and entity.y == spawn_y for entity in world['entities']):
             continue
 
-        # OPTIONNEL : On peut aussi imposer une distance minimale entre les cités mères
-        # if any(math.dist((rx, ry), e.pos) < 10 for e in world['entities'] if isinstance(e, City)):
-        #     continue
-
-        # 3. Fondation
+        # 3. Foundation logic
         culture = RandomService.choice(config['cultures'])
-        mother_city = City(rx, ry, culture, config)
+        mother_city = City(spawn_x, spawn_y, culture, config)
         world['entities'].add(mother_city)
 
         cities_placed += 1
-        GameLogger.log(Translator.translate("entities.city_founded", name=mother_city.name, x=rx, y=ry))
+        GameLogger.log(
+            Translator.translate("entities.city_founded", name=mother_city.name, x=spawn_x, y=spawn_y)
+        )
