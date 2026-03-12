@@ -1,7 +1,9 @@
 📜 Chartographist
 
 Chartographist is a procedural world simulation engine written in Python that runs entirely within your terminal. It simulates the evolution of a complex ecosystem where geography, climate, and lifeforms (humans and animals) interact through deterministic logic.
+
 🌍 Core Features
+
 🧬 Procedural Generation & Determinism
 
     Centralized Seeding System: Powered by a custom RandomService, a single seed will generate the exact same map, identical animal movements, and the same civilizational trajectory every time.
