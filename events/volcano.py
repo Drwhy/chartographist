@@ -77,7 +77,7 @@ class VolcanoEruption(BaseEvent):
                             if not getattr(entity, 'is_flying', False):
                                 entity.is_expired = True
                                 GameLogger.log(
-                                    Translator.translate("events.volcano_kill", name=entity.char)
+                                    Translator.translate("events.volcano_kill", name=entity.name, char=entity.char)
                                 )
 
                     # 5% chance per tick for the fire to extinguish

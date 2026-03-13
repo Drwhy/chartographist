@@ -2,7 +2,7 @@
   "events": {
     "volcano_start": "🌋 ALERT: A chain of {count} volcanoes has awakened!",
     "volcano_ruin": "🔥 The eruption has ravaged the city of {name}.",
-    "volcano_kill": "🔥 The eruption killed {name}.",
+    "volcano_kill": "🔥 The eruption killed {char} {name}.",
     "epidemic_start": "🦠 ALERT: A black plague has been reported in {name}!",
     "epidemic_end": "💊 The epidemic has finally died out in {name} after heavy losses.",
     "epidemic_death": "💀 {name} is now nothing more than an open-air graveyard.",
@@ -22,7 +22,8 @@
     "abduction_end": "✨ {name} reappeared in a field, looking confused.",
     "trader_spawn": "📦 {city_name} has commissioned a new merchant.",
     "trade_success": "💰 Trade established between {home_city} and {target_city} (+{bonus} pop)",
-    "cultural_mutation": "🎭 {name} has adopted the customs of {new_culture} (formerly {old_culture})."
+    "cultural_mutation": "🎭 {name} has adopted the customs of {new_culture} (formerly {old_culture}).",
+    "animal_starvation": "💀 A {species} has starved to death."
   },
   "entities": {
     "city_founded": "🏛️  The primordial city of {name} was founded at ({x}, {y}).",
@@ -36,7 +37,7 @@
     "villages_count": " 🏠 Active villages: {count}",
     "fauna_count": " 🐾 Remaining fauna: {count}",
     "seed_info": " 🌱 Seed used: {seed}",
-    "header_line_1": "--- 🗺️  {name} | YEAR: {year} | 🏛️  STRUCTURES: {structs} ---",
+    "header_line_1": "--- 🗺️  {name} | YEAR: {year} MONTH: {month} | 🏛️  STRUCTURES: {structs} ---",
     "header_line_2": "🏹 HUMANS: {humans} | 🐾 FAUNA: {fauna} | 🌱 SEED: {seed}"
   },
   "system": {

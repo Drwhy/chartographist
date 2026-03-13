@@ -19,10 +19,10 @@ class Fish(Animal):
         species_data = next((f for f in config['fauna'] if f['species'] == 'fish'), None)
 
         # Water threshold: h < 0
-        # Abyss threshold: h > -0.4 (to stay near the coasts)
-        if -0.4 < h < 0:
+        # Abyss threshold: h > -0.5 (to stay near the coasts)
+        if -0.6 < h < 0:
             # Success probability to prevent water over-saturation
-            if RandomService.random() < 0.30:
+            if RandomService.random() < 0.40:
                 return Fish(x, y, None, config, species_data)
 
         return None

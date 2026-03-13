@@ -19,10 +19,13 @@ def render_header(width, world_data, stats, config):
 
     # 2. RENDERING VIA TRANSLATOR
     # Line 1: World Name, Current Year, Structure Count
-    line1 = Translator.translate("ui.header_line_1",
-              name=world_name,
-              year=stats['year'],
-              structs=structures)
+    line1 = Translator.translate(
+        "ui.header_line_1",
+        name=world_name,
+        year=stats['year'],
+        month=stats['month'],
+        structs=structures
+    )
     print(f"{line1}{erase_to_end}")
 
     # Line 2: Human Count, Wild Fauna Count, World Seed

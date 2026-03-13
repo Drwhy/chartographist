@@ -25,11 +25,15 @@ def main():
 
     # Initialize the central random service
     RandomService.initialize(seed)
-    show_heatmap = False
 
     # Create the world and the statistics dictionary
     # world['entities'] is an EntityManager instance
     world, stats = core.assemble_world(WIDTH, HEIGHT, config, seed)
+
+    # Initialize the Spatial Grid in the world object (if not already done in assemble_world)
+    from core.grid_service import SpatialGrid
+    world['grid'] = SpatialGrid(WIDTH, HEIGHT, cell_size=10)
+
     entities_spawn.seed_initial_cities(world, config)
 
     # Initialize the modular rendering engine
@@ -41,30 +45,53 @@ def main():
 
         while world['cycle'] < MAX_CYCLES:
             world['cycle'] += 1
-            # Convention: 1 cycle = 10 years in the world's history
-            stats['year'] = world['cycle'] * 10
+            # 1 Cycle = 1 Month
+            # Calculate years and current month index
+            total_months = world['cycle']
+            stats['year'] = total_months // 12
+            stats['month'] = (total_months % 12) + 1  # 1 to 12
+
+            # --- A. GRID REFRESH ---
+            # Rebuild the spatial partitioning grid at the start of every cycle
+            world['grid'].clear()
+            for entity in world['entities']:
+                if not getattr(entity, 'is_expired', False):
+                    world['grid'].add_entity(entity)
 
             # --- B. DYNAMIC SPAWN SYSTEM ---
-            # Renews wild fauna (Wolves, Bears)
-            # Humans no longer spawn here (they are born from cities/villages)
+            # Renews wild fauna (Wolves, Bears, etc.)
             entities_spawn.spawn_system(world, config)
 
-            # Handle influence / heat decay
-            world['influence'].update()
+            # --- C. INFLUENCE & HEATMAP DECAY (MEDIUM TICK) ---
+            # We update the heatmap every 10 cycles to save CPU
+            if world['cycle'] % 10 == 0:
+                world['influence'].update()
 
-            # --- C. ENTITY UPDATES (AI) ---
-            # Work on a copy of the list to avoid mutation errors during iteration
+            # --- D. ENTITY UPDATES (DIFFERENTIATED TICKS) ---
             all_entities = list(world['entities'])
 
             for entity in all_entities:
-                # Security: skip entities already marked for removal
                 if getattr(entity, 'is_expired', False):
                     continue
 
                 try:
-                    # Every entity (City, Settler, Wolf, Hunter) executes its own logic
+                    # --- FAST TICK (Every Cycle) ---
+                    # Movement, immediate AI decisions, and combat
                     entity.process_turn(world, stats)
-                    entity.update_influence(world)
+
+                    # --- MEDIUM TICK (Every 10 Cycles) ---
+                    # Hunger, energy consumption, and local influence updates
+                    if world['cycle'] % 10 == 0:
+                        entity.update_influence(world)
+                        if hasattr(entity, 'check_vital_signs'):
+                            entity.check_vital_signs(world)
+
+                    # --- SLOW TICK (Every 100 Cycles) ---
+                    # Complex emergence: Births, plagues, cultural drift, and long-term memory
+                    if world['cycle'] % 100 == 0:
+                        if hasattr(entity, 'process_long_term_logic'):
+                            entity.process_long_term_logic(world)
+
                 except Exception as e:
                     # Robust Bug Logging System
                     tb = traceback.extract_tb(e.__traceback__)
@@ -78,19 +105,16 @@ def main():
                     )
                     stats['logs'].append(error_msg)
 
-            # Update global events (Plagues, Abductions, etc.)
+            # --- E. GLOBAL EVENTS ---
+            # Events like Volcanoes or UFOs are checked every cycle
             EventManager.update(world, stats, config)
 
-            # --- D. LOG SYNCHRONIZATION ---
-            # Retrieve messages sent to the GameLogger (e.g., city foundations)
+            # --- F. LOG SYNCHRONIZATION ---
             stats['logs'].extend(GameLogger.get_new_logs())
 
-            # --- E. CLEANUP (PRE-RENDERING) ---
-            # Essential so the RenderEngine doesn't draw dead entities
+            # --- G. CLEANUP & RENDERING ---
+            # Remove entities flagged as is_expired before drawing
             world['entities'].remove_dead()
-
-            # --- F. GRAPHICAL RENDERING ---
-            # Uses the structure: ui_header, ui_map, ui_logs
             renderer.draw_frame(world, stats)
 
             # Rhythm control
@@ -106,25 +130,18 @@ def main():
         traceback.print_exc()
 
     finally:
-        # Systematic final cleanup
+        # Final terminal restoration and summary display
         core.restore_terminal()
 
-        # --- FINAL SUMMARY BASED ON CLASSES ---
-        # Import specific classes for final counting
         from entities.constructs.city import City
         from entities.constructs.village import Village
         from entities.registry import WILD_SPECIES
 
-        # Use isinstance to handle inheritance properly
         all_entities = [e for e in world['entities'] if not e.is_expired]
-
         cities = [e for e in all_entities if isinstance(e, City)]
         villages = [e for e in all_entities if isinstance(e, Village)]
-
-        # Fauna groups all classes present in the WILD_SPECIES registry
         fauna = [e for e in all_entities if type(e) in WILD_SPECIES]
 
-        # --- FINAL CHRONICLES ---
         world_name = config.get('world_name', 'WORLD').upper()
         print("\n" + "═" * 50)
         print(Translator.translate("ui.chronicles_title", world_name=world_name))

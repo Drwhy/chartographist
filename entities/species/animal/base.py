@@ -14,7 +14,56 @@ class Animal(Entity):
         self.target = None
         self.perception_range = 5 # Detection radius
         self.danger = 0.1
+        self.culture = culture
+        self.config = config
+        self.species_data = species_data
 
+        self.energy = 100           # Starting energy
+        self.max_energy = 150
+        self.hunger_threshold = 60  # Level at which the animal starts hunting
+        self.repro_threshold = 120  # Energy required to spawn offspring
+
+    def check_vital_signs(self, world):
+        """
+        Called during the MEDIUM TICK (every 10 cycles).
+        Manages hunger decay and starvation.
+        """
+        # Passive energy loss
+        loss = 5
+        if getattr(self, 'is_flying', False): loss = 8 # Flying is exhausting
+
+        self.energy -= loss
+
+        # Starvation check
+        if self.energy <= 0:
+            self.is_expired = True
+            # Optional: Log death only for important species to avoid spam
+            if self.danger > 0.5:
+                GameLogger.log(f"💀 A {self.species} has starved to death.")
+
+    def process_long_term_logic(self, world):
+            """
+            Called during the SLOW TICK (every 100 cycles).
+            Handles biological reproduction.
+            """
+            if self.energy >= self.repro_threshold:
+                self._reproduce(world)
+
+    def _reproduce(self, world):
+        """Creates a new instance of the same species nearby."""
+        # Find a free adjacent tile
+        neighbors = self._get_accessible_neighbors(world)
+        if neighbors:
+            spawn_pos = RandomService.choice(neighbors)
+
+            # Create offspring (Logic varies slightly depending on your Factory setup)
+            # For this example, we assume a generic constructor call
+            offspring = self.__class__(spawn_pos[0], spawn_pos[1], self.culture, self.config, self.species_data)
+
+            world['entities'].add(offspring)
+
+            # Reproduction costs half the parent's energy
+            self.energy /= 2
     @property
     def is_edible(self):
         return True
@@ -139,6 +188,8 @@ class Animal(Entity):
 
         # --- CASE: THE TARGET IS DEVOURED (Defense too low or failed roll) ---
         self.target.is_expired = True
+        food_value = getattr(self.target, 'food_value', 10)
+        self.energy = min(self.max_energy, self.energy + food_value * 2)
         GameLogger.log(Translator.translate("events.hunt_fail", hunter_name=self.name, prey_name=self.target.name))
         self.target = None
 
@@ -210,14 +261,18 @@ class Animal(Entity):
         self._perform_action(world)
 
     def _think(self, world):
-        """Decision logic: Hunt or Wander?"""
-        # If we have a target but it is dead or too far away, we forget it
+        """Modified decision logic: Hunt if carnivore, Graze if herbivore."""
         if self.target and (self.target.is_expired or math.dist(self.pos, self.target.pos) > self.perception_range):
             self.target = None
 
-        # If we don't have a target, we look for one
-        if not self.target:
-            self._find_target(world)
+        # 1. CARNIVORE LOGIC: Search for prey
+        if self.diet == "carnivore":
+            if not self.target and self.energy < self.hunger_threshold:
+                self._find_target(world)
+
+        # 2. HERBIVORE LOGIC: Automatic Grazing
+        elif self.diet == "herbivore":
+            self._graze(world)
 
     def _perform_action(self, world):
         """Execution of movement or attack."""
@@ -243,3 +298,21 @@ class Animal(Entity):
         else:
             # If blocked (e.g., shark hitting the shore), we try a small detour
             self._wander(world)
+
+    def _graze(self, world):
+        """
+        Herbivores automatically feed on fertile tiles.
+        This provides a steady energy gain without needing a 'target'.
+        """
+        x, y = self.x, self.y
+        elevation = world['elev'][y][x]
+
+        # Check if the tile is fertile (Plains or Forest biomes)
+        # Assuming elevation 0.0 to 0.5 represents green land
+        if 0.0 <= elevation <= 0.5:
+            # Grazing provides a small but constant energy boost
+            grazing_yield = 2
+            self.energy = min(self.max_energy, self.energy + grazing_yield)
+
+            # Note: In a future update, we could reduce the 'fertility'
+            # of the tile to simulate overgrazing.

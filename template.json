@@ -63,7 +63,8 @@
     {"species": "deer", "type": "game", "char": "🦌", "name": "Biche", "speed": 1},
     {"species": "eagle", "type": "flyer", "char": "🦅", "name": "Aigle", "speed": 1.5},
     {"species": "shark", "type": "aquatic", "char": "🦈", "name": "Requin", "speed": 1.3},
-    {"species": "fish", "type": "aquatic", "char": "🐟", "name": "Poisson", "speed": 1}
+    {"species": "fish", "type": "aquatic", "char": "🐟", "name": "Poisson", "speed": 1},
+    {"species": "rabbit", "type": "aquatic", "char": "🐇", "name": "Lapin", "speed": 1.3}
   ],
   "special": {
     "ruin": "💀",
