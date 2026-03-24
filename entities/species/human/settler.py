@@ -15,13 +15,16 @@ class Settler(Human):
         super().__init__(x, y, culture, config, 1)
         self.char = culture.get("settler_emoji", "🚶")
         self.home_city = home_city
+        self.group_size = home_city.settler_cost
         self.distance_traveled = 0
         self.min_distance_from_home = 20
         self.max_travel_time = 120
         # Survival parameters
         self.fear_sensitivity = 4.0  # Very cautious: carries the future of the city
         self.perception_range = 10
-
+        # --- Emergence: Group Power ---
+        # A higher danger level discourages small predators
+        self.danger = 0.5 + (self.group_size * 0.02)
     def think(self, world):
         """Reflection phase: is the settler looking for a spot or fleeing?"""
         if self.is_expired: return

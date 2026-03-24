@@ -1,90 +1,133 @@
+# entities/constructs/village.py
 from .base import Construct
-from entities.registry import register_structure
+from entities.registry import register_structure, STRUCTURE_TYPES
 from core.logger import GameLogger
-from entities.species.human.hunter import Hunter
-from entities.species.human.fisherman import Fisherman
 from core.random_service import RandomService
+from core.translator import Translator
+from entities.species.human.citizen import Citizen
+from entities.species.human.farmer import Farmer # If they start farming
+import math
 
 @register_structure
 class Village(Construct):
-    """
-    A small settlement that serves as the foundation for expansion.
-    Villages can spawn specialized workers (Hunters/Fishermen) and
-    evolve into Cities once a population threshold is met.
-    """
     def __init__(self, x, y, culture, config):
         super().__init__(x, y, culture, config)
-        self.population = RandomService.randint(50, 150)
-        self.city_threshold = 1000  # Population required to promote to City
-        self.char = culture.get("village", "🏡")
-        self.active_worker = None
 
-        # Worker management logic
-        self.check_interval = 20    # Tick frequency for workforce validation
-        self.timer = 0
+        # --- Agent-Based Population ---
+        initial_count = RandomService.randint(5, 12)
+        self.citizens = [Citizen(f"Villager_{i}", age=RandomService.randint(15, 35)) for i in range(initial_count)]
+
+        # Resources
+        self.food_stock = 40
+        self.max_food = 500
+
+        # Evolution
+        self.city_threshold = 40 # Evolution based on agent count (not a magic number)
+        self.char = culture.get("village", "🏡")
+
+        # Reference to the specialized external worker (Hunter/Fisherman entity)
+        self.active_worker_entity = None
+
+    @property
+    def population(self):
+        return len(self.citizens)
 
     def update(self, world, stats):
-        """Cyclic village update loop."""
-        # 1. Demographic growth (Fixed 1% per tick)
-        self.population = int(self.population * 1.01)
+        if self.is_expired: return
 
-        # 2. Workforce management (Unique specialized unit)
-        self.timer += 1
-        if self.timer >= self.check_interval:
-            self._manage_workforce(world)
-            self.timer = 0
+        # 1. Monthly biological update (Hunger, Age)
+        self._update_citizens(world)
 
-        # 3. EVOLUTION TO CITY
-        if self.population >= self.city_threshold:
-            self._evolve_to_city(world)
+        # 2. Reproduction (Monthly check, lower probability than city)
+        self._handle_reproduction()
 
-        # Inherited cultural check
-        self._check_cultural_drift(world)
+        # 3. Workforce & Evolution (Slow Tick - Every 12 months)
+        if world['cycle'] % 12 == 0:
+            self._manage_specialization(world)
 
-    def _manage_workforce(self, world):
-        """Validates the state of the specialized worker and spawns a new one if necessary."""
+            if self.population >= self.city_threshold:
+                self._evolve_to_city(world)
 
-        # If the reference exists but the entity is marked as expired (dead/removed)
-        if self.active_worker and self.active_worker.is_expired:
-            self.active_worker = None
+        # 4. Cleanup
+        self.citizens = [c for c in self.citizens if not c.is_dead]
+        if self.population <= 0:
+            self.is_expired = True # Becomes ruins or just disappears
 
-        # If no active worker exists and population is sufficient
-        if self.active_worker is None and self.population > 60:
+    def _update_citizens(self, world):
+        """Standard feeding and aging logic."""
+        for person in self.citizens:
+            person.process_monthly_update()
+
+            # Feeding from village stores
+            if self.food_stock >= 1:
+                self.food_stock -= 1
+                person.hunger = max(0, person.hunger - 10)
+            else:
+                person.hunger += 10
+                if person.hunger >= 100: person.is_dead = True
+
+            # Basic work (Gathering/Small farming)
+            person.work(self, world)
+
+    def _handle_reproduction(self):
+        """Villages grow if they have a food surplus."""
+        if self.food_stock > (self.population * 10) and self.population >= 2:
+            if RandomService.random() < 0.03: # 3% chance per month
+                self.citizens.append(Citizen(f"Child_{RandomService.randint(0,99)}", age=0))
+
+    def _manage_specialization(self, world):
+        """Village logic: promote to Farmer OR spawn an external Hunter/Fisherman."""
+        # A. Check internal Farmers
+        # In a village, we only want a few farmers, the rest gather or hunt
+        farmers_count = sum(1 for p in self.citizens if isinstance(p, Farmer))
+        if farmers_count < (self.population * 0.3) and self.food_stock < 50:
+            self._promote_to_farmer()
+
+        # B. Check External Worker (The Unit on the map)
+        if self.active_worker_entity and self.active_worker_entity.is_expired:
+            self.active_worker_entity = None
+
+        if self.active_worker_entity is None and self.population > 10:
             if self._is_coastal(world):
                 self._spawn_fisherman(world)
             else:
                 self._spawn_hunter(world)
 
+    def _promote_to_farmer(self):
+        """Turns one basic Citizen into a Farmer."""
+        for i, p in enumerate(self.citizens):
+            if type(p) is Citizen:
+                self.citizens[i] = Farmer(p.name, p.age)
+                return
+
     def _is_coastal(self, world):
-        """Checks cardinal neighbors for water (negative elevation)."""
+        """Checks if water is nearby for fishing."""
         for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             ny, nx = self.y + dy, self.x + dx
             if 0 <= ny < world['height'] and 0 <= nx < world['width']:
-                if world['elev'][ny][nx] < 0:
-                    return True
+                if world['elev'][ny][nx] < 0: return True
         return False
 
     def _spawn_hunter(self, world):
-        """Spawns a Hunter and stores a direct reference."""
-        self.active_worker = Hunter(self.x, self.y, self.culture, self.config, self.pos, self)
-        world['entities'].add(self.active_worker)
+        from entities.species.human.hunter import Hunter
+        self.active_worker_entity = Hunter(self.x, self.y, self.culture, self.config, self.pos, self)
+        world['entities'].add(self.active_worker_entity)
 
     def _spawn_fisherman(self, world):
-        """Spawns a Fisherman and stores a direct reference."""
-        self.active_worker = Fisherman(self.x, self.y, self.culture, self.config, self.pos, self)
-        world['entities'].add(self.active_worker)
+        from entities.species.human.fisherman import Fisherman
+        self.active_worker_entity = Fisherman(self.x, self.y, self.culture, self.config, self.pos, self)
+        world['entities'].add(self.active_worker_entity)
 
     def _evolve_to_city(self, world):
-        """Promotes the Village to a City, clearing workers and current instance."""
+        """Village becomes a City. Citizens are transferred."""
         from entities.constructs.city import City
 
-        # Expire current specialized worker upon promotion
-        if self.active_worker:
-            self.active_worker.is_expired = True
+        GameLogger.log(f"🏙️ {self.name} has grown into a City!")
 
         new_city = City(self.x, self.y, self.culture, self.config)
-        new_city.population = self.population
-        world['entities'].add(new_city)
+        # CRITICAL: We transfer the actual list of agents (preserving age/XP)
+        new_city.citizens = self.citizens
+        new_city.food_stock = self.food_stock
 
-        # Mark this village for removal from the entity manager
+        world['entities'].add(new_city)
         self.is_expired = True

@@ -79,7 +79,7 @@ class Trader(Human):
 
     def _do_trade(self):
         """Exchange population and swap home/target roles."""
-        self.target_city.population += 2
+        self.target_city.food_stock += 10
 
         GameLogger.log(Translator.translate("events.trade_success",
             home_city=self.home_city.name,

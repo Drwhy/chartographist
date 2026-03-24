@@ -21,7 +21,7 @@
     "abduction_start": "🛸 A strange glow descends from the sky... {name} has vanished!",
     "abduction_end": "✨ {name} reappeared in a field, looking confused.",
     "trader_spawn": "📦 {city_name} has commissioned a new merchant.",
-    "trade_success": "💰 Trade established between {home_city} and {target_city} (+{bonus} pop)",
+    "trade_success": "💰 Trade established between {home_city} and {target_city} (+{bonus} food)",
     "cultural_mutation": "🎭 {name} has adopted the customs of {new_culture} (formerly {old_culture}).",
     "animal_starvation": "💀 A {species} has starved to death."
   },

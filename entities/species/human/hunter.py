@@ -116,7 +116,7 @@ class Hunter(Human):
     def _deliver_food(self, world):
         """Drops game at the village, increasing its population."""
         boost = RandomService.randint(5, 12)
-        self.home_city.population += boost
+        self.home_city.food_stock += boost
 
         self.has_game = False
         self._update_status()
