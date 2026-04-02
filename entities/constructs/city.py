@@ -5,7 +5,7 @@ from core.logger import GameLogger
 from core.random_service import RandomService
 from core.translator import Translator
 from entities.constructs.ruins import Ruins
-from entities.species.human.citizen import Citizen
+from entities.species.human.base import Human
 from entities.species.human.farmer import Farmer
 from core.naming import NameGenerator
 import math
@@ -19,7 +19,7 @@ class City(Construct):
         # --- New Agent-Based Population ---
         # We start with a pool of individual citizens
         initial_pop_count = RandomService.randint(100, 500)
-        self.citizens = [Citizen(f"Gen0_{i}", age=RandomService.randint(15, 40)) for i in range(initial_pop_count)]
+        self.citizens = [Human(self.x, self.y, self.culture, self.config, 1) for i in range(initial_pop_count)]
 
         # Resource Management
         self.food_stock = 100
@@ -71,26 +71,6 @@ class City(Construct):
             # This calls Farmer.work() or Citizen.work() automatically!
             citizen.work(self, world)
 
-    def _handle_reproduction(self):
-        """Birth logic based on food abundance and population capacity."""
-        # Simple birth model: if food is plentiful, new citizens are born
-        if self.food_stock > (self.population * 5) and self.population > 2:
-            birth_chance = 0.2 # 5% chance per month
-            if RandomService.random() < birth_chance:
-                new_baby = Citizen(NameGenerator.generate_person_name(self.culture), age=0)
-                self.citizens.append(new_baby)
-
-    def _manage_expansion(self, world):
-        """Sends settlers if population is high enough."""
-        if self.settler_cooldown > 0:
-            self.settler_cooldown -= 1
-
-        if self.population >= self.settler_threshold and self.settler_cooldown == 0:
-            if self._can_world_support_new_settler(world):
-                # Remove 10 citizens to form the new colony
-                self.citizens = self.citizens[:-10]
-                self._spawn_settler(world)
-                self.settler_cooldown = 100
     def _manage_expansion(self, world):
         """Sends settlers if population is high enough, consuming a part of the population."""
         if self.settler_cooldown > 0:
@@ -114,10 +94,7 @@ class City(Construct):
 
                     # Trigger the cooldown to prevent rapid-fire expansion
                     self.settler_cooldown = 100
-
-                    GameLogger.log(
-                        f"🚀 {self.name} sent {actual_cost} pioneers to found a new land."
-                    )
+                    GameLogger.log(Translator.translate("entities.settler_spawn", name=self.name))
     def _manage_trade(self, world):
         """Spawns a trader if pop > 15 and luck strikes."""
         if self.population > 15 and RandomService.random() < 0.01:
@@ -167,8 +144,6 @@ class City(Construct):
         """
         for i, person in enumerate(self.citizens):
             # If we need farmers and this is just a basic Citizen
-            if type(person) is Citizen and self.food_stock < (len(self.citizens) * 10):
+            if type(person) is Human and self.food_stock < (len(self.citizens) * 10):
                 # We replace the object in the list with a Farmer version
-                self.citizens[i] = Farmer(person.name, person.age)
-                # We can even transfer experience if needed
-                self.citizens[i].experience = person.experience
+                self.citizens[i] = Farmer(self.x, self.y, self.culture, self.config, person.name, person.age)

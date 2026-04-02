@@ -12,7 +12,7 @@
     "hunt_flee": "🏃 {hunter_name} ahuyentó al {prey_name}.",
     "hunt_fail": "🍴 Un {hunter_name} devoró a {prey_name}.",
     "fishing_success": "¡{fisherman_char} {fisherman_name} de {fisherman_city} ha traído una buena pesca!",
-    "hunt_food_delivery": "🏠 {hunter_name} entregó carne. {hunter_city_name} gana {new_pop} habitantes.",
+    "hunt_food_delivery": "🏠 {hunter_name} entregó carne a {hunter_city_name}",
     "hunter_mission_success": "🏹 {hunter_name} trae caza ({species}) a {hunter_city_name}.",
     "hunter_secure_city": "🛡️ {hunter_name} eliminó una amenaza ({species}) para asegurar {hunter_city_name}.",
     "settler_lost": "💀 Un grupo de colonos de {settler_city_name} se perdió en las tierras salvajes.",
@@ -28,7 +28,8 @@
   "entities": {
     "city_founded": "🏛️ La ciudad primordial de {name} fue fundada en ({x}, {y}).",
     "settler_spawn": "🚶 ¡Superpoblación! Un grupo de colonos parte de {name} hacia lo desconocido.",
-    "ruins_desc": "🏚️ {name} ha sido abandonado."
+    "ruins_desc": "🏚️ {name} ha sido abandonado.",
+    "village_promoted": "🏛️ El pueblo de {name} en ({x}, {y}) se ha convertido en una ciudad."
   },
   "ui": {
     "chronicles_title": " 📜 CRÓNICAS DE {world_name}",

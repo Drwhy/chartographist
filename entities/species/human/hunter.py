@@ -124,8 +124,7 @@ class Hunter(Human):
             Translator.translate(
                 "events.hunt_food_delivery",
                 hunter_name=self.name,
-                hunter_city_name=self.home_city.name,
-                new_pop=boost
+                hunter_city_name=self.home_city.name
             )
         )
 

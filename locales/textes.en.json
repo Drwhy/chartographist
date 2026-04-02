@@ -12,7 +12,7 @@
     "hunt_flee": "🏃 {hunter_name} repelled the {prey_name}.",
     "hunt_fail": "🍴 A {hunter_name} devoured {prey_name}.",
     "fishing_success": "{fisherman_char} {fisherman_name} from {fisherman_city} brought back a great catch!",
-    "hunt_food_delivery": "🏠 {hunter_name} delivered meat. {hunter_city_name} gains {new_pop} inhabitants.",
+    "hunt_food_delivery": "🏠 {hunter_name} delivered meat to {hunter_city_name}.",
     "hunter_mission_success": "🏹 {hunter_name} brings game ({species}) back to {hunter_city_name}.",
     "hunter_secure_city": "🛡️ {hunter_name} eliminated a threat ({species}) to secure {hunter_city_name}.",
     "settler_lost": "💀 A group of settlers from {settler_city_name} got lost in the wildlands.",
@@ -28,7 +28,8 @@
   "entities": {
     "city_founded": "🏛️  The primordial city of {name} was founded at ({x}, {y}).",
     "settler_spawn": "🚶 Overpopulated! A group of settlers leaves {name} for the unknown.",
-    "ruins_desc": "🏚️ {name} has been abandoned."
+    "ruins_desc": "🏚️ {name} has been abandoned.",
+    "village_promoted": "🏛️ The village of {name} at ({x}, {y}) has grown into a city."
   },
   "ui": {
     "chronicles_title": " 📜 CHRONICLES OF {world_name}",

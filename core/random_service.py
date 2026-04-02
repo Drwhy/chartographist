@@ -53,3 +53,8 @@ class RandomService:
     def sample(cls, population, k):
         """Returns a k-length list of unique elements chosen from the population."""
         return cls.get_rng().sample(population, k)
+
+    @classmethod
+    def shuffle(cls, seq):
+        """Returns a random element from a non-empty sequence."""
+        return cls.get_rng().shuffle(seq)

@@ -22,6 +22,18 @@ class NameGenerator:
         return f"{prefix}{suffix}".strip()
 
     @staticmethod
+    def generate_first_name(culture_data):
+        """
+        Generates a character name by combining a cultural prefix and personal suffix.
+        Example: 'Valer' + 'ius' -> 'Valerius'
+        """
+        prefixes = culture_data["naming"]["prefixes"]
+        prefix = RandomService.choice(prefixes)
+
+        # Handle cases where suffixes might start with a space or hyphen
+        return f"{prefix}".strip()
+
+    @staticmethod
     def generate_place_name(culture_data):
         """
         Generates a settlement or geographic name.

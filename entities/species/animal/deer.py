@@ -15,7 +15,7 @@ class Deer(Animal):
         h = world['elev'][y][x]
         # The deer prefers plains (elevation between 0.05 and 0.4)
         if 0.05 < h < 0.4:
-            if RandomService.random() < 0.1: # 10% chance to spawn if the terrain is suitable
+            if RandomService.random() < 0.05: # 10% chance to spawn if the terrain is suitable
                 # Retrieve data from template.json
                 species_data = next((f for f in config['fauna'] if f['species'] == 'deer'), None)
                 return Deer(x, y, None, config, species_data)

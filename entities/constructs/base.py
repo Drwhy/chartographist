@@ -1,6 +1,7 @@
 import math
 from core.naming import NameGenerator
 from core.random_service import RandomService
+from entities.species.human.base import Human
 from core.entities import Entity, Z_CONSTRUCT
 from core.logger import GameLogger
 from core.translator import Translator
@@ -86,3 +87,51 @@ class Construct(Entity):
                 new_culture=self.culture['name']
             )
         )
+    def _update_population_logic(self, world):
+        """Shared biological and economic logic for all settlements."""
+        if not self.citizens:
+            return
+
+        # 1. Monthly Status (Aging, Hunger, Working)
+        for person in self.citizens:
+            person.process_monthly_status()
+
+            # Feeding Logic
+            if self.food_stock >= 1:
+                self.food_stock -= 1
+                person.hunger = max(0, person.hunger - 10)
+            else:
+                person.hunger += 10 # Starvation
+                if person.hunger >= 100: person.is_dead = True
+
+            # Production (Polymorphism: Farmer.work or Citizen.work)
+            person.work(self, world)
+
+        # 2. Cleanup dead
+        self.citizens = [c for c in self.citizens if not c.is_dead]
+
+    def _handle_reproduction(self, chance_multiplier=1.0):
+        """Shared genealogy and birth system."""
+        if self.food_stock <= len(self.citizens):
+            return
+
+        fertile_pool = [c for c in self.citizens if c.is_fertile]
+        RandomService.shuffle(fertile_pool)
+
+        for i in range(0, len(fertile_pool) - 1, 2):
+            p1, p2 = fertile_pool[i], fertile_pool[i+1]
+
+            # Base chance: 2% per month, modified by city/village type
+            if RandomService.random() < (0.02 * chance_multiplier):
+                self._spawn_child(p1, p2)
+
+    def _spawn_child(self, p1, p2):
+        """Creates a child with inherited lineage."""
+        first_name = NameGenerator.generate_first_name(self.culture)
+        family_name = p1.family_name
+
+        child = Human(self.x, self.y, self.culture, self.config, 1, f"{first_name} {family_name}", parents=(p1, p2))
+
+        # Heritage: Small XP boost from parents
+        child.experience = int((p1.experience + p2.experience) * 0.05)
+        self.citizens.append(child)

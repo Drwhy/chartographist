@@ -4,7 +4,7 @@ from entities.registry import register_structure, STRUCTURE_TYPES
 from core.logger import GameLogger
 from core.random_service import RandomService
 from core.translator import Translator
-from entities.species.human.citizen import Citizen
+from entities.species.human.base import Human
 from entities.species.human.farmer import Farmer # If they start farming
 import math
 
@@ -15,7 +15,7 @@ class Village(Construct):
 
         # --- Agent-Based Population ---
         initial_count = RandomService.randint(5, 12)
-        self.citizens = [Citizen(f"Villager_{i}", age=RandomService.randint(15, 35)) for i in range(initial_count)]
+        self.citizens = [Human(self.x, self.y, self.culture, self.config, 1) for i in range(initial_count)]
 
         # Resources
         self.food_stock = 40
@@ -69,12 +69,6 @@ class Village(Construct):
             # Basic work (Gathering/Small farming)
             person.work(self, world)
 
-    def _handle_reproduction(self):
-        """Villages grow if they have a food surplus."""
-        if self.food_stock > (self.population * 10) and self.population >= 2:
-            if RandomService.random() < 0.03: # 3% chance per month
-                self.citizens.append(Citizen(f"Child_{RandomService.randint(0,99)}", age=0))
-
     def _manage_specialization(self, world):
         """Village logic: promote to Farmer OR spawn an external Hunter/Fisherman."""
         # A. Check internal Farmers
@@ -96,8 +90,8 @@ class Village(Construct):
     def _promote_to_farmer(self):
         """Turns one basic Citizen into a Farmer."""
         for i, p in enumerate(self.citizens):
-            if type(p) is Citizen:
-                self.citizens[i] = Farmer(p.name, p.age)
+            if type(p) is Human:
+                self.citizens[i] = Farmer(self.x, self.y, self.culture, self.config, p.name, p.age)
                 return
 
     def _is_coastal(self, world):
@@ -121,8 +115,7 @@ class Village(Construct):
     def _evolve_to_city(self, world):
         """Village becomes a City. Citizens are transferred."""
         from entities.constructs.city import City
-
-        GameLogger.log(f"🏙️ {self.name} has grown into a City!")
+        GameLogger.log(Translator.translate("entities.village_promoted", name=self.name, x=self.x, y=self.y))
 
         new_city = City(self.x, self.y, self.culture, self.config)
         # CRITICAL: We transfer the actual list of agents (preserving age/XP)

@@ -23,7 +23,7 @@ class Rabbit(Animal):
         h = world['elev'][y][x]
         # Preference for low-altitude green plains
         if 0.1 < h < 0.5:
-            if RandomService.random() < 0.2: # High spawn rate for the initial population
+            if RandomService.random() < 0.1: # High spawn rate for the initial population
                 species_data = next((f for f in config['fauna'] if f['species'] == 'rabbit'), None)
                 if species_data:
                     return Rabbit(x, y, None, config, species_data)

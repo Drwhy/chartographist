@@ -150,7 +150,7 @@ class Fisherman(Human):
 
             # Direct delivery via home_city reference
             boost = RandomService.randint(5, 12)
-            self.home_city.population += boost
+            self.home_city.food_stock += boost
 
             self.target = None
             GameLogger.log(
