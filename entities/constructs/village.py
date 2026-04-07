@@ -5,7 +5,8 @@ from core.logger import GameLogger
 from core.random_service import RandomService
 from core.translator import Translator
 from entities.species.human.base import Human
-from entities.species.human.farmer import Farmer # If they start farming
+from entities.species.human.farmer import Farmer
+from core.religion import create_faith_from_demographics, SyncreticReligion, _find_template
 import math
 
 @register_structure
@@ -38,8 +39,10 @@ class Village(Construct):
         # 1. Monthly biological update (Hunger, Age)
         self._update_citizens(world)
 
-        # 2. Reproduction (Monthly check, lower probability than city)
-        self._handle_reproduction()
+        # 2. Reproduction — religion bonus modulates growth
+        religion_growth = self.religion.bonus("growth", 0) if self.religion else 0
+        growth_mult = 1.0 + (religion_growth * 0.01)
+        self._handle_reproduction(chance_multiplier=growth_mult)
 
         # 3. Workforce & Evolution (Slow Tick - Every 12 months)
         if world['cycle'] % 12 == 0:
@@ -48,10 +51,14 @@ class Village(Construct):
             if self.population >= self.city_threshold:
                 self._evolve_to_city(world)
 
-        # 4. Cleanup
+        # 4. Syncretism check (slow tick)
+        if world['cycle'] % 100 == 0:
+            self._check_syncretism()
+
+        # 5. Cleanup
         self.citizens = [c for c in self.citizens if not c.is_dead]
         if self.population <= 0:
-            self.is_expired = True # Becomes ruins or just disappears
+            self.is_expired = True
 
     def _update_citizens(self, world):
         """Standard feeding and aging logic."""
@@ -87,11 +94,18 @@ class Village(Construct):
             else:
                 self._spawn_hunter(world)
 
+    def _assign_faith(self, agent):
+        """Assign a personal faith to an agent based on village demographics."""
+        if self.religion:
+            agent.faith = create_faith_from_demographics(self.religion)
+
     def _promote_to_farmer(self):
         """Turns one basic Citizen into a Farmer."""
         for i, p in enumerate(self.citizens):
             if type(p) is Human:
-                self.citizens[i] = Farmer(self.x, self.y, self.culture, self.config, p.name, p.age)
+                new_farmer = Farmer(self.x, self.y, self.culture, self.config, p.name, p.age)
+                new_farmer.faith = p.faith  # Preserve faith
+                self.citizens[i] = new_farmer
                 return
 
     def _is_coastal(self, world):
@@ -105,22 +119,59 @@ class Village(Construct):
     def _spawn_hunter(self, world):
         from entities.species.human.hunter import Hunter
         self.active_worker_entity = Hunter(self.x, self.y, self.culture, self.config, self.pos, self)
+        self._assign_faith(self.active_worker_entity)
         world['entities'].add(self.active_worker_entity)
 
     def _spawn_fisherman(self, world):
         from entities.species.human.fisherman import Fisherman
         self.active_worker_entity = Fisherman(self.x, self.y, self.culture, self.config, self.pos, self)
+        self._assign_faith(self.active_worker_entity)
         world['entities'].add(self.active_worker_entity)
 
     def _evolve_to_city(self, world):
-        """Village becomes a City. Citizens are transferred."""
+        """Village becomes a City. Citizens and religion are transferred."""
         from entities.constructs.city import City
         GameLogger.log(Translator.translate("entities.village_promoted", name=self.name, x=self.x, y=self.y))
 
         new_city = City(self.x, self.y, self.culture, self.config)
-        # CRITICAL: We transfer the actual list of agents (preserving age/XP)
+        # CRITICAL: Transfer the actual list of agents (preserving age/XP/faith)
         new_city.citizens = self.citizens
         new_city.food_stock = self.food_stock
+        # Transfer religion demographics from village to city
+        if self.religion:
+            new_city.religion = self.religion
 
         world['entities'].add(new_city)
         self.is_expired = True
+
+    def _check_syncretism(self):
+        """
+        Check if conditions are met for religion fusion in the village.
+        Same logic as City but with lower probability.
+        """
+        if not self.religion or not self.religion.fractions:
+            return
+
+        dominant_frac = self.religion.dominant_fraction
+        if dominant_frac < 0.7 and len(self.religion.fractions) >= 2:
+            if RandomService.random() < 0.01:  # 1% chance per slow tick
+                sorted_religions = sorted(self.religion.fractions.items(), key=lambda x: -x[1])
+                name_a, _ = sorted_religions[0]
+                name_b, _ = sorted_religions[1]
+
+                tmpl_a = _find_template(name_a)
+                tmpl_b = _find_template(name_b)
+
+                if tmpl_a and tmpl_b:
+                    syncretic = SyncreticReligion.create(tmpl_a, tmpl_b)
+                    old_a = self.religion.fractions.get(name_a, 0)
+                    old_b = self.religion.fractions.get(name_b, 0)
+                    self.religion.fractions[syncretic["name"]] = (old_a + old_b) * 0.3
+                    self.religion.fractions[name_a] *= 0.7
+                    self.religion.fractions[name_b] *= 0.7
+                    self.religion._normalize()
+
+                    GameLogger.log(Translator.translate(
+                        "events.religion_syncretism_emerges",
+                        religion=syncretic["name"], name=self.name
+                    ))

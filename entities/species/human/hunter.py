@@ -21,8 +21,12 @@ class Hunter(Human):
         # New state: food transportation
         self.has_game = False
         self.range_shot = 2
-        self.perception_range = 10
+        self._base_perception = 10
         self.fear_sensitivity = 2.5
+
+    @property
+    def perception_range(self):
+        return self._base_perception + int(self.faith_bonus("perception"))
 
     def _update_status(self):
         """Adjusts appearance and speed based on the load."""
@@ -116,6 +120,8 @@ class Hunter(Human):
     def _deliver_food(self, world):
         """Drops game at the village, increasing its population."""
         boost = RandomService.randint(5, 12)
+        # Faith harvest bonus
+        boost = int(boost * (1 + self.faith_bonus("harvest") * 0.1))
         self.home_city.food_stock += boost
 
         self.has_game = False
@@ -203,7 +209,7 @@ class Hunter(Human):
 
     def get_defense_power(self):
         """Hunter is armed and dangerous"""
-        return 0.6 # Base defense value
+        return 0.6 + self.faith_bonus("defense") * 0.1
 
     @property
     def danger_level(self):

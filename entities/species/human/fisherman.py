@@ -20,8 +20,12 @@ class Fisherman(Human):
         # Business logic
         self.target = None
         self.fishing_cooldown = 0
-        self.perception_range = 12  # Good view of the sea horizon
+        self._base_perception = 12  # Good view of the sea horizon
         self.fear_sensitivity = 4.0 # Very cautious (a small boat sinks fast!)
+
+    @property
+    def perception_range(self):
+        return self._base_perception + int(self.faith_bonus("perception"))
 
     def think(self, world):
         """Decision phase (Brain)."""
@@ -150,6 +154,8 @@ class Fisherman(Human):
 
             # Direct delivery via home_city reference
             boost = RandomService.randint(5, 12)
+            # Faith harvest bonus
+            boost = int(boost * (1 + self.faith_bonus("harvest") * 0.1))
             self.home_city.food_stock += boost
 
             self.target = None

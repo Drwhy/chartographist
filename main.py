@@ -5,6 +5,7 @@ from core.logger import GameLogger
 from core.random_service import RandomService
 from events.event_manager import EventManager
 from core.translator import Translator
+from core.religion import init_religion_data
 
 # --- GLOBAL CONFIGURATION ---
 WIDTH, HEIGHT = 60, 30
@@ -25,6 +26,9 @@ def main():
 
     # Initialize the central random service
     RandomService.initialize(seed)
+
+    # Initialize religion data from config (generates one religion per culture)
+    init_religion_data(config)
 
     # Create the world and the statistics dictionary
     # world['entities'] is an EntityManager instance

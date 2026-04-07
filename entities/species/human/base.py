@@ -1,6 +1,7 @@
 from core.entities import Entity, Z_HUMAN
 from core.naming import NameGenerator
 from core.random_service import RandomService
+from core.religion import PersonalFaith
 
 class Human(Entity):
     def __init__(self, x, y, culture, config, speed, name=None, parents=None):
@@ -19,6 +20,7 @@ class Human(Entity):
         self.parents = parents
         self.name = name if name else NameGenerator.generate_person_name(culture)
         self.family_name = self._derive_family_name()
+        self.faith = None
         self.is_infected = False
         self.infection_turns = 0
 
@@ -98,6 +100,12 @@ class Human(Entity):
         if self.age > 50:
             if RandomService.random() < (self.age - 50) * 0.01:
                 self.is_dead = True
+
+    def faith_bonus(self, key, default=0):
+        """Returns the additive bonus from personal faith for the given key."""
+        if self.faith is None:
+            return default
+        return self.faith.bonus(key, default)
 
     def work(self, city, world):
         """Base citizens provide basic labor (slow food gain)."""

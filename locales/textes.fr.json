@@ -23,7 +23,12 @@
     "trader_spawn": "📦 {city_name} a affrété un nouveau marchand,",
     "trade_success": "💰 Commerce établi entre {home_city} et {target_city} (+{bonus} nourritures)",
     "cultural_mutation": "🎭 {name} a adopté les coutumes du {new_culture} (anciennement {old_culture}).",
-    "animal_starvation": "💀 Un {species} est mort de faim."
+    "animal_starvation": "💀 Un {species} est mort de faim.",
+    "religion_city_worships": "{emoji} {name} vénère le {religion} (dieu : {god}, domaine : {domain})",
+    "religion_village_founded": "{emoji} {name} est fondé sous le {religion}",
+    "religion_city_converts": "🙏 {name} se convertit au {religion} par le commerce",
+    "religion_trader_syncretism": "🔮 {name} adopte le {religion} sur la route",
+    "religion_syncretism_emerges": "🔮 Une foi syncrétique, le {religion}, émerge à {name}"
   },
   "entities": {
     "city_founded": "🏛️  La cité primordiale de {name} a été fondée en ({x}, {y}).",
@@ -39,7 +44,8 @@
     "fauna_count": " 🐾 Faune restante : {count}",
     "seed_info": " 🌱 Seed utilisée : {seed}",
     "header_line_1": "--- 🗺️  {name} | AN: {year} MOIS: {month} | 🏛️  STRUCTURES: {structs} ---",
-    "header_line_2": "🏹 HUMAINS: {humans} | 🐾 FAUNE: {fauna} | 🌱 SEED: {seed}"
+    "header_line_2": "🏹 HUMAINS: {humans} | 🐾 FAUNE: {fauna} | 🌱 SEED: {seed}",
+    "header_faiths": "🙏 CROYANCES : {faiths}"
   },
   "system": {
     "user_interrupt": "🛑 Simulation interrompue par l'utilisateur.",

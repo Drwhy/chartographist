@@ -8,6 +8,7 @@ from entities.constructs.ruins import Ruins
 from entities.species.human.base import Human
 from entities.species.human.farmer import Farmer
 from core.naming import NameGenerator
+from core.religion import create_faith_from_demographics, SyncreticReligion, _find_template
 import math
 
 @register_structure
@@ -29,6 +30,9 @@ class City(Construct):
         self.settler_threshold = 500 # Citizens
         self.settler_cooldown = 0
         self.settler_cost = 150
+
+        # Active agent references
+        self.active_trader = None
     @property
     def population(self):
         """Dynamic population count based on the citizen list."""
@@ -40,13 +44,20 @@ class City(Construct):
         # 1. INDIVIDUAL UPDATES & FEEDING
         self._update_citizens(world)
 
-        # 2. REPRODUCTION (Monthly check)
-        self._handle_reproduction()
+        # 2. REPRODUCTION — religion bonus modulates growth
+        religion_growth = self.religion.bonus("growth", 0) if self.religion else 0
+        growth_mult = 1.0 + (religion_growth * 0.01)
+        self._handle_reproduction(chance_multiplier=growth_mult)
 
         # 3. EXPANSION & TRADE (Macro Logic)
         self._manage_expansion(world)
         self._manage_trade(world)
         self._manage_specialization()
+
+        # 4. Syncretism check (slow tick)
+        if world['cycle'] % 100 == 0:
+            self._check_syncretism()
+
         # Cleanup dead bodies
         self.citizens = [c for c in self.citizens if not c.is_dead]
 
@@ -97,11 +108,12 @@ class City(Construct):
                     GameLogger.log(Translator.translate("entities.settler_spawn", name=self.name))
     def _manage_trade(self, world):
         """Spawns a trader if pop > 15 and luck strikes."""
+        # Check if active trader is still alive
+        if self.active_trader and self.active_trader.is_expired:
+            self.active_trader = None
+
         if self.population > 15 and RandomService.random() < 0.01:
-            from entities.species.human.trader import Trader
-            # Check if we already have an active trader
-            my_traders = [e for e in world['entities'] if isinstance(e, Trader) and getattr(e, 'home_city', None) == self]
-            if not my_traders:
+            if self.active_trader is None:
                 self._spawn_trader(world)
 
     def take_damage(self, amount):
@@ -122,13 +134,20 @@ class City(Construct):
     def _spawn_settler(self, world):
         from entities.species.human.settler import Settler
         new_settler = Settler(self.x, self.y, self.culture, self.config, home_city=self)
+        # Assign faith from city demographics
+        if self.religion:
+            new_settler.faith = create_faith_from_demographics(self.religion)
         world['entities'].add(new_settler)
         GameLogger.log(Translator.translate("entities.settler_spawn", name=self.name))
 
     def _spawn_trader(self, world):
         from entities.species.human.trader import Trader
         new_trader = Trader(self.x, self.y, self.culture, self.config, self)
+        # Assign faith from city demographics
+        if self.religion:
+            new_trader.faith = create_faith_from_demographics(self.religion)
         world['entities'].add(new_trader)
+        self.active_trader = new_trader
         return True
 
     def _can_world_support_new_settler(self, world):
@@ -146,4 +165,41 @@ class City(Construct):
             # If we need farmers and this is just a basic Citizen
             if type(person) is Human and self.food_stock < (len(self.citizens) * 10):
                 # We replace the object in the list with a Farmer version
-                self.citizens[i] = Farmer(self.x, self.y, self.culture, self.config, person.name, person.age)
+                new_farmer = Farmer(self.x, self.y, self.culture, self.config, person.name, person.age)
+                new_farmer.faith = person.faith  # Preserve faith
+                self.citizens[i] = new_farmer
+
+    def _check_syncretism(self):
+        """
+        Check if conditions are met for religion fusion.
+        If no single religion dominates (>70%), there's a small chance
+        of a syncretic religion emerging from the two largest faiths.
+        """
+        if not self.religion or not self.religion.fractions:
+            return
+
+        dominant_frac = self.religion.dominant_fraction
+        # Syncretism only when no overwhelming majority
+        if dominant_frac < 0.7 and len(self.religion.fractions) >= 2:
+            if RandomService.random() < 0.02:  # 2% chance per slow tick
+                sorted_religions = sorted(self.religion.fractions.items(), key=lambda x: -x[1])
+                name_a, _ = sorted_religions[0]
+                name_b, _ = sorted_religions[1]
+
+                tmpl_a = _find_template(name_a)
+                tmpl_b = _find_template(name_b)
+
+                if tmpl_a and tmpl_b:
+                    syncretic = SyncreticReligion.create(tmpl_a, tmpl_b)
+                    # The new syncretic religion takes a portion of both parents
+                    old_a = self.religion.fractions.get(name_a, 0)
+                    old_b = self.religion.fractions.get(name_b, 0)
+                    self.religion.fractions[syncretic["name"]] = (old_a + old_b) * 0.3
+                    self.religion.fractions[name_a] *= 0.7
+                    self.religion.fractions[name_b] *= 0.7
+                    self.religion._normalize()
+
+                    GameLogger.log(Translator.translate(
+                        "events.religion_syncretism_emerges",
+                        religion=syncretic["name"], name=self.name
+                    ))

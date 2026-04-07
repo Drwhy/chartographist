@@ -2,6 +2,7 @@ from entities.registry import WILD_SPECIES, STRUCTURE_TYPES
 from core.logger import GameLogger
 from core.random_service import RandomService
 from core.translator import Translator
+from core.religion import _find_template
 
 def spawn_system(world, config):
     """
@@ -72,3 +73,15 @@ def seed_initial_cities(world, config):
         GameLogger.log(
             Translator.translate("entities.city_founded", name=mother_city.name, x=spawn_x, y=spawn_y)
         )
+        # Log the founding religion
+        if hasattr(mother_city, 'religion') and mother_city.religion and mother_city.religion.dominant:
+            dominant = mother_city.religion.dominant
+            tmpl = _find_template(dominant)
+            emoji = tmpl.get("emoji", "🙏") if tmpl else "🙏"
+            god = tmpl.get("god", "") if tmpl else ""
+            domain = tmpl.get("domain", "") if tmpl else ""
+            GameLogger.log(Translator.translate(
+                "events.religion_city_worships",
+                emoji=emoji, name=mother_city.name,
+                religion=dominant, god=god, domain=domain
+            ))

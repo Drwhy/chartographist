@@ -5,6 +5,7 @@ from entities.species.human.base import Human
 from core.entities import Entity, Z_CONSTRUCT
 from core.logger import GameLogger
 from core.translator import Translator
+from core.religion import generate_demographics
 
 class Construct(Entity):
     """
@@ -24,6 +25,9 @@ class Construct(Entity):
 
         # Generates a procedural place name based on cultural linguistics
         self.name = NameGenerator.generate_place_name(culture)
+
+        # Religion demographics for this settlement
+        self.religion = generate_demographics(culture)
 
     def update(self, world, stats):
         """Standard update loop to be overridden by child classes (City, Village, etc.)."""

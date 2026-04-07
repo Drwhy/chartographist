@@ -5,6 +5,7 @@ from core.discovery_service import DiscoveryService
 from core.logger import GameLogger
 from core.translator import Translator
 from core.random_service import RandomService
+from core.religion import SyncreticReligion, _find_template
 
 @register_civ
 class Trader(Human):
@@ -17,6 +18,7 @@ class Trader(Human):
         # Risk management
         self.fear_sensitivity = 5.0  # High value = avoids danger at all costs
         self.perception_range = 5
+        self.visited_cities = set()
 
     def think(self, world):
         if self.is_expired: return
@@ -78,17 +80,65 @@ class Trader(Human):
         self.pos = best_move
 
     def _do_trade(self):
-        """Exchange population and swap home/target roles."""
-        self.target_city.food_stock += 10
+        """Exchange goods, spread religion, and move on."""
+        # Trade bonus from faith
+        trade_bonus = int(self.faith_bonus("trade"))
+        food_delivered = 10 + trade_bonus
+        self.target_city.food_stock += food_delivered
 
         GameLogger.log(Translator.translate("events.trade_success",
             home_city=self.home_city.name,
             target_city=self.target_city.name,
-            bonus=2))
+            bonus=trade_bonus))
+
+        # --- Religion Spread ---
+        self._spread_religion()
+
+        # Track visited cities
+        self.visited_cities.add(id(self.target_city))
 
         # The target city becomes my new home, and I clear target to find a new one
         self.home_city = self.target_city
         self.target_city = None
+
+    def _spread_religion(self):
+        """Trader's faith influences the target city's demographics."""
+        if not self.faith or not hasattr(self.target_city, 'religion'):
+            return
+        if not self.target_city.religion:
+            return
+
+        # Influence the target city's religion demographics
+        target_dominant_before = self.target_city.religion.dominant
+        self.target_city.religion.influence(self.faith.primary, strength=0.03)
+        target_dominant_after = self.target_city.religion.dominant
+
+        # Log if the dominant religion changed
+        if target_dominant_before != target_dominant_after:
+            GameLogger.log(Translator.translate(
+                "events.religion_city_converts",
+                name=self.target_city.name, religion=target_dominant_after
+            ))
+
+        # Small chance of trader adopting target city's faith
+        if self.target_city.religion.dominant != self.faith.primary:
+            if RandomService.random() < 0.1:  # 10% chance of faith adoption
+                dominant = self.target_city.religion.dominant
+                tmpl = _find_template(dominant)
+                if tmpl:
+                    # Check for syncretism: merge old and new faith
+                    old_tmpl = _find_template(self.faith.primary)
+                    if old_tmpl and RandomService.random() < 0.15:
+                        syncretic = SyncreticReligion.create(old_tmpl, tmpl)
+                        from core.religion import PersonalFaith
+                        self.faith = PersonalFaith(syncretic)
+                        GameLogger.log(Translator.translate(
+                            "events.religion_trader_syncretism",
+                            name=self.name, religion=syncretic["name"]
+                        ))
+                    else:
+                        from core.religion import PersonalFaith
+                        self.faith = PersonalFaith(tmpl)
 
     def _move_safely_random(self, world):
         """Wander logic that still respects the fear map when idle."""

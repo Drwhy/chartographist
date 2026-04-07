@@ -7,6 +7,7 @@ from entities.registry import register_civ
 from core.random_service import RandomService
 from entities.registry import STRUCTURE_TYPES
 from core.translator import Translator
+from core.religion import ReligionDemographics
 
 @register_civ
 class Settler(Human):
@@ -122,6 +123,16 @@ class Settler(Human):
     def _found_village(self, world):
         """Creates the village and traces the road to the mother city."""
         new_village = Village(self.x, self.y, self.culture, self.config)
+
+        # Transfer settler's faith as the founding religion
+        if self.faith:
+            new_village.religion = ReligionDemographics({self.faith.primary: 1.0})
+            GameLogger.log(Translator.translate(
+                "events.religion_village_founded",
+                emoji=self.faith.emoji, name=new_village.name,
+                religion=self.faith.primary
+            ))
+
         world['entities'].add(new_village)
 
         if self.home_city:

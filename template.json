@@ -72,5 +72,58 @@
     "lava": "🔥",
     "ufo": "🛸"
   },
-  "influence_decay": 0.95
+  "influence_decay": 0.95,
+  "religions": [
+    {
+      "name": "Cult of the Eternal Flame",
+      "culture": "Empire",
+      "emoji": "⛪",
+      "domain": "war",
+      "bonuses": { "growth": 2, "perception": 2, "harvest": 1, "trade": 1, "defense": 4 },
+      "naming": {
+        "prefixes": ["Igni", "Sol", "Pyrr", "Vulc", "Flam", "Ard", "Crem", "Lumin"],
+        "suffixes": ["ius", "ator", "ax", "orix", "entis", "arus", "ifer", "onus"]
+      }
+    },
+    {
+      "name": "Path of the Crescent Moon",
+      "culture": "Sultanat",
+      "emoji": "🕌",
+      "domain": "trade",
+      "bonuses": { "growth": 3, "perception": 1, "harvest": 2, "trade": 4, "defense": 1 },
+      "naming": {
+        "prefixes": ["Nur", "Qamar", "Shams", "Ruh", "Barak", "Hilal", "Safi", "Karim"],
+        "suffixes": [" al-Nur", " ad-Din", " ar-Rahman", " al-Qadr", " al-Haq", " as-Salam", " al-Aziz", " al-Amin"]
+      }
+    },
+    {
+      "name": "Way of the Jade Dragon",
+      "culture": "Dynastie",
+      "emoji": "⛩️",
+      "domain": "fertility",
+      "bonuses": { "growth": 5, "perception": 1, "harvest": 4, "trade": 2, "defense": 0 },
+      "naming": {
+        "prefixes": ["Long", "Tian", "Shen", "Yu", "Feng", "Qi", "Dao", "Hua"],
+        "suffixes": ["-Wang", "-Di", "-Xian", "-Lung", "-Ming", "-Zun", "-Shen", "-Huang"]
+      }
+    },
+    {
+      "name": "Song of the World Tree",
+      "culture": "Clans",
+      "emoji": "🪨",
+      "domain": "life",
+      "bonuses": { "growth": 3, "perception": 3, "harvest": 3, "trade": 0, "defense": 2 },
+      "naming": {
+        "prefixes": ["Ygg", "Odr", "Mjol", "Frey", "Bald", "Tyr", "Vald", "Norn"],
+        "suffixes": ["drasil", "inn", "nir", "heim", "ungr", "vald", "rekr", "gar"]
+      }
+    }
+  ],
+  "domains": {
+    "war":       { "emoji": "⚔️",  "bonuses_weight": { "defense": 2.0, "perception": 1.5 } },
+    "trade":     { "emoji": "💰",  "bonuses_weight": { "trade": 2.0, "growth": 1.2 } },
+    "fertility": { "emoji": "🌾",  "bonuses_weight": { "growth": 2.0, "harvest": 1.5 } },
+    "life":      { "emoji": "🌿",  "bonuses_weight": { "harvest": 1.5, "perception": 1.5, "growth": 1.2 } },
+    "death":     { "emoji": "💀",  "bonuses_weight": { "defense": 1.5, "growth": 0.5 } }
+  }
 }
