@@ -24,6 +24,10 @@
     "trade_success": "💰 Comercio establecido entre {home_city} y {target_city} (+{bonus} alimento)",
     "cultural_mutation": "🎭 {name} ha adoptado las costumbres de {new_culture} (antes {old_culture}).",
     "animal_starvation": "💀 Una {especie} ha muerto de hambre.",
+    "war_declared": "⚔️ ¡{attacker} declara la guerra a {defender}!",
+    "soldier_spawned": "🛡️ {city} envía un soldado contra {target}.",
+    "soldier_kills": "⚔️ ¡{winner} de {winner_city} ha abatido a {loser} en batalla!",
+    "soldier_raids": "🔥 {soldier} de {home_city} saquea {city}: ¡{kills} muertos!",
     "trade_road_built": "🛤️ ¡Una ruta comercial conecta ahora {home_city} y {target_city}!",
     "religion_city_worships": "{emoji} {name} venera el {religion} (dios: {god}, dominio: {domain})",
     "religion_village_founded": "{emoji} {name} se funda bajo el {religion}",
@@ -51,5 +55,13 @@
   "system": {
     "user_interrupt": "🛑 Simulación interrumpida por el usuario.",
     "world_init": "🌍 El mundo ha despertado (Semilla: {seed_val})"
+  },
+  "domains": {
+    "war":       { "t1": "el Conquistador", "t2": "el Furioso", "t3": "de la Hoja Ardiente", "t4": "el Inquebrantable", "t5": "de Voluntad de Hierro" },
+    "trade":     { "t1": "de la Ruta de la Seda", "t2": "el Generoso", "t3": "de los Mil Mercados", "t4": "el Abundante", "t5": "de la Mano Abierta" },
+    "fertility": { "t1": "el Siempreverde", "t2": "de la Primera Cosecha", "t3": "Madre de los Campos", "t4": "la Fértil", "t5": "Quien Alimenta al Mundo" },
+    "life":      { "t1": "el Eterno", "t2": "del Árbol del Mundo", "t3": "el Imperecedero", "t4": "Tejedora de Destinos", "t5": "de la Fuente de la Vida" },
+    "death":     { "t1": "el Silencioso", "t2": "de la Larga Noche", "t3": "Guardían de las Almas", "t4": "el Pálido", "t5": "Quien Vigila la Puerta" },
+    "wisdom":    { "t1": "el Omnisciente", "t2": "de la Biblioteca Infinita", "t3": "Portador de Verdades", "t4": "el Iluminado", "t5": "Quien Lee las Estrellas" }
   }
 }

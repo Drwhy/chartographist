@@ -24,6 +24,10 @@
     "trade_success": "💰 Trade established between {home_city} and {target_city} (+{bonus} food)",
     "cultural_mutation": "🎭 {name} has adopted the customs of {new_culture} (formerly {old_culture}).",
     "animal_starvation": "💀 A {species} has starved to death.",
+    "war_declared": "⚔️ {attacker} declares war on {defender}!",
+    "soldier_spawned": "🛡️ {city} sends a soldier against {target}.",
+    "soldier_kills": "⚔️ {winner} from {winner_city} has slain {loser} in battle!",
+    "soldier_raids": "🔥 {soldier} from {home_city} raids {city}: {kills} killed!",
     "trade_road_built": "🛤️ A trade road now connects {home_city} and {target_city}!",
     "religion_city_worships": "{emoji} {name} worships the {religion} (god: {god}, domain: {domain})",
     "religion_village_founded": "{emoji} {name} is founded under the {religion}",
@@ -51,5 +55,13 @@
   "system": {
     "user_interrupt": "🛑 Simulation interrupted by user.",
     "world_init": "🌍 The world has awakened (Seed: {seed_val})"
+  },
+  "domains": {
+    "war":       { "t1": "the Conqueror", "t2": "the Wrathful", "t3": "of the Burning Blade", "t4": "the Unbroken", "t5": "of Iron Will" },
+    "trade":     { "t1": "of the Silk Road", "t2": "the Generous", "t3": "of a Thousand Markets", "t4": "the Bountiful", "t5": "of the Open Palm" },
+    "fertility": { "t1": "the Evergreen", "t2": "of the First Harvest", "t3": "Mother of Fields", "t4": "the Fertile", "t5": "Who Feeds the World" },
+    "life":      { "t1": "the Eternal", "t2": "of the World Tree", "t3": "the Undying", "t4": "Weaver of Fates", "t5": "of the Living Spring" },
+    "death":     { "t1": "the Silent", "t2": "of the Long Night", "t3": "Keeper of Souls", "t4": "the Pale One", "t5": "Who Watches the Gate" },
+    "wisdom":    { "t1": "the All-Knowing", "t2": "of the Infinite Library", "t3": "Speaker of Truths", "t4": "the Enlightened", "t5": "Who Reads the Stars" }
   }
 }

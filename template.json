@@ -17,7 +17,7 @@
       "name": "Empire",
       "city": "🏰", "village": "🏡", "port": "⚓", "road": ". ",
       "settler_emoji": "🚶", "hunter_emoji": "🏹","fisherman_emoji": "🎣","boat_emoji": "🛶","food": "🍖",
-      "trader_emoji": "🪙",
+      "trader_emoji": "🪙", "soldier_emoji": "⚔️",
       "naming": {
         "prefixes": ["Valer", "Luc", "Aurel", "Sever", "Marc", "Tiber", "August", "Septim", "Flav", "Clod", "Corn", "Domi", "Grat", "Hadri", "Iul", "Livi", "Maxi", "Nerv", "Octav", "Quin", "Tull", "Vespas", "Traj", "Aemil", "Anto"],
         "suffixes_person": ["ius", "ian", "us", "ander", "inus", "entis", "onius", "erius", "atus", "icus", "illa", "ina", "orix"],
@@ -28,7 +28,7 @@
       "name": "Sultanat",
       "city": "🕌", "village": "🧱", "port": "🛶", "road": "° ",
       "settler_emoji": "🐪", "hunter_emoji": "🏹", "fisherman_emoji": "🎣","boat_emoji": "🛶","food": "🥙",
-      "trader_emoji": "🪙",
+      "trader_emoji": "🪙", "soldier_emoji": "🗡️",
       "naming": {
         "prefixes": ["Al", "Zar", "Sul", "Oman", "Khel", "Bakir", "Emir", "Mansu", "Rash", "Zay", "Ibr", "Sal", "Hak", "Far", "Qas", "Uth", "Nas", "Mal", "Jal", "Hab", "Must", "Ami", "Yus", "Ham", "Zaid"],
         "suffixes_person": ["'jin", " al-Din", " ahad", " emir", " bashir", " i-Azam", " ud-Daula", " allah", " zadeh", " khan", " fari", " din", " sani"],
@@ -39,7 +39,7 @@
       "name": "Dynastie",
       "city": "🏯", "village": "🏮", "port": "⛵", "road": "+ ",
       "settler_emoji": "👨‍🌾", "hunter_emoji": "🏹","fisherman_emoji": "🎣","boat_emoji": "🛶","food": "🍱",
-      "trader_emoji": "🪙",
+      "trader_emoji": "🪙", "soldier_emoji": "🥷",
       "naming": {
         "prefixes": ["Han", "Xian", "Zhen", "Kuan", "Lao", "Jin", "Yuan", "Feng", "Zhao", "Kang", "Shun", "Ming", "Qing", "Sheng", "Tao", "Wun", "Xue", "Yue", "Ling", "Gao", "Ryu", "Ken", "Shi", "Cho", "Hao"],
         "suffixes_person": ["-Ho", "-Do", "-Ti", "-Shen", "-An", "-Ru", "-Po", "-Wu", "-Xi", "-Mei", "-Long", "-Zhi", "-Fan"],
@@ -50,6 +50,7 @@
       "name": "Clans",
       "city": "🛖", "village": "⛺", "port": "⛵", "road": "  ",
       "settler_emoji": "🧗", "hunter_emoji": "🏹","fisherman_emoji": "🎣","boat_emoji": "🛶","food": "🥩",
+      "soldier_emoji": "🪓",
       "naming": {
         "prefixes": ["Bjorn", "Grim", "Thor", "Ulf", "Ragn", "Sig", "Skarde", "Hald", "Erik", "Gunn", "Ivar", "Leif", "Olaf", "Sven", "Ketil", "Arne", "Egil", "Fro", "Hrolf", "Vid", "Agn", "Knud", "Yng", "Torv", "Bram"],
         "suffixes_person": ["son", "ir", "ald", "sen", "bjorg", "und", "gar", "kell", "grim", "unn", "thorp", "stein", "borg"],
@@ -80,7 +81,7 @@
       "naming": {
         "prefixes": ["Igni", "Sol", "Pyrr", "Vulc", "Flam", "Ard", "Crem", "Lumin", "Ferr", "Bell"],
         "suffixes": ["ius", "ator", "ax", "orix", "entis", "arus", "ifer", "onus", "arax", "iron"],
-        "titles": ["the Conqueror", "the Wrathful", "of the Burning Blade", "the Unbroken", "of Iron Will"]
+        "titles": ["domains.war.t1", "domains.war.t2", "domains.war.t3", "domains.war.t4", "domains.war.t5"]
       }
     },
     "trade": {
@@ -89,7 +90,7 @@
       "naming": {
         "prefixes": ["Nur", "Qamar", "Merc", "Aurum", "Barak", "Cras", "Opul", "Lux"],
         "suffixes": [" al-Nur", "andis", "orath", "entum", " the Golden", "aris", "ophis", "enum"],
-        "titles": ["of the Silk Road", "the Generous", "of a Thousand Markets", "the Bountiful", "of the Open Palm"]
+        "titles": ["domains.trade.t1", "domains.trade.t2", "domains.trade.t3", "domains.trade.t4", "domains.trade.t5"]
       }
     },
     "fertility": {
@@ -98,7 +99,7 @@
       "naming": {
         "prefixes": ["Gaia", "Cere", "Dem", "Frey", "Terr", "Flor", "Verd", "Hua"],
         "suffixes": ["a", "ith", "ara", "una", "eia", "ora", "alis", "ina"],
-        "titles": ["the Evergreen", "of the First Harvest", "Mother of Fields", "the Fertile", "Who Feeds the World"]
+        "titles": ["domains.fertility.t1", "domains.fertility.t2", "domains.fertility.t3", "domains.fertility.t4", "domains.fertility.t5"]
       }
     },
     "life": {
@@ -107,7 +108,7 @@
       "naming": {
         "prefixes": ["Vit", "Anim", "Syl", "Ygg", "Norn", "Eld", "Bri", "Aur"],
         "suffixes": ["drasil", "ael", "anor", "heim", "wyn", "ion", "alis", "iel"],
-        "titles": ["the Eternal", "of the World Tree", "the Undying", "Weaver of Fates", "of the Living Spring"]
+        "titles": ["domains.life.t1", "domains.life.t2", "domains.life.t3", "domains.life.t4", "domains.life.t5"]
       }
     },
     "death": {
@@ -116,7 +117,7 @@
       "naming": {
         "prefixes": ["Mort", "Than", "Hel", "Nyx", "Anu", "Osi", "Erk", "Mab"],
         "suffixes": ["atos", "ibis", "heim", "era", "gor", "rath", "umbr", "onis"],
-        "titles": ["the Silent", "of the Long Night", "Keeper of Souls", "the Pale One", "Who Watches the Gate"]
+        "titles": ["domains.death.t1", "domains.death.t2", "domains.death.t3", "domains.death.t4", "domains.death.t5"]
       }
     },
     "wisdom": {
@@ -125,7 +126,7 @@
       "naming": {
         "prefixes": ["Ath", "Soph", "Thoth", "Min", "Ogm", "Sag", "Lore", "Veda"],
         "suffixes": ["ena", "icus", "is", "uva", "iana", "eos", "arion", "otep"],
-        "titles": ["the All-Knowing", "of the Infinite Library", "Speaker of Truths", "the Enlightened", "Who Reads the Stars"]
+        "titles": ["domains.wisdom.t1", "domains.wisdom.t2", "domains.wisdom.t3", "domains.wisdom.t4", "domains.wisdom.t5"]
       }
     }
   }

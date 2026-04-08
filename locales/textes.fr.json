@@ -24,6 +24,10 @@
     "trade_success": "💰 Commerce établi entre {home_city} et {target_city} (+{bonus} nourritures)",
     "cultural_mutation": "🎭 {name} a adopté les coutumes du {new_culture} (anciennement {old_culture}).",
     "animal_starvation": "💀 Un {species} est mort de faim.",
+    "war_declared": "⚔️ {attacker} déclare la guerre à {defender} !",
+    "soldier_spawned": "🛡️ {city} envoie un soldat contre {target}.",
+    "soldier_kills": "⚔️ {winner} de {winner_city} a terrassé {loser} au combat !",
+    "soldier_raids": "🔥 {soldier} de {home_city} pille {city} : {kills} tués !",
     "trade_road_built": "🛤️ Une route commerciale relie désormais {home_city} et {target_city} !",
     "religion_city_worships": "{emoji} {name} vénère le {religion} (dieu : {god}, domaine : {domain})",
     "religion_village_founded": "{emoji} {name} est fondé sous le {religion}",
@@ -51,5 +55,13 @@
   "system": {
     "user_interrupt": "🛑 Simulation interrompue par l'utilisateur.",
     "world_init": "🌍 Le monde s'est éveillé (Seed: {seed_val})"
+  },
+  "domains": {
+    "war":       { "t1": "le Conquérant", "t2": "le Colérique", "t3": "de la Lame Ardente", "t4": "l'Indomptable", "t5": "à la Volonté de Fer" },
+    "trade":     { "t1": "de la Route de la Soie", "t2": "le Généreux", "t3": "aux Mille Marchés", "t4": "le Prodigue", "t5": "à la Paume Ouverte" },
+    "fertility": { "t1": "l'Éternel Verdoyant", "t2": "de la Première Moisson", "t3": "Mère des Champs", "t4": "la Fertile", "t5": "Qui Nourrit le Monde" },
+    "life":      { "t1": "l'Éternel", "t2": "de l'Arbre-Monde", "t3": "l'Immortel", "t4": "Tisserand des Destins", "t5": "de la Source Vive" },
+    "death":     { "t1": "le Silencieux", "t2": "de la Longue Nuit", "t3": "Gardien des Âmes", "t4": "le Blême", "t5": "Qui Veille à la Porte" },
+    "wisdom":    { "t1": "l'Omniscient", "t2": "de la Bibliothèque Infinie", "t3": "Porteur de Vérités", "t4": "l'Éclairé", "t5": "Qui Lit les Étoiles" }
   }
 }

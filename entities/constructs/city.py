@@ -36,6 +36,12 @@ class City(Construct):
 
         # Discovery: set of city ids this city knows about (via trade)
         self.known_cities = set()
+
+        # War state
+        self.enemies = []         # List of city objects we are at war with
+        self.war_cooldown = 0     # Ticks before we can declare another war
+        self.soldier_cooldown = 0 # Ticks between soldier spawns
+        self.soldier_cost = 20    # Citizens consumed per soldier
     @property
     def population(self):
         """Dynamic population count based on the citizen list."""
@@ -57,7 +63,11 @@ class City(Construct):
         self._manage_trade(world)
         self._manage_specialization()
 
-        # 4. Syncretism check (slow tick)
+        # 4. WAR (evaluated every 12 cycles)
+        if world['cycle'] % 12 == 0:
+            self._manage_war(world)
+
+        # 5. Syncretism check (slow tick)
         if world['cycle'] % 100 == 0:
             self._check_syncretism()
 
@@ -205,3 +215,100 @@ class City(Construct):
                         "events.religion_syncretism_emerges",
                         religion=syncretic["name"], name=self.name
                     ))
+
+    # ── WAR SYSTEM ──────────────────────────────
+    def _manage_war(self, world):
+        """Handles war declaration, soldier spawning, and peace resolution."""
+        # Tick down cooldowns
+        if self.war_cooldown > 0:
+            self.war_cooldown -= 1
+        if self.soldier_cooldown > 0:
+            self.soldier_cooldown -= 1
+
+        # Clean up ended wars (enemy dead or expired)
+        self.enemies = [e for e in self.enemies if not e.is_expired and getattr(e, 'population', 0) > 0]
+
+        # Consider declaring war if we know other cities
+        if not self.enemies and self.war_cooldown == 0 and self.population >= 200:
+            self._consider_war(world)
+
+        # Spawn soldiers if at war
+        if self.enemies and self.soldier_cooldown == 0 and self.population > self.soldier_cost * 2:
+            self._spawn_soldier(world)
+
+    def _consider_war(self, world):
+        """
+        Evaluate whether to declare war on a known city.
+        Wars happen between cities of different cultures.
+        Probability increases with population advantage and proximity.
+        """
+        from core.discovery_service import DiscoveryService
+
+        known_settlements = DiscoveryService.get_known_settlements(world)
+        foreign_cities = [
+            c for c in known_settlements
+            if c != self
+            and not c.is_expired
+            and c.culture.get('name') != self.culture.get('name')
+            and getattr(c, 'population', 0) > 0
+        ]
+
+        if not foreign_cities:
+            return
+
+        # Pick the closest foreign city
+        target = min(foreign_cities, key=lambda c: math.dist(self.pos, c.pos))
+        dist = math.dist(self.pos, target.pos)
+
+        # War probability: higher with pop advantage, lower with distance
+        pop_ratio = self.population / max(target.population, 1)
+        proximity_factor = max(0, 1.0 - (dist / 40))  # Closer = more likely
+
+        war_chance = 0.03 * pop_ratio * proximity_factor
+
+        if RandomService.random() < war_chance:
+            self._declare_war(target)
+
+    def _declare_war(self, target):
+        """Formally declare war on another city."""
+        self.enemies.append(target)
+        self.war_cooldown = 200  # Can't declare another war for 200 ticks
+
+        # Mutual war: the target retaliates
+        if hasattr(target, 'enemies'):
+            if self not in target.enemies:
+                target.enemies.append(self)
+
+        GameLogger.log(Translator.translate(
+            "events.war_declared",
+            attacker=self.name, defender=target.name
+        ))
+
+    def _spawn_soldier(self, world):
+        """Consume citizens to create a soldier unit targeting the enemy."""
+        from entities.species.human.soldier import Soldier
+
+        if not self.enemies:
+            return
+
+        target = self.enemies[0]  # Focus on primary enemy
+        actual_cost = min(len(self.citizens), self.soldier_cost)
+        if actual_cost <= 0:
+            return
+
+        # Consume citizens
+        self.citizens = self.citizens[:-actual_cost]
+
+        new_soldier = Soldier(self.x, self.y, self.culture, self.config, self, target)
+        # Assign faith
+        if self.religion:
+            new_soldier.faith = create_faith_from_demographics(self.religion)
+            new_soldier.strength += new_soldier.faith_bonus("defense") * 0.15
+
+        world['entities'].add(new_soldier)
+        self.soldier_cooldown = 24  # One soldier per 2 years
+
+        GameLogger.log(Translator.translate(
+            "events.soldier_spawned",
+            city=self.name, target=target.name
+        ))
