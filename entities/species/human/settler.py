@@ -14,7 +14,9 @@ class Settler(Human):
     def __init__(self, x, y, culture, config, home_city=None):
         # Strictly following the Actor parameter order
         super().__init__(x, y, culture, config, 1)
-        self.char = culture.get("settler_emoji", "🚶")
+        self.land_char = culture.get("settler_emoji", "🚶")
+        self.boat_char = culture.get("boat_emoji", "🛶")
+        self.char = self.land_char
         self.home_city = home_city
         self.group_size = home_city.settler_cost
         self.distance_traveled = 0
@@ -26,14 +28,39 @@ class Settler(Human):
         # --- Emergence: Group Power ---
         # A higher danger level discourages small predators
         self.danger = 0.5 + (self.group_size * 0.02)
+    def _get_accessible_neighbors(self, world):
+        """
+        Override: settlers can traverse shallow water (boats).
+        Allows coastal tiles and shallow seas (elev > -0.4) but not deep ocean.
+        """
+        neighbors = []
+        for dx, dy in [(0,0), (0,1), (0,-1), (1,0), (-1,0), (1,1), (1,-1), (-1,1), (-1,-1)]:
+            nx, ny = self.x + dx, self.y + dy
+            if 0 <= nx < world['width'] and 0 <= ny < world['height']:
+                h = world['elev'][ny][nx]
+                # Land OR shallow water (not deep ocean)
+                if h > -0.4:
+                    neighbors.append((nx, ny))
+        return neighbors
+
+    def _update_terrain_status(self, world):
+        """Switch appearance and speed based on land vs water."""
+        h = world['elev'][self.y][self.x]
+        if h < 0:
+            self.char = self.boat_char
+            self.speed = 0.6  # Slower at sea
+        else:
+            self.char = self.land_char
+            self.speed = 1.0
+
     def think(self, world):
         """Reflection phase: is the settler looking for a spot or fleeing?"""
         if self.is_expired: return
 
-        # The settler does not have a fixed "target"; the goal is the best local score
+        self._update_terrain_status(world)
+
         self.distance_traveled += 1
 
-        # If too old or lost in a sterile zone
         if self.distance_traveled > self.max_travel_time:
             self.is_expired = True
             GameLogger.log(Translator.translate("events.settler_lost", settler_city_name=self.home_city.name))
@@ -61,7 +88,12 @@ class Settler(Human):
             scent = world['influence'].get_scent(nx, ny)
             h = world['elev'][ny][nx]
             is_river = world['riv'][ny][nx] > 0
-            geo_score = (0.5 if is_river else 0) + (0.3 if 0.2 < h < 0.6 else 0)
+
+            # Water penalty: settlers prefer land but can cross shallow seas
+            if h < 0:
+                geo_score = -0.5  # Penalty for being at sea
+            else:
+                geo_score = (0.5 if is_river else 0) + (0.3 if 0.2 < h < 0.6 else 0)
 
             # 2. SOCIAL REPULSION ("Communication")
             # Calculate discomfort caused by existing structures
