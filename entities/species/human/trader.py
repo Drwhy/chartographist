@@ -6,6 +6,7 @@ from core.logger import GameLogger
 from core.translator import Translator
 from core.random_service import RandomService
 from core.religion import SyncreticReligion, _find_template
+from history.history_engine import connect_with_road
 
 @register_civ
 class Trader(Human):
@@ -34,7 +35,7 @@ class Trader(Human):
 
         # Check if we have arrived (range of 1.5 to allow diagonal arrival)
         if math.dist(self.pos, self.target_city.pos) < 1.5:
-            self._do_trade()
+            self._do_trade(world)
         else:
             self._move_smart(world)
 
@@ -79,8 +80,8 @@ class Trader(Human):
 
         self.pos = best_move
 
-    def _do_trade(self):
-        """Exchange goods, spread religion, and move on."""
+    def _do_trade(self, world):
+        """Exchange goods, spread religion, build roads, and move on."""
         # Trade bonus from faith
         trade_bonus = int(self.faith_bonus("trade"))
         food_delivered = 10 + trade_bonus
@@ -91,6 +92,9 @@ class Trader(Human):
             target_city=self.target_city.name,
             bonus=trade_bonus))
 
+        # --- Discovery & Road Building ---
+        self._establish_connection(world)
+
         # --- Religion Spread ---
         self._spread_religion()
 
@@ -100,6 +104,42 @@ class Trader(Human):
         # The target city becomes my new home, and I clear target to find a new one
         self.home_city = self.target_city
         self.target_city = None
+
+    def _establish_connection(self, world):
+        """
+        When a trader completes a route, both cities learn about each other.
+        On first contact, a road is built connecting them.
+        """
+        home = self.home_city
+        target = self.target_city
+
+        # Both cities need the known_cities attribute (villages evolved to cities may lack it)
+        if not hasattr(home, 'known_cities'):
+            home.known_cities = set()
+        if not hasattr(target, 'known_cities'):
+            target.known_cities = set()
+
+        home_id = id(home)
+        target_id = id(target)
+
+        # First contact: build a road
+        if target_id not in home.known_cities:
+            home.known_cities.add(target_id)
+            target.known_cities.add(home_id)
+
+            connect_with_road(
+                world['road'],
+                home.pos,
+                target.pos,
+                world['width'],
+                world['height']
+            )
+
+            GameLogger.log(Translator.translate(
+                "events.trade_road_built",
+                home_city=home.name,
+                target_city=target.name
+            ))
 
     def _spread_religion(self):
         """Trader's faith influences the target city's demographics."""

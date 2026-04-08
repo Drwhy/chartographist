@@ -33,6 +33,9 @@ class City(Construct):
 
         # Active agent references
         self.active_trader = None
+
+        # Discovery: set of city ids this city knows about (via trade)
+        self.known_cities = set()
     @property
     def population(self):
         """Dynamic population count based on the citizen list."""
@@ -105,7 +108,6 @@ class City(Construct):
 
                     # Trigger the cooldown to prevent rapid-fire expansion
                     self.settler_cooldown = 100
-                    GameLogger.log(Translator.translate("entities.settler_spawn", name=self.name))
     def _manage_trade(self, world):
         """Spawns a trader if pop > 15 and luck strikes."""
         # Check if active trader is still alive

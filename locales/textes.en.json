@@ -24,6 +24,7 @@
     "trade_success": "💰 Trade established between {home_city} and {target_city} (+{bonus} food)",
     "cultural_mutation": "🎭 {name} has adopted the customs of {new_culture} (formerly {old_culture}).",
     "animal_starvation": "💀 A {species} has starved to death.",
+    "trade_road_built": "🛤️ A trade road now connects {home_city} and {target_city}!",
     "religion_city_worships": "{emoji} {name} worships the {religion} (god: {god}, domain: {domain})",
     "religion_village_founded": "{emoji} {name} is founded under the {religion}",
     "religion_city_converts": "🙏 {name} converts to {religion} through trade",

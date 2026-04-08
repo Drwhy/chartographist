@@ -73,57 +73,60 @@
     "ufo": "🛸"
   },
   "influence_decay": 0.95,
-  "religions": [
-    {
-      "name": "Cult of the Eternal Flame",
-      "culture": "Empire",
-      "emoji": "⛪",
-      "domain": "war",
-      "bonuses": { "growth": 2, "perception": 2, "harvest": 1, "trade": 1, "defense": 4 },
+  "domains": {
+    "war": {
+      "emoji": "⚔️",
+      "bonuses_weight": { "defense": 2.0, "perception": 1.5, "growth": 0.8, "harvest": 0.5, "trade": 0.5 },
       "naming": {
-        "prefixes": ["Igni", "Sol", "Pyrr", "Vulc", "Flam", "Ard", "Crem", "Lumin"],
-        "suffixes": ["ius", "ator", "ax", "orix", "entis", "arus", "ifer", "onus"]
+        "prefixes": ["Igni", "Sol", "Pyrr", "Vulc", "Flam", "Ard", "Crem", "Lumin", "Ferr", "Bell"],
+        "suffixes": ["ius", "ator", "ax", "orix", "entis", "arus", "ifer", "onus", "arax", "iron"],
+        "titles": ["the Conqueror", "the Wrathful", "of the Burning Blade", "the Unbroken", "of Iron Will"]
       }
     },
-    {
-      "name": "Path of the Crescent Moon",
-      "culture": "Sultanat",
-      "emoji": "🕌",
-      "domain": "trade",
-      "bonuses": { "growth": 3, "perception": 1, "harvest": 2, "trade": 4, "defense": 1 },
+    "trade": {
+      "emoji": "💰",
+      "bonuses_weight": { "trade": 2.0, "growth": 1.2, "harvest": 1.0, "perception": 0.8, "defense": 0.3 },
       "naming": {
-        "prefixes": ["Nur", "Qamar", "Shams", "Ruh", "Barak", "Hilal", "Safi", "Karim"],
-        "suffixes": [" al-Nur", " ad-Din", " ar-Rahman", " al-Qadr", " al-Haq", " as-Salam", " al-Aziz", " al-Amin"]
+        "prefixes": ["Nur", "Qamar", "Merc", "Aurum", "Barak", "Cras", "Opul", "Lux"],
+        "suffixes": [" al-Nur", "andis", "orath", "entum", " the Golden", "aris", "ophis", "enum"],
+        "titles": ["of the Silk Road", "the Generous", "of a Thousand Markets", "the Bountiful", "of the Open Palm"]
       }
     },
-    {
-      "name": "Way of the Jade Dragon",
-      "culture": "Dynastie",
-      "emoji": "⛩️",
-      "domain": "fertility",
-      "bonuses": { "growth": 5, "perception": 1, "harvest": 4, "trade": 2, "defense": 0 },
+    "fertility": {
+      "emoji": "🌾",
+      "bonuses_weight": { "growth": 2.0, "harvest": 1.5, "trade": 0.8, "perception": 0.5, "defense": 0.3 },
       "naming": {
-        "prefixes": ["Long", "Tian", "Shen", "Yu", "Feng", "Qi", "Dao", "Hua"],
-        "suffixes": ["-Wang", "-Di", "-Xian", "-Lung", "-Ming", "-Zun", "-Shen", "-Huang"]
+        "prefixes": ["Gaia", "Cere", "Dem", "Frey", "Terr", "Flor", "Verd", "Hua"],
+        "suffixes": ["a", "ith", "ara", "una", "eia", "ora", "alis", "ina"],
+        "titles": ["the Evergreen", "of the First Harvest", "Mother of Fields", "the Fertile", "Who Feeds the World"]
       }
     },
-    {
-      "name": "Song of the World Tree",
-      "culture": "Clans",
-      "emoji": "🪨",
-      "domain": "life",
-      "bonuses": { "growth": 3, "perception": 3, "harvest": 3, "trade": 0, "defense": 2 },
+    "life": {
+      "emoji": "🌿",
+      "bonuses_weight": { "harvest": 1.5, "perception": 1.5, "growth": 1.2, "defense": 0.5, "trade": 0.5 },
       "naming": {
-        "prefixes": ["Ygg", "Odr", "Mjol", "Frey", "Bald", "Tyr", "Vald", "Norn"],
-        "suffixes": ["drasil", "inn", "nir", "heim", "ungr", "vald", "rekr", "gar"]
+        "prefixes": ["Vit", "Anim", "Syl", "Ygg", "Norn", "Eld", "Bri", "Aur"],
+        "suffixes": ["drasil", "ael", "anor", "heim", "wyn", "ion", "alis", "iel"],
+        "titles": ["the Eternal", "of the World Tree", "the Undying", "Weaver of Fates", "of the Living Spring"]
+      }
+    },
+    "death": {
+      "emoji": "💀",
+      "bonuses_weight": { "defense": 1.8, "perception": 1.2, "growth": 0.3, "harvest": 0.5, "trade": 0.5 },
+      "naming": {
+        "prefixes": ["Mort", "Than", "Hel", "Nyx", "Anu", "Osi", "Erk", "Mab"],
+        "suffixes": ["atos", "ibis", "heim", "era", "gor", "rath", "umbr", "onis"],
+        "titles": ["the Silent", "of the Long Night", "Keeper of Souls", "the Pale One", "Who Watches the Gate"]
+      }
+    },
+    "wisdom": {
+      "emoji": "📖",
+      "bonuses_weight": { "perception": 2.0, "trade": 1.2, "growth": 1.0, "harvest": 0.8, "defense": 0.5 },
+      "naming": {
+        "prefixes": ["Ath", "Soph", "Thoth", "Min", "Ogm", "Sag", "Lore", "Veda"],
+        "suffixes": ["ena", "icus", "is", "uva", "iana", "eos", "arion", "otep"],
+        "titles": ["the All-Knowing", "of the Infinite Library", "Speaker of Truths", "the Enlightened", "Who Reads the Stars"]
       }
     }
-  ],
-  "domains": {
-    "war":       { "emoji": "⚔️",  "bonuses_weight": { "defense": 2.0, "perception": 1.5 } },
-    "trade":     { "emoji": "💰",  "bonuses_weight": { "trade": 2.0, "growth": 1.2 } },
-    "fertility": { "emoji": "🌾",  "bonuses_weight": { "growth": 2.0, "harvest": 1.5 } },
-    "life":      { "emoji": "🌿",  "bonuses_weight": { "harvest": 1.5, "perception": 1.5, "growth": 1.2 } },
-    "death":     { "emoji": "💀",  "bonuses_weight": { "defense": 1.5, "growth": 0.5 } }
   }
 }
