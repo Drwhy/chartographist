@@ -4,6 +4,7 @@
 #  definitions (template.json) and culture naming.
 # ──────────────────────────────────────────────
 from core.random_service import RandomService
+from core.translator import Translator
 
 # ── Module-Level State ──────────────────────────
 _RELIGION_TEMPLATES = []
@@ -52,9 +53,10 @@ def _build_religion(culture, domain_key, domain_def):
     god_suffix = RandomService.choice(naming.get("suffixes", ["us"]))
     god_name = god_prefix + god_suffix
 
-    # Religion title from domain titles
+    # Religion title from domain titles (translation keys like "domains.war.t1")
     titles = naming.get("titles", ["the Unknown"])
-    title = RandomService.choice(titles)
+    title_key = RandomService.choice(titles)
+    title = Translator.translate(title_key) if "." in title_key else title_key
 
     # Roll bonuses weighted by domain
     weights = domain_def.get("bonuses_weight", {})
