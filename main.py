@@ -139,12 +139,12 @@ def main():
 
         from entities.constructs.city import City
         from entities.constructs.village import Village
-        from entities.registry import WILD_SPECIES
+        from entities.species.animal.base import Animal
 
         all_entities = [e for e in world['entities'] if not e.is_expired]
         cities = [e for e in all_entities if isinstance(e, City)]
         villages = [e for e in all_entities if isinstance(e, Village)]
-        fauna = [e for e in all_entities if type(e) in WILD_SPECIES]
+        fauna = [e for e in all_entities if isinstance(e, Animal)]
 
         world_name = config.get('world_name', 'WORLD').upper()
         print("\n" + "═" * 50)

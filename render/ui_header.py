@@ -1,4 +1,5 @@
-from entities.registry import WILD_SPECIES, STRUCTURE_TYPES, CIV_UNITS
+from entities.registry import STRUCTURE_TYPES, CIV_UNITS
+from entities.species.animal.base import Animal
 from core.translator import Translator
 from core.religion import _find_template
 
@@ -8,7 +9,7 @@ def render_header(width, world_data, stats, config):
     # 1. ENTITY COUNTING
     # Counts instances of classes registered in the different global registries
     humans = sum(1 for e in world_data['entities'] if type(e) in CIV_UNITS and not e.is_expired)
-    fauna = sum(1 for e in world_data['entities'] if type(e) in WILD_SPECIES and not e.is_expired)
+    fauna = sum(1 for e in world_data['entities'] if isinstance(e, Animal) and not e.is_expired)
 
     # Counts all inhabited structures (Cities, Villages, etc.)
     structures = sum(1 for e in world_data['entities'] if type(e) in STRUCTURE_TYPES and not e.is_expired)
@@ -75,7 +76,8 @@ def _get_religion_summary(world_data):
         pct = int((weight / total) * 100)
         tmpl = _find_template(rname)
         emoji = tmpl.get("emoji", "🙏") if tmpl else "🙏"
-        domain = tmpl.get("domain", "") if tmpl else ""
+        domain_key = tmpl.get("domain", "") if tmpl else ""
+        domain = Translator.translate(f"domains.{domain_key}.name") if domain_key else ""
         god = tmpl.get("god", "") if tmpl else ""
         # Short display: emoji + god name + domain + %
         parts.append(f"{emoji} {god}({domain}) {pct}%")

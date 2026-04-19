@@ -3,7 +3,7 @@ from .base import Human
 from entities.registry import register_civ
 from core.logger import GameLogger
 from core.random_service import RandomService
-from entities.registry import WILD_SPECIES
+from entities.species.animal.base import Animal
 from core.translator import Translator
 
 @register_civ
@@ -51,7 +51,7 @@ class Hunter(Human):
         """Checks if wild prey is within firing range."""
         for entity in world['entities']:
             # 1. Registry Filter: Wild species only
-            if type(entity) not in WILD_SPECIES or entity.is_expired:
+            if not isinstance(entity, Animal) or entity.is_expired:
                 continue
 
             # 2. Behavioral Filter: We don't shoot at flying targets
@@ -139,7 +139,7 @@ class Hunter(Human):
             # 1. First, search for visible prey
             potential_preys = [
                 e for e in world['entities']
-                if type(e) in WILD_SPECIES
+                if isinstance(e, Animal)
                 and not e.is_expired
                 and getattr(e, 'is_edible', False)
                 and not getattr(e, 'is_flying', False)

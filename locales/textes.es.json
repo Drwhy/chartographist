@@ -36,12 +36,12 @@
     "religion_syncretism_emerges": "🔮 Una fe sincrética, el {religion}, surge en {name}"
   },
   "domains": {
-    "war":       { "t1": "el Conquistador", "t2": "el Furioso", "t3": "de la Hoja Ardiente", "t4": "el Inquebrantable", "t5": "de Voluntad de Hierro" },
-    "trade":     { "t1": "de la Ruta de la Seda", "t2": "el Generoso", "t3": "de los Mil Mercados", "t4": "el Abundante", "t5": "de la Mano Abierta" },
-    "fertility": { "t1": "el Siempreverde", "t2": "de la Primera Cosecha", "t3": "Madre de los Campos", "t4": "la Fértil", "t5": "Quien Alimenta al Mundo" },
-    "life":      { "t1": "el Eterno", "t2": "del Árbol del Mundo", "t3": "el Imperecedero", "t4": "Tejedora de Destinos", "t5": "de la Fuente de la Vida" },
-    "death":     { "t1": "el Silencioso", "t2": "de la Larga Noche", "t3": "Guardián de las Almas", "t4": "el Pálido", "t5": "Quien Vigila la Puerta" },
-    "wisdom":    { "t1": "el Omnisciente", "t2": "de la Biblioteca Infinita", "t3": "Portador de Verdades", "t4": "el Iluminado", "t5": "Quien Lee las Estrellas" }
+    "war":       { "name": "Guerra", "t1": "el Conquistador", "t2": "el Furioso", "t3": "de la Hoja Ardiente", "t4": "el Inquebrantable", "t5": "de Voluntad de Hierro" },
+    "trade":     { "name": "Comercio", "t1": "de la Ruta de la Seda", "t2": "el Generoso", "t3": "de los Mil Mercados", "t4": "el Abundante", "t5": "de la Mano Abierta" },
+    "fertility": { "name": "Fertilidad", "t1": "el Siempreverde", "t2": "de la Primera Cosecha", "t3": "Madre de los Campos", "t4": "la Fértil", "t5": "Quien Alimenta al Mundo" },
+    "life":      { "name": "Vida", "t1": "el Eterno", "t2": "del Árbol del Mundo", "t3": "el Imperecedero", "t4": "Tejedora de Destinos", "t5": "de la Fuente de la Vida" },
+    "death":     { "name": "Muerte", "t1": "el Silencioso", "t2": "de la Larga Noche", "t3": "Guardián de las Almas", "t4": "el Pálido", "t5": "Quien Vigila la Puerta" },
+    "wisdom":    { "name": "Sabiduría", "t1": "el Omnisciente", "t2": "de la Biblioteca Infinita", "t3": "Portador de Verdades", "t4": "el Iluminado", "t5": "Quien Lee las Estrellas" }
   },
   "entities": {
     "city_founded": "🏛️ La ciudad primordial de {name} fue fundada en ({x}, {y}).",

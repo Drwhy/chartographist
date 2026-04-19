@@ -57,11 +57,11 @@
     "world_init": "🌍 The world has awakened (Seed: {seed_val})"
   },
   "domains": {
-    "war":       { "t1": "the Conqueror", "t2": "the Wrathful", "t3": "of the Burning Blade", "t4": "the Unbroken", "t5": "of Iron Will" },
-    "trade":     { "t1": "of the Silk Road", "t2": "the Generous", "t3": "of a Thousand Markets", "t4": "the Bountiful", "t5": "of the Open Palm" },
-    "fertility": { "t1": "the Evergreen", "t2": "of the First Harvest", "t3": "Mother of Fields", "t4": "the Fertile", "t5": "Who Feeds the World" },
-    "life":      { "t1": "the Eternal", "t2": "of the World Tree", "t3": "the Undying", "t4": "Weaver of Fates", "t5": "of the Living Spring" },
-    "death":     { "t1": "the Silent", "t2": "of the Long Night", "t3": "Keeper of Souls", "t4": "the Pale One", "t5": "Who Watches the Gate" },
-    "wisdom":    { "t1": "the All-Knowing", "t2": "of the Infinite Library", "t3": "Speaker of Truths", "t4": "the Enlightened", "t5": "Who Reads the Stars" }
+    "war":       { "name": "War", "t1": "the Conqueror", "t2": "the Wrathful", "t3": "of the Burning Blade", "t4": "the Unbroken", "t5": "of Iron Will" },
+    "trade":     { "name": "Trade", "t1": "of the Silk Road", "t2": "the Generous", "t3": "of a Thousand Markets", "t4": "the Bountiful", "t5": "of the Open Palm" },
+    "fertility": { "name": "Fertility", "t1": "the Evergreen", "t2": "of the First Harvest", "t3": "Mother of Fields", "t4": "the Fertile", "t5": "Who Feeds the World" },
+    "life":      { "name": "Life", "t1": "the Eternal", "t2": "of the World Tree", "t3": "the Undying", "t4": "Weaver of Fates", "t5": "of the Living Spring" },
+    "death":     { "name": "Death", "t1": "the Silent", "t2": "of the Long Night", "t3": "Keeper of Souls", "t4": "the Pale One", "t5": "Who Watches the Gate" },
+    "wisdom":    { "name": "Wisdom", "t1": "the All-Knowing", "t2": "of the Infinite Library", "t3": "Speaker of Truths", "t4": "the Enlightened", "t5": "Who Reads the Stars" }
   }
 }
