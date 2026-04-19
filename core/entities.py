@@ -107,6 +107,14 @@ class Entity:
             radius = int(danger * 5) + 1
             world['influence'].add_influence(self.x, self.y, value, radius)
 
+        # Edible animals leave a scent trail that predators and hunters can follow
+        if self.is_edible:
+            food_range = getattr(self, '_food_value_range', None)
+            if food_range:
+                avg_food = sum(food_range) / 2.0
+                scent_value = avg_food / 20.0  # heavier prey = stronger smell
+                world['influence'].add_influence(self.x, self.y, scent_value, 2)
+
     def process_turn(self, world, stats):
         """
         Accumulates energy based on speed.

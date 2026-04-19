@@ -5,13 +5,15 @@ from entities.species.human.base import Human
 from core.entities import Entity, Z_CONSTRUCT
 from core.logger import GameLogger
 from core.translator import Translator
-from core.religion import generate_demographics
+from core.religion import generate_demographics, SyncreticReligion, _find_template
 
 class Construct(Entity):
     """
     Base class for all static structures built on the map.
     Handles naming, cultural stability, and the 'Cultural Drift' mechanic.
     """
+    _syncretism_chance = 0.01  # Overridden by City (0.02)
+
     def __init__(self, x, y, culture, config):
         # Initialize the physical entity at Z_CONSTRUCT layer with speed 1
         super().__init__(x, y, "?", Z_CONSTRUCT, 1.0)
@@ -91,51 +93,102 @@ class Construct(Entity):
                 new_culture=self.culture['name']
             )
         )
-    def _update_population_logic(self, world):
-        """Shared biological and economic logic for all settlements."""
-        if not self.citizens:
-            return
-
-        # 1. Monthly Status (Aging, Hunger, Working)
-        for person in self.citizens:
-            person.process_monthly_status()
-
-            # Feeding Logic
-            if self.food_stock >= 1:
-                self.food_stock -= 1
-                person.hunger = max(0, person.hunger - 10)
-            else:
-                person.hunger += 10 # Starvation
-                if person.hunger >= 100: person.is_dead = True
-
-            # Production (Polymorphism: Farmer.work or Citizen.work)
-            person.work(self, world)
-
-        # 2. Cleanup dead
-        self.citizens = [c for c in self.citizens if not c.is_dead]
-
     def _handle_reproduction(self, chance_multiplier=1.0):
-        """Shared genealogy and birth system."""
+        """Two-phase family system: courtship first, then births from couples."""
+        self._cleanup_partnerships()
+        self._handle_courtship()
+        self._handle_births(chance_multiplier)
+
+    def _cleanup_partnerships(self):
+        """Break bonds whose partner has died."""
+        for citizen in self.citizens:
+            if citizen.partner and citizen.partner.is_dead:
+                citizen.partner = None
+
+    def _handle_courtship(self):
+        """Single fertile adults may form a couple (10% chance per pair per tick)."""
+        singles = [c for c in self.citizens if c.is_fertile and c.is_single]
+        if len(singles) < 2:
+            return
+        RandomService.shuffle(singles)
+        for i in range(0, len(singles) - 1, 2):
+            p1, p2 = singles[i], singles[i + 1]
+            if not self._are_related(p1, p2) and RandomService.random() < 0.1:
+                p1.partner = p2
+                p2.partner = p1
+
+    def _handle_births(self, chance_multiplier=1.0):
+        """Established couples may produce a child if food is sufficient."""
         if self.food_stock <= len(self.citizens):
             return
 
-        fertile_pool = [c for c in self.citizens if c.is_fertile]
-        RandomService.shuffle(fertile_pool)
-
-        for i in range(0, len(fertile_pool) - 1, 2):
-            p1, p2 = fertile_pool[i], fertile_pool[i+1]
-
-            # Base chance: 2% per month, modified by city/village type
+        seen = set()
+        for citizen in self.citizens:
+            if not citizen.is_fertile or citizen.partner is None:
+                continue
+            partner = citizen.partner
+            if not partner.is_fertile:
+                continue
+            pair_key = frozenset({id(citizen), id(partner)})
+            if pair_key in seen:
+                continue
+            seen.add(pair_key)
             if RandomService.random() < (0.02 * chance_multiplier):
-                self._spawn_child(p1, p2)
+                self._spawn_child(citizen, partner)
+
+    def _are_related(self, p1, p2):
+        """Return True if p1 and p2 share a parent or are parent and child."""
+        p1_parent_ids = {id(p) for p in (p1.parents or ()) if p is not None}
+        p2_parent_ids = {id(p) for p in (p2.parents or ()) if p is not None}
+        if p1_parent_ids & p2_parent_ids:   # siblings
+            return True
+        if id(p2) in p1_parent_ids or id(p1) in p2_parent_ids:  # parent-child
+            return True
+        return False
+
+    def _check_syncretism(self):
+        """Religion fusion when no single faith dominates. Chance varies by settlement size."""
+        if not self.religion or not self.religion.fractions:
+            return
+        if self.religion.dominant_fraction >= 0.7 or len(self.religion.fractions) < 2:
+            return
+        if RandomService.random() >= self._syncretism_chance:
+            return
+
+        sorted_religions = sorted(self.religion.fractions.items(), key=lambda x: -x[1])
+        name_a, _ = sorted_religions[0]
+        name_b, _ = sorted_religions[1]
+        tmpl_a = _find_template(name_a)
+        tmpl_b = _find_template(name_b)
+        if not tmpl_a or not tmpl_b:
+            return
+
+        syncretic = SyncreticReligion.create(tmpl_a, tmpl_b)
+        old_a = self.religion.fractions.get(name_a, 0)
+        old_b = self.religion.fractions.get(name_b, 0)
+        self.religion.fractions[syncretic["name"]] = (old_a + old_b) * 0.3
+        self.religion.fractions[name_a] *= 0.7
+        self.religion.fractions[name_b] *= 0.7
+        self.religion._normalize()
+        GameLogger.log(Translator.translate(
+            "events.religion_syncretism_emerges",
+            religion=syncretic["name"], name=self.name
+        ))
 
     def _spawn_child(self, p1, p2):
-        """Creates a child with inherited lineage."""
+        """Create a child inheriting family name, XP seed, and faith from parents."""
         first_name = NameGenerator.generate_first_name(self.culture)
-        family_name = p1.family_name
-
-        child = Human(self.x, self.y, self.culture, self.config, 1, f"{first_name} {family_name}", parents=(p1, p2))
-
-        # Heritage: Small XP boost from parents
+        child = Human(
+            self.x, self.y, self.culture, self.config, 1,
+            f"{first_name} {p1.family_name}",
+            parents=(p1, p2)
+        )
         child.experience = int((p1.experience + p2.experience) * 0.05)
+        # Inherit faith from one parent (preferring the one with faith)
+        for parent in (p1, p2):
+            if parent.faith is not None:
+                child.faith = parent.faith
+                break
+        p1.children.append(child)
+        p2.children.append(child)
         self.citizens.append(child)

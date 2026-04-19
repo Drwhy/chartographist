@@ -14,17 +14,21 @@ class Village(Construct):
     def __init__(self, x, y, culture, config):
         super().__init__(x, y, culture, config)
 
-        # --- Agent-Based Population ---
         initial_count = RandomService.randint(5, 12)
-        self.citizens = [Human(self.x, self.y, self.culture, self.config, 1) for i in range(initial_count)]
+        self.citizens = []
+        for _ in range(initial_count):
+            c = Human(self.x, self.y, self.culture, self.config, 1)
+            c.age = RandomService.randint(15, 45)
+            self.citizens.append(c)
 
         # Resources
         self.food_stock = 40
         self.max_food = 500
 
         # Evolution
-        self.city_threshold = 40 # Evolution based on agent count (not a magic number)
+        self.city_threshold = 40
         self.char = culture.get("village", "🏡")
+        self.known_cities = set()
 
         # Reference to the specialized external worker (Hunter/Fisherman entity)
         self.active_worker_entity = None
@@ -100,11 +104,15 @@ class Village(Construct):
             agent.faith = create_faith_from_demographics(self.religion)
 
     def _promote_to_farmer(self):
-        """Turns one basic Citizen into a Farmer."""
+        """Turns one basic Citizen into a Farmer, preserving family bonds."""
         for i, p in enumerate(self.citizens):
             if type(p) is Human:
-                new_farmer = Farmer(self.x, self.y, self.culture, self.config, p.name, p.age)
-                new_farmer.faith = p.faith  # Preserve faith
+                new_farmer = Farmer(self.x, self.y, self.culture, self.config, name=p.name, age=p.age)
+                new_farmer.faith = p.faith
+                new_farmer.partner = p.partner
+                new_farmer.children = p.children
+                if p.partner and p.partner.partner is p:
+                    p.partner.partner = new_farmer
                 self.citizens[i] = new_farmer
                 return
 
@@ -144,34 +152,4 @@ class Village(Construct):
         world['entities'].add(new_city)
         self.is_expired = True
 
-    def _check_syncretism(self):
-        """
-        Check if conditions are met for religion fusion in the village.
-        Same logic as City but with lower probability.
-        """
-        if not self.religion or not self.religion.fractions:
-            return
-
-        dominant_frac = self.religion.dominant_fraction
-        if dominant_frac < 0.7 and len(self.religion.fractions) >= 2:
-            if RandomService.random() < 0.01:  # 1% chance per slow tick
-                sorted_religions = sorted(self.religion.fractions.items(), key=lambda x: -x[1])
-                name_a, _ = sorted_religions[0]
-                name_b, _ = sorted_religions[1]
-
-                tmpl_a = _find_template(name_a)
-                tmpl_b = _find_template(name_b)
-
-                if tmpl_a and tmpl_b:
-                    syncretic = SyncreticReligion.create(tmpl_a, tmpl_b)
-                    old_a = self.religion.fractions.get(name_a, 0)
-                    old_b = self.religion.fractions.get(name_b, 0)
-                    self.religion.fractions[syncretic["name"]] = (old_a + old_b) * 0.3
-                    self.religion.fractions[name_a] *= 0.7
-                    self.religion.fractions[name_b] *= 0.7
-                    self.religion._normalize()
-
-                    GameLogger.log(Translator.translate(
-                        "events.religion_syncretism_emerges",
-                        religion=syncretic["name"], name=self.name
-                    ))
+    # _check_syncretism is inherited from Construct with _syncretism_chance = 0.01

@@ -7,20 +7,22 @@ from core.translator import Translator
 from entities.constructs.ruins import Ruins
 from entities.species.human.base import Human
 from entities.species.human.farmer import Farmer
-from core.naming import NameGenerator
-from core.religion import create_faith_from_demographics, SyncreticReligion, _find_template
+from core.religion import create_faith_from_demographics
 import math
 
 @register_structure
 class City(Construct):
+    _syncretism_chance = 0.02  # Cities fuse religions faster than villages
     def __init__(self, x, y, culture, config):
         super().__init__(x, y, culture, config)
         self.char = culture.get("city", "🏛️ ")
 
-        # --- New Agent-Based Population ---
-        # We start with a pool of individual citizens
         initial_pop_count = RandomService.randint(100, 500)
-        self.citizens = [Human(self.x, self.y, self.culture, self.config, 1) for i in range(initial_pop_count)]
+        self.citizens = []
+        for _ in range(initial_pop_count):
+            c = Human(self.x, self.y, self.culture, self.config, 1)
+            c.age = RandomService.randint(15, 45)
+            self.citizens.append(c)
 
         # Resource Management
         self.food_stock = 100
@@ -169,52 +171,19 @@ class City(Construct):
         if len(living_structures) >= max_cities * 0.9: return False
         return True
     def _manage_specialization(self):
-        """
-        Logic to 'promote' a Citizen into a Farmer
-        if the city needs more food.
-        """
-        for i, person in enumerate(self.citizens):
-            # If we need farmers and this is just a basic Citizen
-            if type(person) is Human and self.food_stock < (len(self.citizens) * 10):
-                # We replace the object in the list with a Farmer version
-                new_farmer = Farmer(self.x, self.y, self.culture, self.config, person.name, person.age)
-                new_farmer.faith = person.faith  # Preserve faith
-                self.citizens[i] = new_farmer
-
-    def _check_syncretism(self):
-        """
-        Check if conditions are met for religion fusion.
-        If no single religion dominates (>70%), there's a small chance
-        of a syncretic religion emerging from the two largest faiths.
-        """
-        if not self.religion or not self.religion.fractions:
+        """Promote one basic Citizen to Farmer per tick when food is scarce."""
+        if self.food_stock >= len(self.citizens) * 10:
             return
-
-        dominant_frac = self.religion.dominant_fraction
-        # Syncretism only when no overwhelming majority
-        if dominant_frac < 0.7 and len(self.religion.fractions) >= 2:
-            if RandomService.random() < 0.02:  # 2% chance per slow tick
-                sorted_religions = sorted(self.religion.fractions.items(), key=lambda x: -x[1])
-                name_a, _ = sorted_religions[0]
-                name_b, _ = sorted_religions[1]
-
-                tmpl_a = _find_template(name_a)
-                tmpl_b = _find_template(name_b)
-
-                if tmpl_a and tmpl_b:
-                    syncretic = SyncreticReligion.create(tmpl_a, tmpl_b)
-                    # The new syncretic religion takes a portion of both parents
-                    old_a = self.religion.fractions.get(name_a, 0)
-                    old_b = self.religion.fractions.get(name_b, 0)
-                    self.religion.fractions[syncretic["name"]] = (old_a + old_b) * 0.3
-                    self.religion.fractions[name_a] *= 0.7
-                    self.religion.fractions[name_b] *= 0.7
-                    self.religion._normalize()
-
-                    GameLogger.log(Translator.translate(
-                        "events.religion_syncretism_emerges",
-                        religion=syncretic["name"], name=self.name
-                    ))
+        for i, person in enumerate(self.citizens):
+            if type(person) is Human:
+                new_farmer = Farmer(self.x, self.y, self.culture, self.config, name=person.name, age=person.age)
+                new_farmer.faith = person.faith
+                new_farmer.partner = person.partner
+                new_farmer.children = person.children
+                if person.partner and person.partner.partner is person:
+                    person.partner.partner = new_farmer
+                self.citizens[i] = new_farmer
+                break  # one promotion per tick
 
     # ── WAR SYSTEM ──────────────────────────────
     def _manage_war(self, world):

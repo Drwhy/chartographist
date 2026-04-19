@@ -95,17 +95,16 @@ class Settler(Human):
             else:
                 geo_score = (0.5 if is_river else 0) + (0.3 if 0.2 < h < 0.6 else 0)
 
-            # 2. SOCIAL REPULSION ("Communication")
-            # Calculate discomfort caused by existing structures
+            # 2. SOCIAL REPULSION — use the spatial grid to avoid O(n) full scan
             social_repulsion = 0
-            for e in world['entities']:
-                if type(e) in STRUCTURE_TYPES and not e.is_expired:
+            for e in world['grid'].get_nearby(nx, ny, 15):
+                if e.is_expired:
+                    continue
+                if type(e) in STRUCTURE_TYPES:
                     dist = math.dist((nx, ny), e.pos)
-                    # If too close to a city (less than 15 tiles),
-                    # generate a heavy penalty to push the settler further away
                     if dist < 15:
                         social_repulsion += (15 - dist) * 0.5
-                if isinstance(e, Settler) and e != self:
+                elif isinstance(e, Settler) and e is not self:
                     if math.dist((nx, ny), e.pos) < 5:
                         social_repulsion += 2.0
 
@@ -132,18 +131,14 @@ class Settler(Human):
         if not (0 <= h <= 0.85):
             return False
 
-        # 2. NEIGHBORHOOD VALIDATION (Registry & Proximity)
-        for e in world['entities']:
-            if e.is_expired: continue
-
-            # Prevents spawning two entities at the exact same location
-            if e.pos == self.pos and e != self:
+        # 2. NEIGHBORHOOD VALIDATION — spatial grid avoids O(n) full scan
+        for e in world['grid'].get_nearby(self.x, self.y, 8):
+            if e.is_expired or e is self:
+                continue
+            if e.pos == self.pos:
                 return False
-
-            # DISTANCE RULE: No other structure within a radius of 8
-            if type(e) in STRUCTURE_TYPES:
-                if math.dist(self.pos, e.pos) < 8:
-                    return False
+            if type(e) in STRUCTURE_TYPES and math.dist(self.pos, e.pos) < 8:
+                return False
 
         # 3. FOUNDATION PROBABILITY
         # A river (riv > 0) makes the terrain much more attractive

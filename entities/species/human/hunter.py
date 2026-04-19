@@ -50,21 +50,18 @@ class Hunter(Human):
     def _check_surroundings(self, world):
         """Checks if wild prey is within firing range."""
         for entity in world['entities']:
-            # 1. Registry Filter: Wild species only
             if not isinstance(entity, Animal) or entity.is_expired:
                 continue
-
-            # 2. Behavioral Filter: We don't shoot at flying targets
             if getattr(entity, 'is_flying', False):
                 continue
-
-            # 3. Distance check
             if math.dist(self.pos, entity.pos) <= self.range_shot:
-                if RandomService.random() < 0.4:  # 40% success rate
+                # Dangerous prey is harder to bring down with a single shot
+                prey_danger = getattr(entity, 'danger_level', 0.0)
+                kill_chance = 0.4 * (1.0 - prey_danger * 0.5)
+                if RandomService.random() < kill_chance:
                     self._execute_kill(entity)
                     return
 
-        # If nothing is in range, search for tracks
         if not self.target_prey:
             self._find_prey(world)
 
@@ -101,7 +98,7 @@ class Hunter(Human):
         """Executes movement or food delivery."""
         # 1. State: Loaded with meat -> Return home
         if self.has_game:
-            if self.pos == self.home_pos:
+            if math.dist(self.pos, self.home_pos) < 1.5:
                 self._deliver_food(world)
             else:
                 self._move_towards(self.home_pos, world)
@@ -119,10 +116,10 @@ class Hunter(Human):
 
     def _deliver_food(self, world):
         """Drops game at the village, increasing its population."""
-        boost = RandomService.randint(5, 12)
-        # Faith harvest bonus
-        boost = int(boost * (1 + self.faith_bonus("harvest") * 0.1))
+        base = getattr(self, 'pending_food_boost', 0) or RandomService.randint(5, 12)
+        boost = int(base * (1 + self.faith_bonus("harvest") * 0.1))
         self.home_city.food_stock += boost
+        self.pending_food_boost = 0
 
         self.has_game = False
         self._update_status()
@@ -135,36 +132,51 @@ class Hunter(Human):
         )
 
     def _find_prey(self, world):
-            """Searches for actual prey or follows tracks on the Heatmap."""
-            # 1. First, search for visible prey
-            potential_preys = [
-                e for e in world['entities']
-                if isinstance(e, Animal)
-                and not e.is_expired
-                and getattr(e, 'is_edible', False)
-                and not getattr(e, 'is_flying', False)
-            ]
+        """Searches for actual prey or follows scent trails on the heatmap."""
+        potential_preys = [
+            e for e in world['entities']
+            if isinstance(e, Animal)
+            and not e.is_expired
+            and getattr(e, 'is_edible', False)
+            and not getattr(e, 'is_flying', False)
+        ]
 
-            if potential_preys:
-                # Evaluate best target (Distance vs Danger around it)
-                best_target = None
-                max_score = -float('inf')
+        if not potential_preys:
+            return
 
-                for prey in potential_preys:
-                    dist = math.dist(self.pos, prey.pos)
-                    if dist > self.perception_range: continue
+        # How urgently the city needs food: 0.0 = well-stocked, 1.0 = starving
+        food_stock = getattr(self.home_city, 'food_stock', 50)
+        need_level = max(0.0, 1.0 - min(food_stock, 100) / 100.0)
 
-                    # Retrieve danger level at prey's position
-                    fear_at_target = world['influence'].get_fear(prey.x, prey.y)
+        best_target = None
+        max_score = -float('inf')
 
-                    # Score: Proximity + Safety (don't attack a deer next to a bear)
-                    score = (1 - (dist / self.perception_range)) + (fear_at_target * 2.0)
+        for prey in potential_preys:
+            dist = math.dist(self.pos, prey.pos)
+            if dist > self.perception_range:
+                continue
 
-                    if score > max_score:
-                        max_score = score
-                        best_target = prey
+            prey_danger = getattr(prey, 'danger_level', 0.0)
 
-                self.target_prey = best_target
+            # Only pursue dangerous prey when the city genuinely needs food.
+            # Bear (0.9) requires need_level >= 0.81 (food_stock < 19).
+            if need_level < prey_danger * 0.9:
+                continue
+
+            food_range = getattr(prey, '_food_value_range', [5, 10])
+            avg_food = sum(food_range) / 2.0
+            reward = avg_food / 30.0  # normalized: bear gives ~3x more than rabbit
+
+            fear_at_target = world['influence'].get_fear(prey.x, prey.y)
+            fear_penalty = abs(fear_at_target) * self.fear_sensitivity * 0.1
+
+            score = (1.0 - dist / self.perception_range) + (reward * (0.5 + need_level)) - fear_penalty
+
+            if score > max_score:
+                max_score = score
+                best_target = prey
+
+        self.target_prey = best_target
 
     def _move_towards(self, target_pos, world):
         """Moves toward a target while avoiding obstacles and danger."""

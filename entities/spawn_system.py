@@ -20,7 +20,7 @@ def spawn_system(world, config):
 def _spawn_fauna(world, config, width, height):
     """Spawns wild species based on fauna definitions in template.json."""
     max_fauna = config.get("max_fauna", 20)
-    current_fauna = sum(1 for e in world['entities'] if isinstance(e, Animal))
+    current_fauna = sum(1 for e in world['entities'] if isinstance(e, Animal) and not e.is_expired)
 
     fauna_list = config.get("fauna", [])
     if current_fauna < max_fauna and fauna_list:
@@ -72,7 +72,7 @@ def seed_initial_cities(world, config):
             Translator.translate("entities.city_founded", name=mother_city.name, x=spawn_x, y=spawn_y)
         )
         # Log the founding religion
-        if hasattr(mother_city, 'religion') and mother_city.religion and mother_city.religion.dominant:
+        if mother_city.religion and mother_city.religion.dominant:
             dominant = mother_city.religion.dominant
             tmpl = _find_template(dominant)
             emoji = tmpl.get("emoji", "🙏") if tmpl else "🙏"

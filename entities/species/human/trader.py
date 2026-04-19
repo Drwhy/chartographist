@@ -13,13 +13,15 @@ class Trader(Human):
     def __init__(self, x, y, culture, config, home_city):
         super().__init__(x, y, culture, config, 1.2)
         self.home_city = home_city
+        self.base_city = home_city  # permanent origin, used for return trips
         self.target_city = None
         self.char = culture.get("trader_emoji", "⚖️")
 
-        # Risk management
-        self.fear_sensitivity = 5.0  # High value = avoids danger at all costs
+        self.fear_sensitivity = 5.0
         self.perception_range = 5
         self.visited_cities = set()
+        self.trades_since_home = 0
+        self._returning_home = False
 
     def think(self, world):
         if self.is_expired: return
@@ -33,22 +35,41 @@ class Trader(Human):
             self._move_safely_random(world)
             return
 
-        # Check if we have arrived (range of 1.5 to allow diagonal arrival)
         if math.dist(self.pos, self.target_city.pos) < 1.5:
-            self._do_trade(world)
+            if self._returning_home:
+                self._arrive_home()
+            else:
+                self._do_trade(world)
         else:
             self._move_smart(world)
 
     def _find_new_target(self, world):
-        """Find the closest active city, excluding the current home."""
+        # After 3 trades away from base, head home to reset the route
+        if self.trades_since_home >= 3 and not self._returning_home:
+            if not self.base_city.is_expired and self.home_city != self.base_city:
+                self._returning_home = True
+                self.target_city = self.base_city
+                return
+
         all_cities = DiscoveryService.get_known_settlements(world)
         others = [c for c in all_cities if c != self.home_city and not c.is_expired]
 
-        if others:
-            # We still pick the closest for reliability
-            self.target_city = min(others, key=lambda c: math.dist(self.pos, c.pos))
-        else:
+        if not others:
             self.target_city = None
+            return
+
+        # Prefer unvisited cities; fall back to all others when every city has been seen
+        unvisited = [c for c in others if id(c) not in self.visited_cities]
+        candidates = unvisited if unvisited else others
+
+        # Score candidates: prefer medium distances over the nearest neighbour to
+        # avoid the trader endlessly ping-ponging between the two closest cities.
+        def city_score(c):
+            d = math.dist(self.pos, c.pos)
+            proximity = 1.0 / (1.0 + abs(d - 15) / 10.0)  # sweet spot ~15 tiles away
+            return proximity + RandomService.random() * 0.3
+
+        self.target_city = max(candidates, key=city_score)
 
     def _move_smart(self, world):
         """Move toward target while being repelled by the Fear Heatmap."""
@@ -98,11 +119,19 @@ class Trader(Human):
         # --- Religion Spread ---
         self._spread_religion()
 
-        # Track visited cities
         self.visited_cities.add(id(self.target_city))
+        self.trades_since_home += 1
 
-        # The target city becomes my new home, and I clear target to find a new one
+        # Use the target city as the new departure point for the next leg
         self.home_city = self.target_city
+        self.target_city = None
+
+    def _arrive_home(self):
+        """Reset the route after returning to base city."""
+        self._returning_home = False
+        self.trades_since_home = 0
+        self.home_city = self.base_city
+        self.visited_cities.clear()
         self.target_city = None
 
     def _establish_connection(self, world):
