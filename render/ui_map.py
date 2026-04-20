@@ -2,6 +2,7 @@ import math
 import time
 import sys
 from core.random_service import RandomService
+from core.translator import Translator
 
 def get_char_at(x, y, world_data, config, entity_map=None):
     """
@@ -105,7 +106,7 @@ def radial_reveal(renderer, world_data, stats):
         current_display[y][x] = get_char_at(x, y, world_data, renderer.config)
         if i % 15 == 0 or i == len(coords) - 1:
             sys.stdout.write("\033[H")
-            print(f"--- 📜 GENESIS: {stats['seed']} ---")
+            print(Translator.translate("ui.genesis", seed=stats['seed']))
             for row in current_display:
                 print("".join(row))
             sys.stdout.flush()

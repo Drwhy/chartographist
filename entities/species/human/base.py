@@ -22,6 +22,7 @@ class Human(Entity):
         self.name = name if name else NameGenerator.generate_person_name(culture)
         self.family_name = self._derive_family_name()
         self.faith = None
+        self.species_data = None  # PersonalSpecies, assigned by the spawning settlement
         self.is_infected = False
         self.infection_turns = 0
 
@@ -98,6 +99,12 @@ class Human(Entity):
         if self.faith is None:
             return default
         return self.faith.bonus(key, default)
+
+    def species_trait(self, key, default=0):
+        """Returns the additive trait value from personal species for the given key."""
+        if self.species_data is None:
+            return default
+        return self.species_data.trait(key, default)
 
     def work(self, city, world):
         """Base citizens provide basic labor (slow food gain)."""

@@ -3,6 +3,7 @@ from core.entities import Entity, Z_ANIMAL
 from core.logger import GameLogger
 from core.random_service import RandomService
 from core.translator import Translator
+from core import bestiary_tracker
 
 class Animal(Entity):
     """
@@ -82,6 +83,7 @@ class Animal(Entity):
         self.energy -= 8 if self.is_flying else 5
         if self.energy <= 0:
             self.is_expired = True
+            bestiary_tracker.track_starvation(self.species)
             if self.danger > 0.5:
                 GameLogger.log(Translator.translate("events.animal_starvation", species=self.species))
 

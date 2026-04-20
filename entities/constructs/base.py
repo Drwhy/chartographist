@@ -6,6 +6,7 @@ from core.entities import Entity, Z_CONSTRUCT
 from core.logger import GameLogger
 from core.translator import Translator
 from core.religion import generate_demographics, SyncreticReligion, _find_template
+from core.species import get_species_for_culture, PersonalSpecies
 
 class Construct(Entity):
     """
@@ -30,6 +31,10 @@ class Construct(Entity):
 
         # Religion demographics for this settlement
         self.religion = generate_demographics(culture)
+
+        # Species template shared by all citizens of this culture
+        _tmpl = get_species_for_culture(culture.get('name', ''))
+        self._personal_species = PersonalSpecies(_tmpl) if _tmpl else None
 
     def update(self, world, stats):
         """Standard update loop to be overridden by child classes (City, Village, etc.)."""
@@ -85,6 +90,10 @@ class Construct(Entity):
         elif isinstance(self, Village):
             self.char = self.culture.get('village', '🏡')
 
+        # Refresh species for the new culture
+        _tmpl = get_species_for_culture(self.culture.get('name', ''))
+        self._personal_species = PersonalSpecies(_tmpl) if _tmpl else None
+
         GameLogger.log(
             Translator.translate(
                 "events.cultural_mutation",
@@ -93,6 +102,12 @@ class Construct(Entity):
                 new_culture=self.culture['name']
             )
         )
+    def _assign_species(self, agent):
+        """Assign the settlement's species to a spawned agent and apply its speed modifier."""
+        if self._personal_species:
+            agent.species_data = self._personal_species
+            agent.speed = max(0.3, agent.speed + self._personal_species.speed_mod)
+
     def _handle_reproduction(self, chance_multiplier=1.0):
         """Two-phase family system: courtship first, then births from couples."""
         self._cleanup_partnerships()
@@ -188,6 +203,11 @@ class Construct(Entity):
         for parent in (p1, p2):
             if parent.faith is not None:
                 child.faith = parent.faith
+                break
+        # Inherit species from one parent
+        for parent in (p1, p2):
+            if parent.species_data is not None:
+                child.species_data = parent.species_data
                 break
         p1.children.append(child)
         p2.children.append(child)

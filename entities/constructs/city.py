@@ -22,6 +22,7 @@ class City(Construct):
         for _ in range(initial_pop_count):
             c = Human(self.x, self.y, self.culture, self.config, 1)
             c.age = RandomService.randint(15, 45)
+            c.species_data = self._personal_species
             self.citizens.append(c)
 
         # Resource Management
@@ -148,18 +149,18 @@ class City(Construct):
     def _spawn_settler(self, world):
         from entities.species.human.settler import Settler
         new_settler = Settler(self.x, self.y, self.culture, self.config, home_city=self)
-        # Assign faith from city demographics
         if self.religion:
             new_settler.faith = create_faith_from_demographics(self.religion)
+        self._assign_species(new_settler)
         world['entities'].add(new_settler)
         GameLogger.log(Translator.translate("entities.settler_spawn", name=self.name))
 
     def _spawn_trader(self, world):
         from entities.species.human.trader import Trader
         new_trader = Trader(self.x, self.y, self.culture, self.config, self)
-        # Assign faith from city demographics
         if self.religion:
             new_trader.faith = create_faith_from_demographics(self.religion)
+        self._assign_species(new_trader)
         world['entities'].add(new_trader)
         self.active_trader = new_trader
         return True
@@ -178,6 +179,7 @@ class City(Construct):
             if type(person) is Human:
                 new_farmer = Farmer(self.x, self.y, self.culture, self.config, name=person.name, age=person.age)
                 new_farmer.faith = person.faith
+                new_farmer.species_data = person.species_data
                 new_farmer.partner = person.partner
                 new_farmer.children = person.children
                 if person.partner and person.partner.partner is person:
@@ -269,10 +271,11 @@ class City(Construct):
         self.citizens = self.citizens[:-actual_cost]
 
         new_soldier = Soldier(self.x, self.y, self.culture, self.config, self, target)
-        # Assign faith
         if self.religion:
             new_soldier.faith = create_faith_from_demographics(self.religion)
             new_soldier.strength += new_soldier.faith_bonus("defense") * 0.15
+        self._assign_species(new_soldier)
+        new_soldier.strength += new_soldier.species_trait("strength") * 0.1
 
         world['entities'].add(new_soldier)
         self.soldier_cooldown = 24  # One soldier per 2 years

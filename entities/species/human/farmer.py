@@ -24,10 +24,10 @@ class Farmer(Human):
         # Bonus de fertilité : Entre 0.1 et 0.3 d'élévation (Plaines/Vallées)
         fertility = 2.0 if 0.1 <= tile_h <= 0.3 else 1.0
 
-        # 2. Production avec bonus d'Expérience
-        # Formule : Base(4) * Fertilité * (1 + 10% par point d'XP)
+        # 2. Production avec bonus d'Expérience + espèce
         xp_bonus = 1 + (self.experience * 0.1)
-        yield_amount = int(4 * fertility * xp_bonus)
+        species_bonus = 1 + self.species_trait("harvest") * 0.1
+        yield_amount = int(4 * fertility * xp_bonus * species_bonus)
 
         # Ajout au stock de la cité (ne dépasse pas max_food)
         city.food_stock = min(city.max_food, city.food_stock + yield_amount)

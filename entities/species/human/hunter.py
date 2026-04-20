@@ -5,6 +5,7 @@ from core.logger import GameLogger
 from core.random_service import RandomService
 from entities.species.animal.base import Animal
 from core.translator import Translator
+from core import bestiary_tracker
 
 @register_civ
 class Hunter(Human):
@@ -26,7 +27,7 @@ class Hunter(Human):
 
     @property
     def perception_range(self):
-        return self._base_perception + int(self.faith_bonus("perception"))
+        return self._base_perception + int(self.faith_bonus("perception")) + int(self.species_trait("perception"))
 
     def _update_status(self):
         """Adjusts appearance and speed based on the load."""
@@ -74,6 +75,7 @@ class Hunter(Human):
 
         if reward > 0:
             self.has_game = True
+            bestiary_tracker.track_kill(entity.species)
             # Store the value for future delivery
             self.pending_food_boost = reward
             self._update_status()
@@ -220,8 +222,7 @@ class Hunter(Human):
         self.pos = max(scored_moves, key=lambda m: m[1])[0]
 
     def get_defense_power(self):
-        """Hunter is armed and dangerous"""
-        return 0.6 + self.faith_bonus("defense") * 0.1
+        return 0.6 + self.faith_bonus("defense") * 0.1 + self.species_trait("defense") * 0.05
 
     @property
     def danger_level(self):

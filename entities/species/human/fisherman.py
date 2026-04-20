@@ -25,7 +25,7 @@ class Fisherman(Human):
 
     @property
     def perception_range(self):
-        return self._base_perception + int(self.faith_bonus("perception"))
+        return self._base_perception + int(self.faith_bonus("perception")) + int(self.species_trait("perception"))
 
     def think(self, world):
         """Decision phase (Brain)."""

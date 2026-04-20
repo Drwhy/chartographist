@@ -103,8 +103,7 @@ class Trader(Human):
 
     def _do_trade(self, world):
         """Exchange goods, spread religion, build roads, and move on."""
-        # Trade bonus from faith
-        trade_bonus = int(self.faith_bonus("trade"))
+        trade_bonus = int(self.faith_bonus("trade")) + int(self.species_trait("trade"))
         food_delivered = 10 + trade_bonus
         self.target_city.food_stock += food_delivered
 

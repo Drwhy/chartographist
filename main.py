@@ -1,11 +1,14 @@
 import time, select, sys, traceback, core, history
 import entities.spawn_system as entities_spawn
 from render.render_engine import RenderEngine
+from render.ui_bestiary import print_bestiary_summary, FAUNA_TAB, SPECIES_TAB
 from core.logger import GameLogger
 from core.random_service import RandomService
 from events.event_manager import EventManager
 from core.translator import Translator
 from core.religion import init_religion_data
+from core.species import init_species_data
+from core.fauna_gen import generate_fauna
 
 # --- GLOBAL CONFIGURATION ---
 WIDTH, HEIGHT = 60, 30
@@ -13,7 +16,7 @@ MAX_CYCLES = 2000
 TICK_SPEED = 0.15  # Slightly accelerated to witness expansion
 
 def check_input():
-    """Checks if a key was pressed without blocking the script execution."""
+    """Returns a pressed key without blocking, or None."""
     if select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
         return sys.stdin.read(1)
     return None
@@ -27,8 +30,12 @@ def main():
     # Initialize the central random service
     RandomService.initialize(seed)
 
-    # Initialize religion data from config (generates one religion per culture)
     init_religion_data(config)
+    init_species_data(config)
+
+    generated_fauna = generate_fauna(config)
+    if generated_fauna:
+        config['fauna'] = config.get('fauna', []) + generated_fauna
 
     # Create the world and the statistics dictionary
     # world['entities'] is an EntityManager instance
@@ -42,6 +49,8 @@ def main():
 
     # Initialize the modular rendering engine
     renderer = RenderEngine(WIDTH, HEIGHT, config)
+
+    bestiary_state = {'active': False, 'tab': FAUNA_TAB, 'page': 0}
 
     try:
         # Display the Genesis (Radial Reveal effect)
@@ -119,7 +128,28 @@ def main():
             # --- G. CLEANUP & RENDERING ---
             # Remove entities flagged as is_expired before drawing
             world['entities'].remove_dead()
-            renderer.draw_frame(world, stats)
+
+            key = check_input()
+            if key:
+                if key in ('b', 'B'):
+                    bestiary_state['active'] = not bestiary_state['active']
+                    bestiary_state['page'] = 0
+                elif bestiary_state['active']:
+                    if key in ('f', 'F'):
+                        bestiary_state['tab'] = FAUNA_TAB
+                        bestiary_state['page'] = 0
+                    elif key in ('s', 'S'):
+                        bestiary_state['tab'] = SPECIES_TAB
+                        bestiary_state['page'] = 0
+                    elif key in ('n', 'N'):
+                        bestiary_state['page'] += 1
+                    elif key in ('p', 'P'):
+                        bestiary_state['page'] = max(0, bestiary_state['page'] - 1)
+
+            if bestiary_state['active']:
+                renderer.draw_bestiary(world, bestiary_state)
+            else:
+                renderer.draw_frame(world, stats)
 
             # Rhythm control
             time.sleep(TICK_SPEED)
@@ -155,6 +185,8 @@ def main():
         print(Translator.translate("ui.fauna_count", count=len(fauna)))
         print(Translator.translate("ui.seed_info", seed=seed))
         print("═" * 50 + "\n")
+
+        print_bestiary_summary(config, world)
 
 if __name__ == "__main__":
     main()

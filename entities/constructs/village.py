@@ -19,6 +19,7 @@ class Village(Construct):
         for _ in range(initial_count):
             c = Human(self.x, self.y, self.culture, self.config, 1)
             c.age = RandomService.randint(15, 45)
+            c.species_data = self._personal_species
             self.citizens.append(c)
 
         # Resources
@@ -109,6 +110,7 @@ class Village(Construct):
             if type(p) is Human:
                 new_farmer = Farmer(self.x, self.y, self.culture, self.config, name=p.name, age=p.age)
                 new_farmer.faith = p.faith
+                new_farmer.species_data = p.species_data
                 new_farmer.partner = p.partner
                 new_farmer.children = p.children
                 if p.partner and p.partner.partner is p:
@@ -128,12 +130,14 @@ class Village(Construct):
         from entities.species.human.hunter import Hunter
         self.active_worker_entity = Hunter(self.x, self.y, self.culture, self.config, self.pos, self)
         self._assign_faith(self.active_worker_entity)
+        self._assign_species(self.active_worker_entity)
         world['entities'].add(self.active_worker_entity)
 
     def _spawn_fisherman(self, world):
         from entities.species.human.fisherman import Fisherman
         self.active_worker_entity = Fisherman(self.x, self.y, self.culture, self.config, self.pos, self)
         self._assign_faith(self.active_worker_entity)
+        self._assign_species(self.active_worker_entity)
         world['entities'].add(self.active_worker_entity)
 
     def _evolve_to_city(self, world):
