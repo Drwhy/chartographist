@@ -3,6 +3,8 @@ from .base_event import BaseEvent
 from core.random_service import RandomService
 from core.logger import GameLogger
 from entities.constructs.city import City
+from entities.constructs.ruins import Ruins
+from entities.species.human.base import Human
 from core.translator import Translator
 
 @register_event
@@ -46,9 +48,6 @@ class Epidemic(BaseEvent):
         """
         Gère la progression de la maladie pour une entité spécifique (Cité ou Humain).
         """
-        from entities.constructs.ruins import Ruins
-        from entities.species.human.base import Human
-
         # Initialisation du compteur de tours
         if not hasattr(entity, 'infection_turns'):
             entity.infection_turns = 0

@@ -20,8 +20,12 @@ class Fisherman(Human):
         # Business logic
         self.target = None
         self.fishing_cooldown = 0
-        self.perception_range = 12  # Good view of the sea horizon
+        self._base_perception = 12  # Good view of the sea horizon
         self.fear_sensitivity = 4.0 # Very cautious (a small boat sinks fast!)
+
+    @property
+    def perception_range(self):
+        return self._base_perception + int(self.faith_bonus("perception")) + int(self.species_trait("perception"))
 
     def think(self, world):
         """Decision phase (Brain)."""
@@ -115,34 +119,6 @@ class Fisherman(Human):
         if scored_moves:
             self.pos = max(scored_moves, key=lambda m: m[1])[0]
 
-    def update(self, world, stats):
-        if self.is_expired:
-            return
-
-        # 1. Post-fishing rest management
-        if self.fishing_cooldown > 0:
-            self.fishing_cooldown -= 1
-            return
-
-        # 2. Update appearance according to terrain
-        self._update_status(world)
-
-        # 3. Search intelligence
-        if not self.target or self.target.is_expired:
-            self._find_prey_in_water(world)
-
-        # 4. Action or Movement
-        if self.target:
-            # --- MODIFICATION: Fishing range increased to 2 tiles ---
-            dist_to_fish = math.dist(self.pos, self.target.pos)
-
-            if dist_to_fish <= 2.1: # 2.1 to cover 2-tile diagonals
-                self._fish_action(world)
-            else:
-                self._move_logic(world, self.target.pos)
-        else:
-            self._idle_movement(world)
-
     def _fish_action(self, world):
         if self.target and not self.target.is_expired:
             self.target.is_expired = True
@@ -150,6 +126,8 @@ class Fisherman(Human):
 
             # Direct delivery via home_city reference
             boost = RandomService.randint(5, 12)
+            # Faith harvest bonus
+            boost = int(boost * (1 + self.faith_bonus("harvest") * 0.1))
             self.home_city.food_stock += boost
 
             self.target = None
@@ -169,46 +147,6 @@ class Fisherman(Human):
             self.char = self.boat_char
         else:
             self.char = self.land_char
-
-    def _find_prey_in_water(self, world):
-        """Targets any edible aquatic entity."""
-        # Searching for entities that are:
-        # 1. Edible
-        # 2. Aquatic
-        # 3. Not expired
-        aquatic_preys = [
-            e for e in world['entities']
-            if getattr(e, 'is_edible', False)
-            and getattr(e, 'is_aquatic', False)
-            and not e.is_expired
-        ]
-
-        if aquatic_preys:
-            # Fishermen have sharp eyes; they take the closest one
-            self.target = min(aquatic_preys, key=lambda p: math.dist(self.pos, p.pos))
-        else:
-            self.target = None
-
-    def _move_logic(self, world, target_pos):
-        """Moves toward the target (Land or Shallow Water)."""
-        tx, ty = target_pos
-        dx = 1 if tx > self.x else -1 if tx < self.x else 0
-        dy = 1 if ty > self.y else -1 if ty < self.y else 0
-        nx, ny = self.x + dx, self.y + dy
-        if 0 <= nx < world['width'] and 0 <= ny < world['height']:
-            h = world['elev'][ny][nx]
-            # ACCESS: Dry land OR Shallow water (>-0.4)
-            if h > -0.4:
-                self.pos = (nx, ny)
-            # If it's the abyss (<-0.4), they don't move (safety)
-
-    def _idle_movement(self, world):
-        """Coastal wandering while waiting for a fish to bite."""
-        dx, dy = RandomService.choice([(0,1), (0,-1), (1,0), (-1,0), (0,0)])
-        nx, ny = self.x + dx, self.y + dy
-        if 0 <= nx < world['width'] and 0 <= ny < world['height']:
-            if world['elev'][ny][nx] > -0.4:
-                self.pos = (nx, ny)
 
     @property
     def danger_level(self):

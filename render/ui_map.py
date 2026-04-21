@@ -2,19 +2,22 @@ import math
 import time
 import sys
 from core.random_service import RandomService
+from core.translator import Translator
 
-def get_char_at(x, y, world_data, config):
+def get_char_at(x, y, world_data, config, entity_map=None):
     """
     Pure rendering logic based on Z-Index layers.
     Business intelligence is delegated to entity classes.
     """
     # 1. ENTITY LAYER (Highest priority)
-    # Filter only by position and life status
-    entities_at_pos = [e for e in world_data['entities'] if e.pos == (x, y) and not e.is_expired]
-
-    if entities_at_pos:
-        # Display the entity with the highest Z-Index
-        return max(entities_at_pos, key=lambda e: e.z_index).char
+    if entity_map is not None:
+        entity = entity_map.get((x, y))
+        if entity:
+            return entity.char
+    else:
+        entities_at_pos = [e for e in world_data['entities'] if e.pos == (x, y) and not e.is_expired]
+        if entities_at_pos:
+            return max(entities_at_pos, key=lambda e: e.z_index).char
 
     # 2. INFRASTRUCTURE & HYDROLOGY LAYER
     # Roads and rivers are world data layers beneath entities
@@ -76,11 +79,15 @@ def _calculate_complex_biome(x, y, h, cycle, width, height, config):
 
 def render_map(width, height, world_data, config):
     """Renders the map grid line by line."""
-    world_data['width'] = width
-    world_data['height'] = height
+    entity_map = {}
+    for e in world_data['entities']:
+        if not e.is_expired:
+            pos = e.pos
+            if pos not in entity_map or e.z_index > entity_map[pos].z_index:
+                entity_map[pos] = e
 
     for y in range(height):
-        line = "".join([get_char_at(x, y, world_data, config) for x in range(width)])
+        line = "".join([get_char_at(x, y, world_data, config, entity_map) for x in range(width)])
         print(line)
 
 def radial_reveal(renderer, world_data, stats):
@@ -99,7 +106,7 @@ def radial_reveal(renderer, world_data, stats):
         current_display[y][x] = get_char_at(x, y, world_data, renderer.config)
         if i % 15 == 0 or i == len(coords) - 1:
             sys.stdout.write("\033[H")
-            print(f"--- 📜 GENESIS: {stats['seed']} ---")
+            print(Translator.translate("ui.genesis", seed=stats['seed']))
             for row in current_display:
                 print("".join(row))
             sys.stdout.flush()

@@ -30,10 +30,6 @@ class Abduction(BaseEvent):
 
     def trigger(self, world, stats, config):
         """Spawns the UFO entity at a random entry point on the top edge."""
-        # --- PROBABILITY CHECK ---
-        if RandomService.random() > self.chance:
-            return
-
         # 1. Determine entry point (Top edge of the map)
         spawn_x = RandomService.randint(0, world['width'] - 1)
         spawn_y = 0

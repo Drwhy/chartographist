@@ -15,19 +15,13 @@ class UFO(Entity):
         self.target_entity = None
         self.abducted_entity = None
         self.wait_timer = 0
-        self.is_leaving = False
 
     def update(self, world, stats):
         """Main update loop for the UFO's behavioral states."""
         if self.is_expired:
             return
 
-        # 1. EXIT STATE: Moving toward the map boundaries to despawn
-        if self.is_leaving:
-            self._move_to_exit(world)
-            return
-
-        # 2. SCANNING STATE: Hovering over the victim during abduction
+        # 1. SCANNING STATE: Hovering over the victim during abduction
         if self.wait_timer > 0:
             self.wait_timer -= 1
             if self.wait_timer <= 0:
@@ -84,12 +78,6 @@ class UFO(Entity):
         ny = self.y + (1 if ty > self.y else -1 if ty < self.y else 0)
 
         self.pos = (nx, ny)
-
-    def _move_to_exit(self, world):
-        """Ascends toward the top of the map to vanish."""
-        self.pos = (self.x, self.y - 1)
-        if self.y < 0:
-            self.is_expired = True
 
     def _idle_move(self, world):
         """Performs a random step when no targets are detected."""

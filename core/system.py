@@ -4,23 +4,41 @@ import argparse
 from . import culture
 from core.translator import Translator
 
+_saved_term = None
+
+
 def init_terminal():
     """
     Prepares the terminal for ANSI rendering.
     Clears the screen, moves the cursor to the home position, and hides it.
+    Also sets cbreak mode so single keypresses are readable without Enter.
     """
-    # \033[2J: Clear screen | \033[H: Home position | \033[?25l: Hide cursor
+    global _saved_term
     sys.stdout.write("\033[2J\033[H\033[?25l")
     sys.stdout.flush()
+    try:
+        import tty, termios
+        _saved_term = termios.tcgetattr(sys.stdin.fileno())
+        tty.setcbreak(sys.stdin.fileno())
+    except Exception:
+        pass
+
 
 def restore_terminal():
     """
     Restores the terminal state by showing the cursor and adding a newline.
     Should be called upon simulation exit.
     """
-    # \033[?25h: Show cursor
+    global _saved_term
     sys.stdout.write("\033[?25h\n")
     sys.stdout.flush()
+    if _saved_term is not None:
+        try:
+            import termios
+            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, _saved_term)
+            _saved_term = None
+        except Exception:
+            pass
 
 def load_arguments():
     """

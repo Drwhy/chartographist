@@ -16,6 +16,9 @@ class VolcanoEruption(BaseEvent):
     name = "Volcanic Eruption"
     chance = 0.001
 
+    def __init__(self):
+        self._lava_tiles = set()
+
     def trigger(self, world, stats, config):
         # Identify all volcanic peaks based on elevation
         volcano_points = [(x, y) for y in range(world['height'])
@@ -44,6 +47,7 @@ class VolcanoEruption(BaseEvent):
                         if math.dist((vx, vy), (nx, ny)) <= impact_radius:
                             # Set the ground on fire and generate high fear
                             world['road'][ny][nx] = "🔥"
+                            self._lava_tiles.add((nx, ny))
                             world['influence'].add_influence(nx, ny, value=-10.0, radius=2)
 
             # 2. Destruction and Entity Transformation
@@ -64,22 +68,20 @@ class VolcanoEruption(BaseEvent):
         """
         Handles the natural dissipation of flames and ongoing lethality of lava.
         """
-        for y in range(world['height']):
-            for x in range(world['width']):
-                if world['road'][y][x] == "🔥":
-                    # Ongoing fire creates a local fear field
-                    world['influence'].add_influence(x, y, value=-5.0, radius=1)
+        extinguished = set()
+        for (x, y) in self._lava_tiles:
+            world['influence'].add_influence(x, y, value=-5.0, radius=1)
 
-                    # LETHALITY CHECK
-                    # Any non-flying entity standing on fire is consumed
-                    for entity in world['entities']:
-                        if not entity.is_expired and entity.pos == (x, y):
-                            if not getattr(entity, 'is_flying', False):
-                                entity.is_expired = True
-                                GameLogger.log(
-                                    Translator.translate("events.volcano_kill", name=entity.name, char=entity.char)
-                                )
+            for entity in world['entities']:
+                if not entity.is_expired and entity.pos == (x, y):
+                    if not getattr(entity, 'is_flying', False):
+                        entity.is_expired = True
+                        GameLogger.log(
+                            Translator.translate("events.volcano_kill", name=entity.name, char=entity.char)
+                        )
 
-                    # 5% chance per tick for the fire to extinguish
-                    if RandomService.random() < 0.05:
-                        world['road'][y][x] = "  "
+            if RandomService.random() < 0.05:
+                world['road'][y][x] = "  "
+                extinguished.add((x, y))
+
+        self._lava_tiles -= extinguished

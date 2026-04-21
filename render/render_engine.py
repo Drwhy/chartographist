@@ -2,6 +2,7 @@ import sys
 from .ui_header import render_header
 from .ui_map import render_map, radial_reveal
 from .ui_logs import render_logs
+from .ui_bestiary import render_bestiary
 
 class RenderEngine:
     """
@@ -41,3 +42,6 @@ class RenderEngine:
 
         # Finalize the frame output
         sys.stdout.flush()
+
+    def draw_bestiary(self, world_data, bestiary_state):
+        render_bestiary(self.width, self.height, world_data, self.config, bestiary_state)

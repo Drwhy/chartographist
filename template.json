@@ -17,7 +17,7 @@
       "name": "Empire",
       "city": "🏰", "village": "🏡", "port": "⚓", "road": ". ",
       "settler_emoji": "🚶", "hunter_emoji": "🏹","fisherman_emoji": "🎣","boat_emoji": "🛶","food": "🍖",
-      "trader_emoji": "🪙",
+      "trader_emoji": "🪙", "soldier_emoji": "⚔️",
       "naming": {
         "prefixes": ["Valer", "Luc", "Aurel", "Sever", "Marc", "Tiber", "August", "Septim", "Flav", "Clod", "Corn", "Domi", "Grat", "Hadri", "Iul", "Livi", "Maxi", "Nerv", "Octav", "Quin", "Tull", "Vespas", "Traj", "Aemil", "Anto"],
         "suffixes_person": ["ius", "ian", "us", "ander", "inus", "entis", "onius", "erius", "atus", "icus", "illa", "ina", "orix"],
@@ -28,7 +28,7 @@
       "name": "Sultanat",
       "city": "🕌", "village": "🧱", "port": "🛶", "road": "° ",
       "settler_emoji": "🐪", "hunter_emoji": "🏹", "fisherman_emoji": "🎣","boat_emoji": "🛶","food": "🥙",
-      "trader_emoji": "🪙",
+      "trader_emoji": "🪙", "soldier_emoji": "🗡️",
       "naming": {
         "prefixes": ["Al", "Zar", "Sul", "Oman", "Khel", "Bakir", "Emir", "Mansu", "Rash", "Zay", "Ibr", "Sal", "Hak", "Far", "Qas", "Uth", "Nas", "Mal", "Jal", "Hab", "Must", "Ami", "Yus", "Ham", "Zaid"],
         "suffixes_person": ["'jin", " al-Din", " ahad", " emir", " bashir", " i-Azam", " ud-Daula", " allah", " zadeh", " khan", " fari", " din", " sani"],
@@ -39,7 +39,7 @@
       "name": "Dynastie",
       "city": "🏯", "village": "🏮", "port": "⛵", "road": "+ ",
       "settler_emoji": "👨‍🌾", "hunter_emoji": "🏹","fisherman_emoji": "🎣","boat_emoji": "🛶","food": "🍱",
-      "trader_emoji": "🪙",
+      "trader_emoji": "🪙", "soldier_emoji": "🥷",
       "naming": {
         "prefixes": ["Han", "Xian", "Zhen", "Kuan", "Lao", "Jin", "Yuan", "Feng", "Zhao", "Kang", "Shun", "Ming", "Qing", "Sheng", "Tao", "Wun", "Xue", "Yue", "Ling", "Gao", "Ryu", "Ken", "Shi", "Cho", "Hao"],
         "suffixes_person": ["-Ho", "-Do", "-Ti", "-Shen", "-An", "-Ru", "-Po", "-Wu", "-Xi", "-Mei", "-Long", "-Zhi", "-Fan"],
@@ -50,6 +50,7 @@
       "name": "Clans",
       "city": "🛖", "village": "⛺", "port": "⛵", "road": "  ",
       "settler_emoji": "🧗", "hunter_emoji": "🏹","fisherman_emoji": "🎣","boat_emoji": "🛶","food": "🥩",
+      "soldier_emoji": "🪓",
       "naming": {
         "prefixes": ["Bjorn", "Grim", "Thor", "Ulf", "Ragn", "Sig", "Skarde", "Hald", "Erik", "Gunn", "Ivar", "Leif", "Olaf", "Sven", "Ketil", "Arne", "Egil", "Fro", "Hrolf", "Vid", "Agn", "Knud", "Yng", "Torv", "Bram"],
         "suffixes_person": ["son", "ir", "ald", "sen", "bjorg", "und", "gar", "kell", "grim", "unn", "thorp", "stein", "borg"],
@@ -58,13 +59,69 @@
     }
   ],
   "fauna": [
-    {"species": "wolf", "type": "predator", "char": "🐺", "name": "Loup", "speed": 1.1},
-    {"species": "bear", "type": "predator", "char": "🐻", "name": "Ours", "speed": 0.7},
-    {"species": "deer", "type": "game", "char": "🦌", "name": "Biche", "speed": 1},
-    {"species": "eagle", "type": "flyer", "char": "🦅", "name": "Aigle", "speed": 1.5},
-    {"species": "shark", "type": "aquatic", "char": "🦈", "name": "Requin", "speed": 1.3},
-    {"species": "fish", "type": "aquatic", "char": "🐟", "name": "Poisson", "speed": 1},
-    {"species": "rabbit", "type": "aquatic", "char": "🐇", "name": "Lapin", "speed": 1.3}
+    {
+      "species": "wolf", "char": "🐺", "name": "Loup", "speed": 1.1,
+      "locomotion": "land", "diet": "carnivore",
+      "weight": 15,
+      "perception_range": 6, "danger": 0.3, "danger_level": 0.6,
+      "fear_sensitivity": 2.0, "food_value": [15, 20],
+      "energy": 100, "max_energy": 150, "hunger_threshold": 60, "repro_threshold": 120,
+      "spawn": { "elevation_min": 0.05, "elevation_max": 0.4, "chance": 0.05 }
+    },
+    {
+      "species": "bear", "char": "🐻", "name": "Ours", "speed": 0.7,
+      "locomotion": "land", "diet": "carnivore",
+      "weight": 30,
+      "perception_range": 3, "danger": 0.8, "danger_level": 0.8,
+      "fear_sensitivity": 1.0, "food_value": [25, 40],
+      "energy": 100, "max_energy": 150, "hunger_threshold": 60, "repro_threshold": 120,
+      "spawn": { "elevation_min": 0.5, "elevation_max": 0.85, "chance": 0.05 }
+    },
+    {
+      "species": "deer", "char": "🦌", "name": "Biche", "speed": 1.0,
+      "locomotion": "land", "diet": "herbivore",
+      "weight": 8,
+      "perception_range": 5, "danger": 0.1, "danger_level": 0.1,
+      "fear_sensitivity": 5.0, "food_value": [10, 18],
+      "energy": 100, "max_energy": 150, "hunger_threshold": 60, "repro_threshold": 120,
+      "spawn": { "elevation_min": 0.05, "elevation_max": 0.4, "chance": 0.05 }
+    },
+    {
+      "species": "eagle", "char": "🦅", "name": "Aigle", "speed": 1.5,
+      "locomotion": "flying", "diet": "carnivore",
+      "weight": 3,
+      "perception_range": 7, "danger": 0.1, "danger_level": 0.2,
+      "fear_sensitivity": 2.0, "food_value": [4, 8],
+      "energy": 100, "max_energy": 150, "hunger_threshold": 60, "repro_threshold": 120,
+      "spawn": { "elevation_min": 0.6, "elevation_max": 1.0, "chance": 0.1 }
+    },
+    {
+      "species": "shark", "char": "🦈", "name": "Requin", "speed": 1.3,
+      "locomotion": "aquatic", "diet": "carnivore",
+      "weight": 25,
+      "perception_range": 8, "danger": 0.8, "danger_level": 0.8,
+      "fear_sensitivity": 1.0, "food_value": [20, 30],
+      "energy": 100, "max_energy": 150, "hunger_threshold": 60, "repro_threshold": 120,
+      "spawn": { "elevation_min": -0.8, "elevation_max": -0.3, "chance": 0.2 }
+    },
+    {
+      "species": "fish", "char": "🐟", "name": "Poisson", "speed": 1.0,
+      "locomotion": "aquatic", "diet": "herbivore",
+      "weight": 2,
+      "perception_range": 3, "danger": 0.0, "danger_level": 0.0,
+      "fear_sensitivity": 5.0, "food_value": [5, 10],
+      "energy": 100, "max_energy": 150, "hunger_threshold": 60, "repro_threshold": 120,
+      "spawn": { "elevation_min": -0.6, "elevation_max": 0.0, "chance": 0.4 }
+    },
+    {
+      "species": "rabbit", "char": "🐇", "name": "Lapin", "speed": 1.3,
+      "locomotion": "land", "diet": "herbivore",
+      "weight": 1,
+      "perception_range": 4, "danger": 0.0, "danger_level": 0.0,
+      "fear_sensitivity": 8.0, "food_value": [4, 8],
+      "energy": 80, "max_energy": 120, "hunger_threshold": 40, "repro_threshold": 100,
+      "spawn": { "elevation_min": 0.1, "elevation_max": 0.5, "chance": 0.1 }
+    }
   ],
   "special": {
     "ruin": "💀",
@@ -72,5 +129,279 @@
     "lava": "🔥",
     "ufo": "🛸"
   },
-  "influence_decay": 0.95
+  "influence_decay": 0.95,
+  "species": {
+    "origins": {
+      "mountain": {
+        "emoji": "⛰️",
+        "bonus_weights": { "defense": 2.0, "strength": 1.5, "harvest": 1.2, "speed": 0.5, "trade": 0.6, "perception": 0.8, "fertility": 0.7 },
+        "naming": { "prefixes": ["Dor", "Khor", "Brak", "Tor", "Gar", "Mag", "Dur", "Krag", "Ghal", "Mund"] }
+      },
+      "forest": {
+        "emoji": "🌲",
+        "bonus_weights": { "perception": 2.0, "speed": 1.5, "harvest": 1.2, "defense": 0.8, "trade": 0.6, "strength": 0.8, "fertility": 1.0 },
+        "naming": { "prefixes": ["Syl", "Eld", "Fae", "Verd", "Aer", "Nim", "Thal", "Lyss", "Gal", "Evyn"] }
+      },
+      "plains": {
+        "emoji": "🌾",
+        "bonus_weights": { "fertility": 2.0, "trade": 1.5, "harvest": 1.5, "speed": 1.2, "defense": 0.7, "strength": 0.8, "perception": 0.9 },
+        "naming": { "prefixes": ["Fen", "Vel", "Aur", "Sav", "Cel", "Pell", "Ard", "Bri", "Zeph", "Cal"] }
+      },
+      "coast": {
+        "emoji": "🌊",
+        "bonus_weights": { "trade": 2.0, "perception": 1.3, "speed": 1.3, "defense": 0.7, "fertility": 1.0, "strength": 0.8, "harvest": 0.9 },
+        "naming": { "prefixes": ["Mar", "Cor", "Thal", "Nav", "Sel", "Mer", "Aq", "Pel", "Trid", "Naer"] }
+      },
+      "desert": {
+        "emoji": "🏜️",
+        "bonus_weights": { "defense": 1.8, "perception": 1.5, "trade": 1.2, "fertility": 0.5, "harvest": 0.6, "strength": 1.0, "speed": 1.0 },
+        "naming": { "prefixes": ["Zar", "Khem", "Adh", "Sahr", "Nur", "Rak", "Qal", "Desh", "Ahn", "Kass"] }
+      },
+      "tundra": {
+        "emoji": "❄️",
+        "bonus_weights": { "defense": 1.5, "strength": 1.5, "speed": 1.2, "fertility": 0.6, "trade": 0.5, "perception": 1.0, "harvest": 0.8 },
+        "naming": { "prefixes": ["Brak", "Skar", "Fros", "Hyv", "Bliz", "Arkt", "Vint", "Gel", "Thyr", "Isk"] }
+      },
+      "swamp": {
+        "emoji": "🌿",
+        "bonus_weights": { "perception": 1.8, "stealth": 1.5, "harvest": 1.0, "defense": 0.7, "trade": 0.5, "strength": 0.8, "fertility": 1.2 },
+        "naming": { "prefixes": ["Bog", "Myr", "Silt", "Venn", "Murk", "Fen", "Grott", "Dusk", "Umm", "Rath"] }
+      }
+    },
+    "physiologies": {
+      "robust": {
+        "emoji": "💪",
+        "bonus_weights": { "strength": 1.8, "defense": 1.3, "speed": 0.6, "perception": 0.8, "fertility": 0.9, "harvest": 1.0, "trade": 0.9 },
+        "speed_mod": -0.05
+      },
+      "nimble": {
+        "emoji": "🦎",
+        "bonus_weights": { "speed": 1.8, "perception": 1.2, "defense": 0.6, "strength": 0.7, "trade": 1.1, "harvest": 0.9, "fertility": 1.0 },
+        "speed_mod": 0.1
+      },
+      "resilient": {
+        "emoji": "🛡️",
+        "bonus_weights": { "defense": 1.5, "strength": 1.0, "fertility": 1.2, "speed": 0.9, "harvest": 1.1, "perception": 0.9, "trade": 0.9 },
+        "speed_mod": 0.0
+      },
+      "perceptive": {
+        "emoji": "👁️",
+        "bonus_weights": { "perception": 2.0, "trade": 1.2, "speed": 1.0, "strength": 0.8, "harvest": 1.0, "defense": 0.8, "fertility": 0.9 },
+        "speed_mod": 0.05
+      },
+      "fertile": {
+        "emoji": "🌱",
+        "bonus_weights": { "fertility": 2.0, "harvest": 1.3, "defense": 0.7, "strength": 0.8, "trade": 1.0, "perception": 0.9, "speed": 1.0 },
+        "speed_mod": 0.0
+      },
+      "massive": {
+        "emoji": "🐘",
+        "bonus_weights": { "strength": 2.0, "defense": 1.5, "speed": 0.4, "fertility": 0.7, "harvest": 0.9, "trade": 0.7, "perception": 0.8 },
+        "speed_mod": -0.1
+      },
+      "cunning": {
+        "emoji": "🧠",
+        "bonus_weights": { "perception": 1.5, "trade": 1.5, "harvest": 1.2, "strength": 0.7, "speed": 1.1, "defense": 0.8, "fertility": 1.0 },
+        "speed_mod": 0.0
+      }
+    },
+    "natures": {
+      "warlike": {
+        "emoji": "⚔️",
+        "bonus_weights": { "strength": 1.8, "defense": 1.5, "trade": 0.4, "fertility": 0.7, "harvest": 0.8, "perception": 1.0, "speed": 1.0 },
+        "speed_mod": 0.0,
+        "naming": { "suffixes": ["ax", "or", "iron", "ur", "ath", "rak", "dor", "gar", "brak", "gul"] }
+      },
+      "mercantile": {
+        "emoji": "💰",
+        "bonus_weights": { "trade": 2.0, "perception": 1.2, "fertility": 1.0, "strength": 0.6, "defense": 0.5, "harvest": 1.0, "speed": 1.2 },
+        "speed_mod": 0.05,
+        "naming": { "suffixes": ["ari", "and", "is", "um", "el", "as", "ara", "ium", "ens", "alis"] }
+      },
+      "spiritual": {
+        "emoji": "✨",
+        "bonus_weights": { "perception": 1.5, "fertility": 1.3, "harvest": 1.0, "trade": 0.8, "defense": 0.9, "strength": 0.8, "speed": 0.9 },
+        "speed_mod": 0.0,
+        "naming": { "suffixes": ["ael", "ion", "iel", "anor", "eis", "wyn", "ara", "aith", "eos", "ival"] }
+      },
+      "isolationist": {
+        "emoji": "🏔️",
+        "bonus_weights": { "defense": 2.0, "harvest": 1.3, "trade": 0.3, "fertility": 0.8, "perception": 1.0, "strength": 1.2, "speed": 0.7 },
+        "speed_mod": -0.05,
+        "naming": { "suffixes": ["heim", "borg", "gard", "vik", "holm", "stein", "fell", "dal", "toft", "ness"] }
+      },
+      "expansionist": {
+        "emoji": "🗺️",
+        "bonus_weights": { "speed": 1.5, "fertility": 1.5, "trade": 1.2, "defense": 0.6, "strength": 0.8, "perception": 0.9, "harvest": 0.9 },
+        "speed_mod": 0.1,
+        "naming": { "suffixes": ["ia", "ium", "polis", "burg", "stan", "abad", "ford", "ville", "grad", "ton"] }
+      },
+      "scholarly": {
+        "emoji": "📚",
+        "bonus_weights": { "perception": 1.8, "harvest": 1.5, "trade": 1.3, "defense": 0.6, "fertility": 0.9, "strength": 0.7, "speed": 0.9 },
+        "speed_mod": 0.0,
+        "naming": { "suffixes": ["icus", "otep", "eos", "arion", "ana", "oth", "ium", "eus", "is", "alis"] }
+      },
+      "nomadic": {
+        "emoji": "🐎",
+        "bonus_weights": { "speed": 2.0, "perception": 1.3, "trade": 1.0, "fertility": 0.8, "defense": 0.7, "strength": 1.0, "harvest": 0.5 },
+        "speed_mod": 0.15,
+        "naming": { "suffixes": ["akh", "ai", "an", "ok", "ul", "ur", "in", "ek", "ok", "al"] }
+      }
+    }
+  },
+  "fauna_archetypes": {
+    "land_predator": {
+      "emoji_pool": ["🐺", "🦊", "🐆", "🦁", "🦝", "🐗"],
+      "diet": "carnivore",
+      "locomotion": "land",
+      "count": 3,
+      "size_range": [8, 35],
+      "speed_range": [0.9, 1.4],
+      "danger_range": [0.35, 0.85],
+      "perception_range": [4, 8],
+      "spawn_elev_range": [0.05, 0.6],
+      "spawn_chance": 0.05,
+      "naming": {
+        "prefixes": ["Grul", "Vax", "Thrak", "Mord", "Skarn", "Drak", "Fang", "Claw", "Vorr", "Zhar"],
+        "suffixes": ["or", "ax", "os", "is", "rak", "ak", "ur", "en", "ix", "al"]
+      }
+    },
+    "megafauna": {
+      "emoji_pool": ["🐻", "🦣", "🦬", "🦏", "🐊"],
+      "diet": "carnivore",
+      "locomotion": "land",
+      "count": 2,
+      "size_range": [28, 60],
+      "speed_range": [0.6, 0.9],
+      "danger_range": [0.7, 0.95],
+      "perception_range": [3, 6],
+      "spawn_elev_range": [0.3, 0.85],
+      "spawn_chance": 0.03,
+      "naming": {
+        "prefixes": ["Mam", "Col", "Tit", "Gorg", "Behm", "Lev", "Trog", "Krak", "Brul", "Galth"],
+        "suffixes": ["oth", "on", "us", "ar", "ath", "ux", "an", "oth", "os", "um"]
+      }
+    },
+    "land_prey": {
+      "emoji_pool": ["🦌", "🐇", "🦙", "🐏", "🦃", "🦔"],
+      "diet": "herbivore",
+      "locomotion": "land",
+      "count": 4,
+      "size_range": [1, 15],
+      "speed_range": [0.8, 1.3],
+      "danger_range": [0.0, 0.15],
+      "perception_range": [3, 7],
+      "spawn_elev_range": [0.05, 0.55],
+      "spawn_chance": 0.08,
+      "naming": {
+        "prefixes": ["Syl", "Fen", "Bri", "Lum", "Pell", "Cer", "Vel", "Ard", "Zeph", "Cal"],
+        "suffixes": ["is", "as", "el", "in", "ur", "em", "on", "ith", "ix", "ir"]
+      }
+    },
+    "avian": {
+      "emoji_pool": ["🦅", "🦆", "🦉", "🦚", "🦜", "🦢"],
+      "diet": "carnivore",
+      "locomotion": "flying",
+      "count": 3,
+      "size_range": [1, 8],
+      "speed_range": [1.3, 1.8],
+      "danger_range": [0.1, 0.4],
+      "perception_range": [5, 10],
+      "spawn_elev_range": [0.3, 1.0],
+      "spawn_chance": 0.06,
+      "naming": {
+        "prefixes": ["Aer", "Zeph", "Alis", "Vol", "Pter", "Aquil", "Corn", "Ruk", "Talv", "Skyl"],
+        "suffixes": ["ix", "ax", "is", "os", "us", "on", "el", "ar", "yn", "id"]
+      }
+    },
+    "aquatic_predator": {
+      "emoji_pool": ["🦈", "🐙", "🦑", "🐬", "🦭"],
+      "diet": "carnivore",
+      "locomotion": "aquatic",
+      "count": 2,
+      "size_range": [15, 50],
+      "speed_range": [1.0, 1.5],
+      "danger_range": [0.6, 0.9],
+      "perception_range": [5, 10],
+      "spawn_elev_range": [-0.9, -0.2],
+      "spawn_chance": 0.1,
+      "naming": {
+        "prefixes": ["Lev", "Krak", "Abys", "Teth", "Phos", "Cel", "Mar", "Naut", "Riff", "Benth"],
+        "suffixes": ["an", "os", "us", "ath", "is", "or", "ax", "el", "on", "ur"]
+      }
+    },
+    "aquatic_prey": {
+      "emoji_pool": ["🐟", "🐠", "🦐", "🦀", "🐡"],
+      "diet": "herbivore",
+      "locomotion": "aquatic",
+      "count": 3,
+      "size_range": [1, 8],
+      "speed_range": [0.8, 1.2],
+      "danger_range": [0.0, 0.05],
+      "perception_range": [2, 5],
+      "spawn_elev_range": [-0.7, 0.0],
+      "spawn_chance": 0.3,
+      "naming": {
+        "prefixes": ["Pesc", "Nau", "Aquar", "Icht", "Sal", "Cyp", "Amph", "Brin", "Glim", "Shol"],
+        "suffixes": ["in", "is", "us", "el", "on", "ar", "ix", "im", "al", "en"]
+      }
+    }
+  },
+  "domains": {
+    "war": {
+      "emoji": "⚔️",
+      "bonuses_weight": { "defense": 2.0, "perception": 1.5, "growth": 0.8, "harvest": 0.5, "trade": 0.5 },
+      "naming": {
+        "prefixes": ["Igni", "Sol", "Pyrr", "Vulc", "Flam", "Ard", "Crem", "Lumin", "Ferr", "Bell"],
+        "suffixes": ["ius", "ator", "ax", "orix", "entis", "arus", "ifer", "onus", "arax", "iron"],
+        "titles": ["domains.war.t1", "domains.war.t2", "domains.war.t3", "domains.war.t4", "domains.war.t5"]
+      }
+    },
+    "trade": {
+      "emoji": "💰",
+      "bonuses_weight": { "trade": 2.0, "growth": 1.2, "harvest": 1.0, "perception": 0.8, "defense": 0.3 },
+      "naming": {
+        "prefixes": ["Nur", "Qamar", "Merc", "Aurum", "Barak", "Cras", "Opul", "Lux"],
+        "suffixes": [" al-Nur", "andis", "orath", "entum", " the Golden", "aris", "ophis", "enum"],
+        "titles": ["domains.trade.t1", "domains.trade.t2", "domains.trade.t3", "domains.trade.t4", "domains.trade.t5"]
+      }
+    },
+    "fertility": {
+      "emoji": "🌾",
+      "bonuses_weight": { "growth": 2.0, "harvest": 1.5, "trade": 0.8, "perception": 0.5, "defense": 0.3 },
+      "naming": {
+        "prefixes": ["Gaia", "Cere", "Dem", "Frey", "Terr", "Flor", "Verd", "Hua"],
+        "suffixes": ["a", "ith", "ara", "una", "eia", "ora", "alis", "ina"],
+        "titles": ["domains.fertility.t1", "domains.fertility.t2", "domains.fertility.t3", "domains.fertility.t4", "domains.fertility.t5"]
+      }
+    },
+    "life": {
+      "emoji": "🌿",
+      "bonuses_weight": { "harvest": 1.5, "perception": 1.5, "growth": 1.2, "defense": 0.5, "trade": 0.5 },
+      "naming": {
+        "prefixes": ["Vit", "Anim", "Syl", "Ygg", "Norn", "Eld", "Bri", "Aur"],
+        "suffixes": ["drasil", "ael", "anor", "heim", "wyn", "ion", "alis", "iel"],
+        "titles": ["domains.life.t1", "domains.life.t2", "domains.life.t3", "domains.life.t4", "domains.life.t5"]
+      }
+    },
+    "death": {
+      "emoji": "💀",
+      "bonuses_weight": { "defense": 1.8, "perception": 1.2, "growth": 0.3, "harvest": 0.5, "trade": 0.5 },
+      "naming": {
+        "prefixes": ["Mort", "Than", "Hel", "Nyx", "Anu", "Osi", "Erk", "Mab"],
+        "suffixes": ["atos", "ibis", "heim", "era", "gor", "rath", "umbr", "onis"],
+        "titles": ["domains.death.t1", "domains.death.t2", "domains.death.t3", "domains.death.t4", "domains.death.t5"]
+      }
+    },
+    "wisdom": {
+      "emoji": "📖",
+      "bonuses_weight": { "perception": 2.0, "trade": 1.2, "growth": 1.0, "harvest": 0.8, "defense": 0.5 },
+      "naming": {
+        "prefixes": ["Ath", "Soph", "Thoth", "Min", "Ogm", "Sag", "Lore", "Veda"],
+        "suffixes": ["ena", "icus", "is", "uva", "iana", "eos", "arion", "otep"],
+        "titles": ["domains.wisdom.t1", "domains.wisdom.t2", "domains.wisdom.t3", "domains.wisdom.t4", "domains.wisdom.t5"]
+      }
+    }
+  }
 }

@@ -5,12 +5,16 @@ from entities.species.human.base import Human
 from core.entities import Entity, Z_CONSTRUCT
 from core.logger import GameLogger
 from core.translator import Translator
+from core.religion import generate_demographics, SyncreticReligion, _find_template
+from core.species import get_species_for_culture, PersonalSpecies
 
 class Construct(Entity):
     """
     Base class for all static structures built on the map.
     Handles naming, cultural stability, and the 'Cultural Drift' mechanic.
     """
+    _syncretism_chance = 0.01  # Overridden by City (0.02)
+
     def __init__(self, x, y, culture, config):
         # Initialize the physical entity at Z_CONSTRUCT layer with speed 1
         super().__init__(x, y, "?", Z_CONSTRUCT, 1.0)
@@ -24,6 +28,13 @@ class Construct(Entity):
 
         # Generates a procedural place name based on cultural linguistics
         self.name = NameGenerator.generate_place_name(culture)
+
+        # Religion demographics for this settlement
+        self.religion = generate_demographics(culture)
+
+        # Species template shared by all citizens of this culture
+        _tmpl = get_species_for_culture(culture.get('name', ''))
+        self._personal_species = PersonalSpecies(_tmpl) if _tmpl else None
 
     def update(self, world, stats):
         """Standard update loop to be overridden by child classes (City, Village, etc.)."""
@@ -79,6 +90,10 @@ class Construct(Entity):
         elif isinstance(self, Village):
             self.char = self.culture.get('village', '🏡')
 
+        # Refresh species for the new culture
+        _tmpl = get_species_for_culture(self.culture.get('name', ''))
+        self._personal_species = PersonalSpecies(_tmpl) if _tmpl else None
+
         GameLogger.log(
             Translator.translate(
                 "events.cultural_mutation",
@@ -87,51 +102,188 @@ class Construct(Entity):
                 new_culture=self.culture['name']
             )
         )
-    def _update_population_logic(self, world):
-        """Shared biological and economic logic for all settlements."""
-        if not self.citizens:
-            return
-
-        # 1. Monthly Status (Aging, Hunger, Working)
-        for person in self.citizens:
-            person.process_monthly_status()
-
-            # Feeding Logic
-            if self.food_stock >= 1:
-                self.food_stock -= 1
-                person.hunger = max(0, person.hunger - 10)
-            else:
-                person.hunger += 10 # Starvation
-                if person.hunger >= 100: person.is_dead = True
-
-            # Production (Polymorphism: Farmer.work or Citizen.work)
-            person.work(self, world)
-
-        # 2. Cleanup dead
-        self.citizens = [c for c in self.citizens if not c.is_dead]
+    def _assign_species(self, agent):
+        """Assign the settlement's species to a spawned agent and apply its speed modifier."""
+        if self._personal_species:
+            agent.species_data = self._personal_species
+            agent.speed = max(0.3, agent.speed + self._personal_species.speed_mod)
 
     def _handle_reproduction(self, chance_multiplier=1.0):
-        """Shared genealogy and birth system."""
+        """Four-phase family system: cleanup → attraction → courtship → births."""
+        self._cleanup_partnerships()
+        self._handle_attraction()
+        self._handle_courtship()
+        self._handle_births(chance_multiplier)
+
+    def _cleanup_partnerships(self):
+        """Break bonds whose partner has died; clear stale love interests."""
+        for citizen in self.citizens:
+            if citizen.partner and citizen.partner.is_dead:
+                citizen.partner = None
+            if citizen.love_interest is not None:
+                li = citizen.love_interest
+                if li.is_dead or (li.partner is not None and not li.partner.is_dead
+                                  and li.partner is not citizen):
+                    citizen.love_interest = None
+                    citizen.love_score = 0.0
+
+    def _handle_attraction(self):
+        """Gradually build romantic attraction between single fertile citizens."""
+        singles = [c for c in self.citizens if c.is_fertile and c.is_single]
+        if len(singles) < 2:
+            return
+        citizen_set = set(self.citizens)
+
+        for person in singles:
+            if person.love_interest is not None:
+                target = person.love_interest
+                # Drop interest if target left the settlement, died, or married someone else
+                if (target not in citizen_set or target.is_dead
+                        or (target.partner is not None and not target.partner.is_dead)):
+                    person.love_interest = None
+                    person.love_score = 0.0
+                    continue
+                # Grow attraction tick by tick
+                growth = 0.02
+                if (isinstance(person.culture, dict) and isinstance(target.culture, dict)
+                        and person.culture.get('name') == target.culture.get('name')):
+                    growth += 0.015
+                if (person.faith and target.faith
+                        and person.faith.religion_name == target.faith.religion_name):
+                    growth += 0.01
+                if abs(person.age - target.age) <= 10:
+                    growth += 0.008
+                growth += RandomService.random() * 0.015
+                person.love_score = min(1.0, person.love_score + growth)
+            else:
+                # 5% chance per tick to notice someone and develop an initial spark
+                if RandomService.random() < 0.05:
+                    candidates = [
+                        c for c in singles
+                        if c is not person and not self._are_related(person, c)
+                    ]
+                    if candidates:
+                        target = RandomService.choice(candidates)
+                        person.love_interest = target
+                        person.love_score = RandomService.uniform(0.05, 0.2)
+
+    def _handle_courtship(self):
+        """When two people are mutually in love (≥0.65 / ≥0.5), they wed."""
+        for person in list(self.citizens):
+            if not person.is_single or not person.is_fertile:
+                continue
+            if person.love_interest is None or person.love_score < 0.65:
+                continue
+            target = person.love_interest
+            if not target.is_single or not target.is_fertile:
+                person.love_interest = None
+                person.love_score = 0.0
+                continue
+            if target.love_interest is person and target.love_score >= 0.5:
+                # Mutual love — they wed
+                person.partner = target
+                target.partner = person
+                person.love_interest = None
+                target.love_interest = None
+                person.love_score = 0.0
+                target.love_score = 0.0
+                if RandomService.random() < 0.05:
+                    GameLogger.log(Translator.translate(
+                        "events.family_married",
+                        name1=person.name, name2=target.name, city=self.name
+                    ))
+            elif target.love_interest is None and RandomService.random() < 0.15:
+                # Target begins noticing their admirer
+                target.love_interest = person
+                target.love_score = RandomService.uniform(0.1, 0.3)
+
+    def _handle_births(self, chance_multiplier=1.0):
+        """M+F couples may produce a child when food is sufficient. Fertility bonus applies."""
         if self.food_stock <= len(self.citizens):
             return
 
-        fertile_pool = [c for c in self.citizens if c.is_fertile]
-        RandomService.shuffle(fertile_pool)
+        seen = set()
+        for citizen in self.citizens:
+            if not citizen.is_fertile or citizen.partner is None:
+                continue
+            partner = citizen.partner
+            if not partner.is_fertile:
+                continue
+            # Biological reproduction requires one male and one female
+            if citizen.sex == partner.sex:
+                continue
+            pair_key = frozenset({id(citizen), id(partner)})
+            if pair_key in seen:
+                continue
+            seen.add(pair_key)
+            avg_fertility = (citizen.species_trait('fertility') + partner.species_trait('fertility')) / 2
+            birth_chance = 0.02 * chance_multiplier * (1.0 + avg_fertility * 0.15)
+            if RandomService.random() < birth_chance:
+                self._spawn_child(citizen, partner)
 
-        for i in range(0, len(fertile_pool) - 1, 2):
-            p1, p2 = fertile_pool[i], fertile_pool[i+1]
+    def _are_related(self, p1, p2):
+        """Return True if p1 and p2 share a parent or are parent and child."""
+        p1_parent_ids = {id(p) for p in (p1.parents or ()) if p is not None}
+        p2_parent_ids = {id(p) for p in (p2.parents or ()) if p is not None}
+        if p1_parent_ids & p2_parent_ids:   # siblings
+            return True
+        if id(p2) in p1_parent_ids or id(p1) in p2_parent_ids:  # parent-child
+            return True
+        return False
 
-            # Base chance: 2% per month, modified by city/village type
-            if RandomService.random() < (0.02 * chance_multiplier):
-                self._spawn_child(p1, p2)
+    def _check_syncretism(self):
+        """Religion fusion when no single faith dominates. Chance varies by settlement size."""
+        if not self.religion or not self.religion.fractions:
+            return
+        if self.religion.dominant_fraction >= 0.7 or len(self.religion.fractions) < 2:
+            return
+        if RandomService.random() >= self._syncretism_chance:
+            return
+
+        sorted_religions = sorted(self.religion.fractions.items(), key=lambda x: -x[1])
+        name_a, _ = sorted_religions[0]
+        name_b, _ = sorted_religions[1]
+        tmpl_a = _find_template(name_a)
+        tmpl_b = _find_template(name_b)
+        if not tmpl_a or not tmpl_b:
+            return
+
+        syncretic = SyncreticReligion.create(tmpl_a, tmpl_b)
+        old_a = self.religion.fractions.get(name_a, 0)
+        old_b = self.religion.fractions.get(name_b, 0)
+        self.religion.fractions[syncretic["name"]] = (old_a + old_b) * 0.3
+        self.religion.fractions[name_a] *= 0.7
+        self.religion.fractions[name_b] *= 0.7
+        self.religion._normalize()
+        GameLogger.log(Translator.translate(
+            "events.religion_syncretism_emerges",
+            religion=syncretic["name"], name=self.name
+        ))
 
     def _spawn_child(self, p1, p2):
-        """Creates a child with inherited lineage."""
+        """Create a child inheriting family name, XP, faith, and sex from parents."""
         first_name = NameGenerator.generate_first_name(self.culture)
-        family_name = p1.family_name
-
-        child = Human(self.x, self.y, self.culture, self.config, 1, f"{first_name} {family_name}", parents=(p1, p2))
-
-        # Heritage: Small XP boost from parents
+        child = Human(
+            self.x, self.y, self.culture, self.config, 1,
+            f"{first_name} {p1.family_name}",
+            parents=(p1, p2)
+        )
         child.experience = int((p1.experience + p2.experience) * 0.05)
+        child.birth_city = self.name
+        for parent in (p1, p2):
+            if parent.faith is not None:
+                child.faith = parent.faith
+                break
+        for parent in (p1, p2):
+            if parent.species_data is not None:
+                child.species_data = parent.species_data
+                break
+        p1.children.append(child)
+        p2.children.append(child)
         self.citizens.append(child)
+        if RandomService.random() < 0.05:
+            birth_key = "events.family_birth_m" if child.sex == 'M' else "events.family_birth_f"
+            GameLogger.log(Translator.translate(
+                birth_key, child_name=child.name, city=self.name,
+                parent1=p1.name, parent2=p2.name
+            ))
