@@ -113,6 +113,10 @@ class Village(Construct):
                 new_farmer.species_data = p.species_data
                 new_farmer.partner = p.partner
                 new_farmer.children = p.children
+                new_farmer.sex = p.sex
+                new_farmer.love_interest = p.love_interest
+                new_farmer.love_score = p.love_score
+                new_farmer.birth_city = p.birth_city
                 if p.partner and p.partner.partner is p:
                     p.partner.partner = new_farmer
                 self.citizens[i] = new_farmer

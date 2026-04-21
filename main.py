@@ -1,7 +1,7 @@
 import time, select, sys, traceback, core, history
 import entities.spawn_system as entities_spawn
 from render.render_engine import RenderEngine
-from render.ui_bestiary import print_bestiary_summary, FAUNA_TAB, SPECIES_TAB
+from render.ui_bestiary import print_bestiary_summary, FAUNA_TAB, SPECIES_TAB, RELIGION_TAB, GUIDE_TAB, SETTLEMENTS_TAB
 from core.logger import GameLogger
 from core.random_service import RandomService
 from events.event_manager import EventManager
@@ -140,6 +140,15 @@ def main():
                         bestiary_state['page'] = 0
                     elif key in ('s', 'S'):
                         bestiary_state['tab'] = SPECIES_TAB
+                        bestiary_state['page'] = 0
+                    elif key in ('r', 'R'):
+                        bestiary_state['tab'] = RELIGION_TAB
+                        bestiary_state['page'] = 0
+                    elif key in ('i', 'I'):
+                        bestiary_state['tab'] = GUIDE_TAB
+                        bestiary_state['page'] = 0
+                    elif key in ('c', 'C'):
+                        bestiary_state['tab'] = SETTLEMENTS_TAB
                         bestiary_state['page'] = 0
                     elif key in ('n', 'N'):
                         bestiary_state['page'] += 1

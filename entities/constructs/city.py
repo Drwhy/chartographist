@@ -182,6 +182,10 @@ class City(Construct):
                 new_farmer.species_data = person.species_data
                 new_farmer.partner = person.partner
                 new_farmer.children = person.children
+                new_farmer.sex = person.sex
+                new_farmer.love_interest = person.love_interest
+                new_farmer.love_score = person.love_score
+                new_farmer.birth_city = person.birth_city
                 if person.partner and person.partner.partner is person:
                     person.partner.partner = new_farmer
                 self.citizens[i] = new_farmer

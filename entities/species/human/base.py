@@ -15,12 +15,18 @@ class Human(Entity):
         self.experience = 0
         self.is_dead = False
         self.species = 'human'
-        # --- Genealogy ---
-        self.parents = parents  # tuple (p1, p2) or None for founders
-        self.partner = None     # current spouse/partner, or None if single
-        self.children = []      # list of Human children born to this person
+        # --- Genealogy & Family ---
+        self.parents = parents      # tuple (p1, p2) or None for founders
+        self.partner = None         # current spouse/partner, or None if single
+        self.children = []          # list of Human children born to this person
         self.name = name if name else NameGenerator.generate_person_name(culture)
         self.family_name = self._derive_family_name()
+        self.birth_city = None      # name of the city where this person was born
+        # --- Biological sex (used for reproduction) ---
+        self.sex = RandomService.choice(['M', 'F'])
+        # --- Love & Attraction ---
+        self.love_interest = None   # Human this person is attracted to
+        self.love_score = 0.0       # attraction level toward love_interest (0.0–1.0)
         self.faith = None
         self.species_data = None  # PersonalSpecies, assigned by the spawning settlement
         self.is_infected = False
