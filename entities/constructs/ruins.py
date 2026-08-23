@@ -1,5 +1,6 @@
 from .base import Construct
 from entities.registry import register_structure
+from core.translator import Translator
 
 @register_structure
 class Ruins(Construct):
@@ -17,7 +18,7 @@ class Ruins(Construct):
         self.char = config['special']['ruin']
 
         # Name preservation: "Ruins of [Original Name]"
-        self.name = f"Ruins of {original_name}"
+        self.name = Translator.translate("entities.ruins_name", name=original_name)
 
         # Ruins are uninhabited
         self.population = 0

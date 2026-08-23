@@ -42,7 +42,8 @@
     "city_founded": "🏛️  The primordial city of {name} was founded at ({x}, {y}).",
     "settler_spawn": "🚶 Overpopulated! A group of settlers leaves {name} for the unknown.",
     "ruins_desc": "🏚️ {name} has been abandoned.",
-    "village_promoted": "🏛️ The village of {name} at ({x}, {y}) has grown into a city."
+    "village_promoted": "🏛️ The village of {name} at ({x}, {y}) has grown into a city.",
+    "ruins_name": "Ruins of {name}"
   },
   "ui": {
     "chronicles_title": " 📜 CHRONICLES OF {world_name}",
@@ -163,9 +164,21 @@
       "nomadic": "Nomadic"
     }
   },
+  "cli": {
+    "description": "Procedural world simulation",
+    "seed_help": "World seed (integer or text)",
+    "template_help": "Path to the JSON template file",
+    "lang_help": "Simulation language (fr, en, es)"
+  },
+  "religion": {
+    "syncretic_name": "{god} the Twofold"
+  },
   "system": {
     "user_interrupt": "🛑 Simulation interrupted by user.",
-    "world_init": "🌍 The world has awakened (Seed: {seed_val})"
+    "world_init": "🌍 The world has awakened (Seed: {seed_val})",
+    "locale_not_found": "⚠️ Language file {file_path} was not found. Falling back to English.",
+    "config_load_error": "⚠️ Unable to load configuration: {error}",
+    "entity_bug": "⚠️ [BUG] {entity_type} at {pos} | Error: '{error}' | File: {file} (line {line})"
   },
   "domains": {
     "war":       { "name": "War", "t1": "the Conqueror", "t2": "the Wrathful", "t3": "of the Burning Blade", "t4": "the Unbroken", "t5": "of Iron Will" },

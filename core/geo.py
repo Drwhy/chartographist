@@ -39,7 +39,10 @@ def generate_geology(width, height, scale=20.0):
     # Stretch values to ensure consistent range across various seeds
     v_min, v_max = elevation.min(), elevation.max()
     # Normalize to -1 to 1 range
-    elevation = (elevation - v_min) / (v_max - v_min) * 2 - 1
+    if np.isclose(v_min, v_max):
+        elevation = np.zeros_like(elevation)
+    else:
+        elevation = (elevation - v_min) / (v_max - v_min) * 2 - 1
 
     # Mountain Accentuation: Sharpen peaks using power function for dramatic slopes
     elevation = np.where(elevation > 0, np.power(np.maximum(elevation, 0), 0.7), elevation)

@@ -31,6 +31,7 @@ class Human(Entity):
         self.species_data = None  # PersonalSpecies, assigned by the spawning settlement
         self.is_infected = False
         self.infection_turns = 0
+        self._last_age_cycle = None
 
     @property
     def is_edible(self):
@@ -53,7 +54,12 @@ class Human(Entity):
         if self.is_dead or self.is_expired:
             return
 
-        self.age += 1
+        cycle = world.get("cycle")
+        if cycle is None:
+            self.age += 1 / 12
+        elif cycle != self._last_age_cycle:
+            self.age += 1 / 12
+            self._last_age_cycle = cycle
         # 1. ANALYSIS (Perception)
         # 2. DECISION (AI) -> self.think(world)
         # 3. ACTION (Movement/Interaction) -> self.perform_action(world)

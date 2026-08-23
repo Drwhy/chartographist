@@ -109,12 +109,15 @@ def main():
                     # Robust Bug Logging System
                     tb = traceback.extract_tb(e.__traceback__)
                     filename, line, func, text = tb[-1]
-                    pos = getattr(entity, 'pos', 'Unknown')
+                    pos = getattr(entity, 'pos', '?')
 
-                    error_msg = (
-                        f"⚠️ [BUG] {type(entity).__name__} at {pos} | "
-                        f"Error: '{str(e)}' | "
-                        f"File: {filename.split('/')[-1]} (Line {line})"
+                    error_msg = Translator.translate(
+                        "system.entity_bug",
+                        entity_type=type(entity).__name__,
+                        pos=pos,
+                        error=str(e),
+                        file=filename.split('/')[-1],
+                        line=line,
                     )
                     stats['logs'].append(error_msg)
 

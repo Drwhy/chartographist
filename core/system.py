@@ -1,6 +1,7 @@
 import sys
 import random
 import argparse
+import hashlib
 from . import culture
 from core.translator import Translator
 
@@ -40,6 +41,16 @@ def restore_terminal():
         except Exception:
             pass
 
+def stable_seed(value):
+    """Convert a numeric or text seed to a process-stable integer."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        encoded = str(value).encode("utf-8")
+        digest = hashlib.sha256(encoded).digest()
+        return int.from_bytes(digest[:8], "big")
+
+
 def load_arguments():
     """
     Handles command-line argument parsing for world generation and simulation settings.
@@ -48,29 +59,37 @@ def load_arguments():
     Returns:
         tuple: (config_dict, seed_value)
     """
-    parser = argparse.ArgumentParser(description="Procedural World Engine Simulation")
+    language_parser = argparse.ArgumentParser(add_help=False)
+    language_parser.add_argument("--lang", default="fr")
+    language_args, _ = language_parser.parse_known_args()
+    Translator.load(language_args.lang)
+
+    parser = argparse.ArgumentParser(description=Translator.translate("cli.description"))
 
     # 1. Argument definitions
-    parser.add_argument("--seed", type=str, help="World seed (integer or string)")
-    parser.add_argument("--template", type=str, default="template.json", help="Path to the JSON template file")
-    parser.add_argument("--lang", type=str, default="fr", help="Simulation language (en, fr, etc.)")
+    parser.add_argument("--seed", type=str, help=Translator.translate("cli.seed_help"))
+    parser.add_argument(
+        "--template",
+        type=str,
+        default="template.json",
+        help=Translator.translate("cli.template_help"),
+    )
+    parser.add_argument(
+        "--lang",
+        type=str,
+        default="fr",
+        help=Translator.translate("cli.lang_help"),
+    )
 
     args = parser.parse_args()
 
     # 2. Seed management (Deterministic hashing logic)
     if args.seed:
-        try:
-            seed_val = int(args.seed)
-        except ValueError:
-            # Hash string seeds into integers for the RandomService
-            seed_val = hash(args.seed)
+        seed_val = stable_seed(args.seed)
     else:
         seed_val = random.randint(0, 99999)
 
-    # 3. Locale initialization (Loads the language JSON)
-    Translator.load(args.lang)
-
-    # 4. Configuration loading
+    # 3. Configuration loading
     config = culture.load_config(args.template)
 
     return config, seed_val

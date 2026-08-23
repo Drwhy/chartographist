@@ -12,11 +12,16 @@ class Translator:
     def load(cls, lang="fr"):
         """Loads the JSON file corresponding to the specified language."""
         file_path = f"locales/textes.{lang}.json"
-        if os.path.exists(file_path):
-            with open(file_path, 'r', encoding='utf-8') as f:
-                cls._data = json.load(f)
-        else:
-            print(f"⚠️ Error: Language file {file_path} not found.")
+        if not os.path.exists(file_path):
+            fallback_path = "locales/textes.en.json"
+            if os.path.exists(fallback_path):
+                with open(fallback_path, "r", encoding="utf-8") as fallback_file:
+                    cls._data = json.load(fallback_file)
+            print(cls.translate("system.locale_not_found", file_path=file_path))
+            return
+
+        with open(file_path, "r", encoding="utf-8") as locale_file:
+            cls._data = json.load(locale_file)
 
     @classmethod
     def translate(cls, path, **kwargs):

@@ -42,7 +42,8 @@
     "city_founded": "🏛️ La ciudad primordial de {name} fue fundada en ({x}, {y}).",
     "settler_spawn": "🚶 ¡Superpoblación! Un grupo de colonos parte de {name} hacia lo desconocido.",
     "ruins_desc": "🏚️ {name} ha sido abandonado.",
-    "village_promoted": "🏛️ El pueblo de {name} en ({x}, {y}) se ha convertido en una ciudad."
+    "village_promoted": "🏛️ El pueblo de {name} en ({x}, {y}) se ha convertido en una ciudad.",
+    "ruins_name": "Ruinas de {name}"
   },
   "ui": {
     "chronicles_title": " 📜 CRÓNICAS DE {world_name}",
@@ -163,9 +164,21 @@
       "nomadic": "Nómada"
     }
   },
+  "cli": {
+    "description": "Simulación procedural de un mundo",
+    "seed_help": "Semilla del mundo (entero o texto)",
+    "template_help": "Ruta al archivo de plantilla JSON",
+    "lang_help": "Idioma de la simulación (fr, en, es)"
+  },
+  "religion": {
+    "syncretic_name": "{god} el Doble"
+  },
   "system": {
     "user_interrupt": "🛑 Simulación interrumpida por el usuario.",
-    "world_init": "🌍 El mundo ha despertado (Semilla: {seed_val})"
+    "world_init": "🌍 El mundo ha despertado (Semilla: {seed_val})",
+    "locale_not_found": "⚠️ No se encontró el archivo de idioma {file_path}. Se usará el inglés.",
+    "config_load_error": "⚠️ No se pudo cargar la configuración: {error}",
+    "entity_bug": "⚠️ [BUG] {entity_type} en {pos} | Error: '{error}' | Archivo: {file} (línea {line})"
   },
   "domains": {
     "war":       { "name": "Guerra", "t1": "el Conquistador", "t2": "el Furioso", "t3": "de la Hoja Ardiente", "t4": "el Inquebrantable", "t5": "de Voluntad de Hierro" },

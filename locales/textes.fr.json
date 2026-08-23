@@ -42,7 +42,8 @@
     "city_founded": "🏛️  La cité primordiale de {name} a été fondée en ({x}, {y}).",
     "village_promoted": "🏛️ Le village de  {name} en ({x}, {y}) est devenue une ville.",
     "settler_spawn": "🚶Trop peuplée ! Un groupe de colons part de {name} vers l'inconnu.",
-    "ruins_desc": "🏚️ {name} a été abandonné."
+    "ruins_desc": "🏚️ {name} a été abandonné.",
+    "ruins_name": "Ruines de {name}"
   },
   "ui": {
     "chronicles_title": " 📜 CHRONIQUES DE {world_name}",
@@ -163,9 +164,21 @@
       "nomadic": "Nomade"
     }
   },
+  "cli": {
+    "description": "Simulation procédurale d'un monde",
+    "seed_help": "Graine du monde (entier ou texte)",
+    "template_help": "Chemin vers le fichier modèle JSON",
+    "lang_help": "Langue de la simulation (fr, en, es)"
+  },
+  "religion": {
+    "syncretic_name": "{god} le Double"
+  },
   "system": {
     "user_interrupt": "🛑 Simulation interrompue par l'utilisateur.",
-    "world_init": "🌍 Le monde s'est éveillé (Seed: {seed_val})"
+    "world_init": "🌍 Le monde s'est éveillé (Seed: {seed_val})",
+    "locale_not_found": "⚠️ Le fichier de langue {file_path} est introuvable. Repli sur l'anglais.",
+    "config_load_error": "⚠️ Impossible de charger la configuration : {error}",
+    "entity_bug": "⚠️ [BUG] {entity_type} à {pos} | Erreur : '{error}' | Fichier : {file} (ligne {line})"
   },
   "domains": {
     "war":       { "name": "Guerre", "t1": "le Conquérant", "t2": "le Colérique", "t3": "de la Lame Ardente", "t4": "l'Indomptable", "t5": "à la Volonté de Fer" },

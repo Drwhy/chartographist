@@ -231,7 +231,7 @@ class SyncreticReligion:
         syncretic_domain = domain_a if sum(bonuses_a.values()) >= sum(bonuses_b.values()) else domain_b
 
         syncretic = {
-            "name": f"{syncretic_god} the Twofold",
+            "name": Translator.translate("religion.syncretic_name", god=syncretic_god),
             "god": syncretic_god,
             "culture": "syncretic",
             "domain": syncretic_domain,
