@@ -121,14 +121,26 @@ class Fisherman(Human):
 
     def _fish_action(self, world):
         if self.target and not self.target.is_expired:
-            self.target.is_expired = True
-            self.fishing_cooldown = 15 # Slightly longer to simulate fishing time
-
-            # Direct delivery via home_city reference
             boost = RandomService.randint(5, 12)
-            # Faith harvest bonus
             boost = int(boost * (1 + self.faith_bonus("harvest") * 0.1))
-            self.home_city.food_stock += boost
+            from core.resources import ResourceSystem, resources_enabled
+            if resources_enabled(self.config):
+                boost = ResourceSystem(world, self.config).harvest_fish(
+                    self.x, self.y, boost
+                )
+                if boost <= 0:
+                    return
+
+            self.target.is_expired = True
+            self.fishing_cooldown = 15
+            from core.food_balance import add_food
+            add_food(
+                self.home_city,
+                world,
+                boost,
+                source="fishing",
+                respect_capacity=False,
+            )
 
             self.target = None
             GameLogger.log(
@@ -136,7 +148,7 @@ class Fisherman(Human):
                     "events.fishing_success",
                     fisherman_char=self.char,
                     fisherman_name=self.name,
-                    fisherman_city=self.home_city.name
+                    fisherman_city=self.home_city.name,
                 )
             )
 

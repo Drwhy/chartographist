@@ -4,6 +4,8 @@ Ce document est la carte de travail du dépôt. Il sert à retrouver rapidement 
 
 Les règles impératives de contribution sont définies dans [`AGENTS.md`](AGENTS.md) : prévention des régressions, i18n systématique et TDD strict test-first pour chaque modification fonctionnelle.
 
+La stratégie d'évolution centrée sur l'émergence et les plans d'implémentation des phases 8 à 15 sont détaillés dans [ROADMAP_EMERGENCE.md](ROADMAP_EMERGENCE.md).
+
 > État analysé : branche `evolution`, le 23 août 2026. Le projet est une simulation Python terminal. Une suite `unittest` de non-régression est disponible sous [`tests/`](tests/).
 
 ## Vue d'ensemble
@@ -53,6 +55,11 @@ Créé par [`core/world_factory.py`](core/world_factory.py), complété et poss�
 | `diplomacy` | dictionnaire de relations symétriques indexées par paire canonique d’`entity_id` | `core/diplomacy.py` |
 | `next_relation_id` | prochain identifiant monotone de relation | `core/diplomacy.py` |
 | `climate` | saison, anomalies thermiques/pluviométriques, sécheresse, crue et dernier cycle traité | `core/climate.py` |
+| `resources` | grilles renouvelables, perturbations persistantes et cadence de régénération | `core/resources.py` |
+| `notables` | registre des personnages actifs devenus historiquement importants, indexé par `entity_id` stable | `core/characters.py` |
+| `notable_archive` | instantanés défensifs des notables disparus, incluant leur état personnel et leurs mémoires | `core/characters.py` |
+| `scenario` | identifiant, statut, objectifs/progression, cycle de fin et marqueur d’initialisation | `core/scenarios.py` |
+| `metrics` | état observable courant, flux cumulés et rapport d’amorçage, intégralement sérialisables | `core/simulation_metrics.py` |
 
 L'objet `stats` construit par `world_factory` contient initialement `year`, `seed` et `logs`. `SimulationEngine.step()` ajoute `month` dès le premier cycle, avant le premier rendu normal ; le reveal initial n'utilise que `seed`. Toute nouvelle clé consommée par le rendu doit être initialisée avant la frame qui l'utilise.
 
@@ -60,7 +67,8 @@ L'objet `stats` construit par `world_factory` contient initialement `year`, `see
 
 [`SimulationEngine.step()`](core/simulation_engine.py) applique trois fréquences :
 
-- chaque cycle : climat et anomalies, diplomatie globale, grille, apparition de faune, `process_turn()`, événements, synchronisation des logs et nettoyage ; `main.py` effectue ensuite le rendu ;
+- chaque cycle : climat et anomalies, régénération spatiale lorsqu’elle atteint sa cadence, diplomatie globale, grille, apparition de faune, `process_turn()`, besoins personnels mensuels, événements, évaluation du scénario, synchronisation des logs, archivage des notables inactifs et nettoyage ; dans chaque ville ou village, la production matérielle optionnelle est avancée une fois après la mise à jour des citoyens ; `main.py` effectue ensuite le rendu ;
+- selon `characters.decision_interval` (3 dans le template) : une fraction déterministe des personnages recalcule son choix, décalée par `entity_id` afin d’éviter un pic global ;
 - tous les 12 cycles : usure des guerres, création des trêves arrivées à maturité, aide alimentaire alliée et synchronisation de l’adaptateur historique `City.enemies` ;
 - tous les 10 cycles : décroissance des influences, projection d'influence et signes vitaux ;
 - tous les 100 cycles : reproduction et logique de long terme.
@@ -94,9 +102,19 @@ Entity
 
 ### Compte économique des établissements
 
-Chaque `City` et `Village` possède un dictionnaire `economy`, initialisé ou migré paresseusement par [`core/economy.py`](core/economy.py). Il contient trésorerie, nourriture importée/exportée, richesse dépensée/gagnée, nombre de transactions et dernier prix alimentaire. `food_stock` et `max_food` restent les sources de vérité historiques pour la nourriture.
+Lorsque `config['materials']['enabled']` vaut `true`, les colonies acquièrent paresseusement un `stockpile` versionné et une file `production` versionnée. Les prix multi-biens dépendent du stock cible ; les routes candidates sont triées de façon déterministe par prix, distance, risque et identifiant stable. Les transferts respectent réserve du vendeur, capacité du stockage, capacité du marchand et solvabilité, en conservant exactement biens et monnaie.
+
+Chaque `City` et `Village` possède un dictionnaire `economy`, initialisé ou migré paresseusement par [`core/economy.py`](core/economy.py). Il contient trésorerie, nourriture et biens importés/exportés, richesse dépensée/gagnée, nombre de transactions et derniers prix. `food_stock` et `max_food` restent les sources de vérité historiques lorsque le mode matériel est absent ou désactivé.
 
 Lorsque `config['economy']['enabled']` vaut `true`, un marchand transfère réellement un surplus alimentaire de l'origine vers la destination et la destination paie au prix calculé selon sa pénurie. Nourriture et richesse sont conservées pendant la transaction. Sans section économique ou avec `enabled: false`, le bonus alimentaire historique du marchand est conservé.
+
+### Observabilité et équilibre alimentaire
+
+`core/simulation_metrics.py` possède `world['metrics']` et expose population, établissements, faune, nourriture/capacité, trésorerie, transactions, cultures et statuts diplomatiques. Les flux cumulent production alimentaire par source, consommation, importation, pillage, pertes, naissances, décès, apparitions/reproduction faunique, transactions, raids, événements climatiques, décisions/repos/promotions/archives de personnages, prélèvements de biomasse/poissons, déplétion du sol, perturbations, ordres matériels créés/terminés, biens produits/perdus/échangés et nombre d’échanges matériels. Les états incluent aussi les ratios mondiaux de biomasse, poissons, fertilité et forêt, les biens et poids/capacité des stockages ainsi que les ordres actifs. `SimulationEngine.get_metrics_snapshot()` renvoie une copie défensive ; `run_observed()` échantillonne sans tirage aléatoire supplémentaire.
+
+`tools/observatory.py` exécute plusieurs graines, calcule médianes, dispersions, extinction, activation des systèmes et saturation, puis sépare le rapport JSON de l’export CSV. Profils de référence : 120 cycles, 1 200 cycles et reprise à 600/1 200.
+
+`config['food_balance']` active rendement générique configurable, pertes de stockage et spécialisation fondée sur une fenêtre de ratios. Sans cette section ou avec le mode désactivé, le rendement et les seuils historiques sont conservés. `config['ecology']['population_limits']` partage un même budget entre apparitions et naissances, avec capacités mondiale, par espèce et par biome.
 
 ### Relations diplomatiques
 
@@ -123,6 +141,7 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 |---|---|---|
 | [`AGENTS.md`](AGENTS.md) | Directives obligatoires pour toute intervention : compatibilité, i18n et stratégie de tests. | À mettre à jour lorsque la politique de contribution évolue. |
 | [`tests/`](tests/) | Suite `unittest` de non-régression et tests d'architecture. | À étendre avec toute modification fonctionnelle, de configuration ou d'i18n. |
+| [`tools/observatory.py`](tools/observatory.py) | Banc headless multi-graines, profils court/long/reprise, statistiques d’activation et export CSV. | `SimulationEngine.run_observed()` et `core/simulation_metrics.py`. |
 | [`main.py`](main.py) | Adaptateur terminal : arguments, chargement/sauvegarde, clavier, rendu, temporisation, arrêt et résumé final. | `core/simulation_engine.py`, `core/persistence.py`, rendu et contrôles utilisateur. |
 | [`template.json`](template.json) | Source de vérité des cultures, biomes, domaines religieux, archétypes d'espèces et de faune, seuils et probabilités. | Les lecteurs concernés dans `core/`, `entities/` et les libellés de `locales/`. |
 | [`requirements.txt`](requirements.txt) | Dépendances d'exécution : `noise`, `colorama`, `numpy`. | L'environnement d'installation et le README. |
@@ -141,12 +160,25 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 | [`core/world_factory.py`](core/world_factory.py) | Construit le dictionnaire `world` et `stats`; branche géologie, hydrologie, gestionnaire d'entités et influences. |
 | [`core/simulation_engine.py`](core/simulation_engine.py) | Moteur headless : initialise et possède `world`/`stats`, exécute `step()`/`run()`, isole les erreurs et expose sauvegarde, chroniques, inspection, climat par monde/tuile, agrégats économique et diplomatique. |
 | [`core/climate.py`](core/climate.py) | Service headless du cycle saisonnier, température, humidité, biomes, anomalies, productivité agricole/écologique et compatibilité de rendu historique. |
+| [`core/resources.py`](core/resources.py) | Stocks spatiaux renouvelables, capacités, régénération, extraction conservatrice, perturbations persistantes, propagation du feu, migration et résumés défensifs. |
+| [`core/materials.py`](core/materials.py) | Catalogue défensif data-driven des ressources, objets, recettes, cibles, réserves, sources spatiales, infrastructures et chaîne alimentaire ; validation des IDs et références croisées. |
+| [`core/stockpiles.py`](core/stockpiles.py) | Stockage colonial versionné : migration paresseuse, capacité de base et bonus d'infrastructure, dépôts/retraits, transfert conservateur et détérioration par cycle. |
+| [`core/production.py`](core/production.py) | Planification déterministe par pénurie, prélèvement spatial conservateur, ordres versionnés, préconditions d’entrées/outils/travail/capacité et intégration nourriture matérielle. |
+| [`core/infrastructure.py`](core/infrastructure.py) | État versionné des infrastructures, consommation idempotente des kits, niveaux bornés et rafraîchissement de la capacité des stockages. |
+| [`core/simulation_metrics.py`](core/simulation_metrics.py) | Stockage sérialisable, états agrégés, flux cumulés, copies défensives et observation sans PRNG. |
+| [`core/ecology_limits.py`](core/ecology_limits.py) | Capacités fauniques optionnelles mondiale, par espèce et par biome, communes aux apparitions et naissances. |
+| [`core/food_balance.py`](core/food_balance.py) | Création/consommation/perte alimentaire mesurée, rendement générique optionnel et tendance de spécialisation. |
+| [`core/scenarios.py`](core/scenarios.py) | Composition immuable des couches JSON, conflits de mods, état persistant, métriques autorisées, objectifs et conditions de défaite. |
 | [`core/persistence.py`](core/persistence.py) | Checkpoint binaire atomique, en-tête/version, capture et restauration du moteur, PRNG, événements, catalogues procéduraux, IDs. logs bestiaire séquence'IDs. |
 | [`core/entity_ids.py`](core/entity_ids.py) | Séquence déterministe des `entity_id`, réinitialisable pour un monde neuf et restaurable depuis un checkpoint. |
-| [`core/economy.py`](core/economy.py) | Comptes économiques paresseux, prix alimentaire borné par la pénurie, transaction conservatrice, débit sécurisé, snapshots et agrégat mondial headless. |
+| [`core/economy.py`](core/economy.py) | Comptes économiques paresseux, prix alimentaires et multi-biens fondés sur la pénurie, transactions conservatrices, sélection de marché par prix/distance/risque, débit sécurisé, snapshots et agrégat mondial headless. |
 | [`core/diplomacy.py`](core/diplomacy.py) | Registre persistant par IDs stables, métriques et transitions, effets commerce/guerre/alliance, trêves, aide conservatrice, synchronisation legacy et agrégat headless. |
 | [`core/chronicles.py`](core/chronicles.py) | `ChronicleBook` initialise, ajoute et filtre l’historique structuré stocké dans `world`, en renvoyant des copies. |
-| [`core/inspection.py`](core/inspection.py) | Produit un instantané de lecture d’une entité trouvée par `entity_id` ses chroniques et ses relations diplomatiques associées. |
+| [`core/characters.py`](core/characters.py) | État personnel versionné, migration paresseuse, décisions par utilité, cohortes, transfert/héritage et registres actif/archivé des notables. |
+| [`core/needs.py`](core/needs.py) | Besoins bornés, croissance mensuelle idempotente par cycle et satisfaction par action. |
+| [`core/skills.py`](core/skills.py) | Compétences bornées et progression par pratique à rendement décroissant. |
+| [`core/memory.py`](core/memory.py) | Faits personnels structurés et bornés, renforcement, oubli et opinions dérivées (confiance, peur, grief). |
+| [`core/inspection.py`](core/inspection.py) | Produit un instantané de lecture d’une entité ou d’un citoyen imbriqué trouvé par `entity_id`, avec personnage, cohortes, chroniques et relations associées. |
 | [`core/geo.py`](core/geo.py) | Génère le relief Perlin/NumPy, les plaques et les rivières par descente locale. |
 | [`core/entities.py`](core/entities.py) | Classe `Entity` avec `entity_id` persistant, transfert d'identité, z-index, compteur d'action, influence et `EntityManager`. |
 | [`core/grid_service.py`](core/grid_service.py) | Index spatial en cellules pour limiter les recherches de voisins. Renvoie des candidats, pas une distance exacte. |
@@ -154,7 +186,7 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 | [`core/random_service.py`](core/random_service.py) | PRNG centralisé et déterministe, raccourcis aléatoires et capture/restauration de son état pour les checkpoints. |
 | [`core/logger.py`](core/logger.py) | Tampon global rétrocompatible : renvoie toujours des chaînes vers `stats['logs']`, avec contexte facultatif catégorie/IDs/position consommé par les chroniques. |
 | [`core/translator.py`](core/translator.py) | Charge une locale JSON, se replie sur l'anglais si elle manque et résout les chemins pointés (`a.b.c`) avec formatage. |
-| [`core/config_validator.py`](core/config_validator.py) | Valide les sections et types structurants du template, y compris les bornes économiques, diplomatiques et climatiques ; lève `ConfigValidationError` avec des codes d'erreur stables. |
+| [`core/config_validator.py`](core/config_validator.py) | Valide les sections et types structurants du template, y compris les bornes économiques, diplomatiques, climatiques et des ressources ; lève `ConfigValidationError` avec des codes d'erreur stables. |
 | [`core/culture.py`](core/culture.py) | Charge le template JSON, délègue sa validation structurelle et traduit les erreurs de chargement. |
 | [`core/naming.py`](core/naming.py) | Génération déterministe des noms de personnes, prénoms et lieux à partir d'une culture. |
 | [`core/discovery_service.py`](core/discovery_service.py) | Recherche globale des colonies actives et de la colonie valide la plus proche. |
@@ -186,8 +218,8 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 | Fichier | Responsabilité |
 |---|---|
 | [`entities/species/human/base.py`](entities/species/human/base.py) | Base `Human` : identité, culture, famille, âge, fertilité, foi, espèce et comportement générique. |
-| [`entities/species/human/farmer.py`](entities/species/human/farmer.py) | Produit des ressources pour sa colonie, avec bonus de récolte. |
-| [`entities/species/human/fisherman.py`](entities/species/human/fisherman.py) | Cherche les zones de pêche, navigue côte/eau, capture et rapporte les proies aquatiques. |
+| [`entities/species/human/farmer.py`](entities/species/human/farmer.py) | Produit de la nourriture pour sa colonie ; en mode ressources, prélève biomasse/fertilité/eau sans dépasser l’espace du grenier. |
+| [`entities/species/human/fisherman.py`](entities/species/human/fisherman.py) | Cherche les zones de pêche, navigue côte/eau et borne ses prises au stock local de poissons lorsque les ressources sont actives. |
 | [`entities/species/human/hunter.py`](entities/species/human/hunter.py) | Détecte et chasse la faune, combat, livre de la nourriture et alimente le bestiaire. |
 | [`entities/species/human/settler.py`](entities/species/human/settler.py) | Explore le terrain, choisit un site, fonde un village et trace une route d'origine. |
 | [`entities/species/human/soldier.py`](entities/species/human/soldier.py) | Identifie les cultures ennemies, combat les unités, attaque les villes en guerre et se replie après une trêve. |
@@ -198,7 +230,7 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 
 | Fichier | Responsabilité |
 |---|---|
-| [`entities/species/animal/base.py`](entities/species/animal/base.py) | Classe animale générique pilotée par données : spawn par altitude/locomotion, faim, reproduction, prédation, fuite, influence et déplacement. |
+| [`entities/species/animal/base.py`](entities/species/animal/base.py) | Classe animale générique pilotée par données : spawn, faim, reproduction, prédation et déplacement ; les herbivores actifs consomment la biomasse et migrent vers les tuiles plus riches. |
 | [`entities/special/ufo.py`](entities/special/ufo.py) | Entité temporaire de l'événement d'enlèvement : cible, emporte, libère et quitte la carte. |
 | [`entities/species/__init__.py`](entities/species/__init__.py) | Marqueur de package vide. |
 | [`entities/species/animal/__init__.py`](entities/species/animal/__init__.py) | Marqueur de package vide. |
@@ -213,7 +245,7 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 | [`events/event_manager.py`](events/event_manager.py) | À chaque cycle, exécute `tick`, tire la probabilité, vérifie la condition et déclenche l'événement. |
 | [`events/abduction.py`](events/abduction.py) | Déclenche l'arrivée d'un UFO et les enlèvements de civils. |
 | [`events/epidemic.py`](events/epidemic.py) | Infecte villes et humains, propage la maladie, applique la mortalité et peut produire des ruines. |
-| [`events/volcano.py`](events/volcano.py) | Éruption sur relief adapté, dégâts radiaux persistants et destruction de colonies. |
+| [`events/volcano.py`](events/volcano.py) | Éruption sur relief adapté, dégâts radiaux persistants, destruction de colonies et altération spatiale de la forêt, biomasse et fertilité. |
 
 Point de vigilance : la liste d'exclusion dans `events/__init__.py` nomme `registry.py` et `manager.py`, alors que les fichiers réels sont `event_registry.py` et `event_manager.py`. Leur import dynamique est actuellement redondant mais fonctionne grâce au cache d'import Python.
 
@@ -253,21 +285,26 @@ Commande canonique :
 python3 -m unittest discover -s tests -v
 ```
 
-La suite contient 143 tests et s'organise ainsi :
+La suite contient 265 tests et s'organise ainsi :
 
 | Fichier | Couverture |
 |---|---|
+| [`tests/test_characters.py`](tests/test_characters.py) | 24 contrats TDD sur schéma/migration, besoins, compétences, utilité/cadence, mémoire et opinions, commerce/raids, cohortes, héritage, promotions, archives, inspection, métriques et checkpoint. |
+| [`tests/test_materials.py`](tests/test_materials.py) | 32 contrats TDD sur catalogue/modding, stockage/conservation, sources spatiales, ordres/préconditions, chaîne alimentaire, infrastructures, hooks de colonies, marchés multi-biens, famine de file, inspection, métriques et checkpoint. |
 | [`tests/test_chronicles_and_inspection.py`](tests/test_chronicles_and_inspection.py) | Schéma, filtres et copies des chroniques, métadonnées du logger, inspection par ID, checkpoint, cycle de vie des colonies, ordre/rendu i18n et navigation `[H]`. |
 | [`tests/test_climate.py`](tests/test_climate.py) | TDD des saisons, température/humidité/biomes, compatibilité legacy, moteur/rendu headless, agriculture, habitats, pâturage, anomalies, chroniques, configuration, checkpoints et i18n. |
 | [`tests/test_core_services.py`](tests/test_core_services.py) | PRNG, logger, bestiaire, chargement de configuration, traduction, noms, grille spatiale, influences, compteur d'action, gestionnaire d'entités et routes. |
-| [`tests/test_i18n_and_architecture.py`](tests/test_i18n_and_architecture.py) | Parité des 212 clés i18n, parité des placeholders, existence des clés littérales utilisées, restriction des imports `random`, schéma du template et importabilité de tous les modules. |
+| [`tests/test_i18n_and_architecture.py`](tests/test_i18n_and_architecture.py) | Parité des 249 clés i18n, parité des placeholders, existence des clés littérales utilisées, restriction des imports `random`, schéma du template et importabilité de tous les modules. |
 | [`tests/test_generation.py`](tests/test_generation.py) | Déterminisme et contrats de géologie, hydrologie, faune, espèces humanoïdes, religions et assemblage du monde. |
 | [`tests/test_economy.py`](tests/test_economy.py) | Initialisation/migration des comptes, prix de pénurie, conservation, solvabilité, mode historique, marchand, chroniques liées, expansion financée, inspection, rendu, agrégat et validation du template. |
 | [`tests/test_diplomacy.py`](tests/test_diplomacy.py) | TDD du registre, métriques, transitions, commerce, guerre, trêves, aide alliée, soldats, API headless, inspection, checkpoints, configuration, chroniques, i18n et onglet `[D]`. |
 | [`tests/test_entities_and_spawn.py`](tests/test_entities_and_spawn.py) | Registres actifs, propriétés/spawn/famine/reproduction animale, capacité maximale de faune, biologie humaine et contrat d'initialisation d'un village. |
 | [`tests/test_events_render_and_smoke.py`](tests/test_events_render_and_smoke.py) | Catalogue et cycle des événements, priorité du rendu, contrat d'en-tête et pipeline intégré de 25 cycles via `SimulationEngine`. |
 | [`tests/test_phase0_stability.py`](tests/test_phase0_stability.py) | Graines textuelles stables, vieillissement mensuel, i18n des ruines/syncrétisme/CLI, repli de locale, découverte d'événements, relief plat et validation du template. |
+| [`tests/test_scenarios.py`](tests/test_scenarios.py) | Composition JSON, immutabilité, conflits, exemples, objectifs/défaites, état initial, moteur, chroniques, checkpoint, CLI, erreurs et en-tête i18n. |
+| [`tests/test_resources.py`](tests/test_resources.py) | 27 contrats sur schéma/migration, déterminisme, bornes, régénération, consommateurs, conservation, perturbations, métriques, checkpoint, configuration et trajectoires émergentes. |
 | [`tests/test_simulation_engine.py`](tests/test_simulation_engine.py) | Initialisation headless, ordre des cycles, ticks 10/100, erreurs isolées/i18n, exécution multi-cycle, absence de dépendances UI et délégation de `main.py`. |
+| [`tests/test_simulation_metrics.py`](tests/test_simulation_metrics.py) | Métriques, PRNG inchangé, multi-graines/CSV, amorçage déterministe, capacités fauniques, alimentation, tendances, validation et checkpoint. |
 | [`tests/test_persistence.py`](tests/test_persistence.py) | IDs monotones/restaurables, continuité des transformations et relations, format invalide, états globaux, reprise déterministe, `--load`/`--save` et erreurs i18n. |
 | [`tests/__init__.py`](tests/__init__.py) | Marque le répertoire comme package de tests. |
 
@@ -284,7 +321,7 @@ Contrats désormais protégés :
 - la découverte d'événements ignore explicitement les modules d'infrastructure et le registre contient une instance unique de `Abduction`, `Epidemic` et `VolcanoEruption` ;
 - l'ordre d'un événement est `tick` → tirage de probabilité → `condition` → `trigger` ;
 - le rendu d'une case suit la priorité entité par z-index → route → rivière → biome ;
-- les trois locales possèdent actuellement 239 feuilles, les mêmes chemins de clés et les mêmes placeholders de formatage ;
+- les trois locales possèdent actuellement 249 feuilles, les mêmes chemins de clés et les mêmes placeholders de formatage ;
 - les imports directs de `random` sont confinés à `core/random_service.py` et à la génération initiale de graine dans `core/system.py` ;
 - chaque `Entity` reçoit un entier `entity_id` stable ; promotions, évolution de colonie, ruines, parenté et routes commerciales conservent ou consomment cet ID ;
 - une exécution interrompue puis reprise produit le même état qu'une exécution continue au même cycle ;
@@ -292,6 +329,8 @@ Contrats désormais protégés :
 - les chroniques gardent des IDs monotones et leurs requêtes renvoient des copies ; les événements liés utilisent exclusivement `entity_id`.
 - les transactions économiques actives conservent nourriture et richesse, ne dépassent ni stock, ni capacité, ni trésorerie, et les anciens templates restent en mode historique.
 - les relations diplomatiques sont symétriques par IDs stables, leurs lectures sont défensives, les échanges et aides conservent les ressources, et les anciens templates/checkpoints restent compatibles ;
+- en mode ressources, aucun gain agricole, halieutique ou herbivore ne dépasse le stock retiré ; régénération et perturbations restent bornées, sérialisables et sans tirage aléatoire implicite ;
+- en mode personnages, besoins, compétences, traits et opinions restent bornés ; les mémoires sont limitées par importance, les choix sont inspectables, les promotions conservent l’ID et les archives sont complètes et idempotentes ;
 
 ### États globaux à réinitialiser dans les tests
 
@@ -317,8 +356,79 @@ Tout nouveau test qui les modifie doit les initialiser ou les isoler pour rester
 | 5 | Économie | Terminée — phase 4 |
 | 6 | Diplomatie | Terminée — phase 5 |
 | 7 | Climat et écologie avancée | Terminée — phase 6 |
-| 8 | Scénarios et modding | Prochaine étape |
+| 8 | Scénarios et modding | Terminée — phase 7 |
 
+### Suite centrée sur l'émergence — phases 8 à 15
+
+Le plan détaillé, les dépendances, les contrats, les étapes TDD et les critères de sortie sont maintenus dans [`ROADMAP_EMERGENCE.md`](ROADMAP_EMERGENCE.md).
+
+| Phase | Évolution | État |
+|---:|---|---|
+| 8 | Observatoire et équilibrage systémique | Terminée — phase 8 |
+| 9 | Ressources spatiales et écologie renouvelable | Terminée en mode opt-in — phase 9 |
+| 10 | Besoins, compétences, mémoire et personnages notables | Socle terminé en mode opt-in — phase 10 |
+| 11 | Production, inventaires, métiers et marchés | Socle 11.1–11.4 et premier incrément 11.5 terminés en mode opt-in ; 11.5 ouvert |
+| 12 | Information locale, exploration et rumeurs | Planifiée |
+| 13 | Factions, institutions et politique | Planifiée |
+| 14 | Territoires, logistique, migrations et guerre causale | Planifiée |
+| 15 | Histoire profonde, sites, objets et légendes | Planifiée |
+
+### Production, inventaires, métiers et marchés — phase 11, socle et première infrastructure (23 août 2026)
+
+- `core/materials.py` valide les biens, poids, détérioration, recettes, outils, cibles, réserves, sources spatiales, infrastructures et références de chaîne alimentaire. `core/scenarios.py` autorise aussi les ajouts déclaratifs `materials.infrastructures`, avec détection des IDs dupliqués.
+- Chaque colonie peut porter un stockage et une file d’ordres versionnés. Les transferts, la détérioration et la production respectent quantité disponible et capacité ; un ordre ne progresse qu’après acquisition de ses entrées et outils.
+- Le planificateur crée les ordres depuis les pénuries, les trie de manière stable et saute un ordre bloqué afin qu’il ne prive pas de travail une recette réalisable.
+- Les entrées déclarant une `source.spatial_resource` peuvent être prélevées sur la tuile de la colonie. Le prélèvement exige un travailleur vivant, respecte le niveau de compétence, la capacité du stockage et un plancher écologique, ne s’exécute qu’une fois par cycle et restitue toute quantité refusée par le stockage.
+- La première boucle complète transforme la nourriture historique récoltée en ressource brute, exige un travailleur vivant et un outil, produit des rations puis les consomme avant le stock alimentaire historique. Le mode désactivé retourne immédiatement au comportement antérieur.
+- La forêt locale alimente désormais `timber`, puis `saw_plank`. La recette `build_granary` produit un kit consommé par `InfrastructureService` : chaque niveau de grenier ajoute 250 unités de capacité, jusqu’à deux niveaux par colonie. Une infrastructure saturée ne génère plus d’ordre ni de kit excédentaire.
+- `TradeTransaction` accepte un `good_id` sans casser sa construction historique. Les prix multi-biens, réserves, capacités, solvabilité et coûts distance/risque pilotent des échanges conservateurs ; les marchands utilisent réellement les rations configurées avant le chemin alimentaire legacy.
+- Inspection et métriques exposent des copies défensives des stockages/ordres ainsi que les flux produits, perdus et échangés. Les attributs de colonies, files, comptes et métriques survivent aux checkpoints existants.
+- Validation TDD : 32 tests dédiés et 265 tests complets. Avec ressources et matériaux actifs, 20 graines × 120 cycles terminent sans extinction, prélèvent du bois, produisent des planches et construisent 3 à 6 niveaux de grenier, sans kit final excédentaire.
+- Sur 1 200 cycles combinés, la graine 11 survit avec 13 habitants et 2 colonies, mais les graines 29 et 47 s’éteignent après avoir construit six niveaux de grenier ; leurs témoins désactivés survivent avec 19 et 55 habitants. `resources.enabled` et `materials.enabled` restent donc `false` par défaut jusqu’au recalibrage démographique et économique. Entretien, dommages, autres infrastructures, transport et spécialisation régionale constituent la suite du lot 11.5. Aucun nouveau texte visible n’a été ajouté, donc les catalogues i18n ne nécessitaient pas d’extension.
+
+### Besoins, compétences, mémoire et personnages notables — phase 10 (23 août 2026)
+
+- Chaque humain reçoit, uniquement lorsque `characters.enabled` vaut `true`, un état `character` versionné : besoins, compétences, traits déterministes, ménage, mémoires bornées, notabilité et dernière décision expliquée.
+- `CharacterService` fait évoluer les besoins une seule fois par cycle et classe trois actions par utilité. La cadence est distribuée par `entity_id` et n’utilise pas le PRNG ; le mode désactivé conserve l’IA historique.
+- Fermiers et marchands progressent par pratique. Les échanges et les raids créent des mémoires vécues ; une opinion dérivée de peur/grief peut changer le choix futur.
+- Les promotions vers Farmer transfèrent identité, liens et état personnel. Les enfants héritent de traits moyens et de 10 % des compétences parentales moyennes, avec bornes.
+- `PopulationCohort` agrège les citoyens ordinaires pour l’inspection sans supprimer les objets historiques. Les notables sont promus par seuil, puis archivés avant nettoyage avec leur histoire complète.
+- `inspect_entity()` trouve aussi les citoyens imbriqués ; les métriques exposent décisions, repos, promotions, archives, notables actifs et archives.
+- Le checkpoint conserve mémoires et registres ; les mondes anciens sont migrés sans tirage aléatoire. Aucun nouveau texte visible n’a été introduit, donc les catalogues i18n n’ont pas changé pour cette phase.
+- Validation : 24 tests dédiés et 233 tests complets. Les 20 graines de 120 cycles survivent (2–3 colonies, 19–72 habitants). Sur 1 200 cycles actifs, les graines 11/29/47 finissent à 3/53/0 habitants contre 14/19/60 en témoin ; le mode reste donc opt-in pour éviter toute régression standard.
+### Ressources spatiales et écologie renouvelable — phase 9 (23 août 2026)
+
+- `core/resources.py` possède `world['resources']` : cinq grilles sérialisables (biomasse, fertilité, eau de surface, poissons, forêt), chacune avec stock, capacité et taux de régénération.
+- Les capacités sont dérivées sans tirage aléatoire du relief, des rivières, du climat et de la productivité locale. Les accès répétés réutilisent les grilles existantes ; seuls les mondes absents ou partiels sont générés/migrés.
+- La régénération est cadencée, saisonnière, bornée et affectée par sécheresse, crue et hiver. Incendies, crues, sécheresses et volcans sont des perturbations persistantes ; le feu se propage déterministement selon végétation et humidité.
+- Fermiers, pêcheurs et herbivores prélèvent exactement leurs gains dans les stocks locaux. L'agriculture borne aussi le prélèvement à la capacité libre du grenier, afin de ne jamais détruire une ressource qui ne peut être stockée.
+- La reproduction faunique consulte la ressource locale et les herbivores préfèrent les habitats voisins plus riches. Sans activation, les formules historiques restent inchangées.
+- `SimulationEngine.get_tile_resources()`, `get_resource_summary()` et les métriques exposent des copies défensives, les ratios mondiaux, prélèvements, déplétion du sol et perturbations sans consommer le PRNG.
+- Le checkpoint conserve exactement les grilles et leur trajectoire ; les anciens checkpoints recréent le stockage de manière déterministe.
+- Le template fournit tous les paramètres calibrés mais garde `resources.enabled: false`. En mode actif, les graines 11/29/47 survivent toutes à 120 cycles ; à 1 200 cycles, la graine 47 s'éteint malgré 44–82 % de biomasse sur les dernières villes, par divergence faunique du PRNG global. Le mode standard reste donc inchangé jusqu'à l'isolation future des flux aléatoires écologiques.
+- `tests/test_resources.py` protège 27 contrats TDD ; compilation complète et 209 tests passent.
+
+### Observatoire et équilibrage systémique — phase 8 (23 août 2026)
+
+- `world['metrics']` est initialisé explicitement, migré paresseusement et préservé par checkpoint ; les lectures headless sont défensives.
+- `SimulationEngine.run_observed()` et `tools/observatory.py` produisent séries, médianes, dispersion, extinction, saturation et taux d’activation sans consommer le PRNG.
+- L’amorçage conserve les 100 essais aléatoires historiques lorsqu’ils réussissent, puis classe sans hasard les sites réellement habitables ; un rapport et un message i18n signalent toute demande impossible.
+- Les capacités fauniques optionnelles sont communes aux apparitions et naissances. À capacité atteinte, aucun tirage aléatoire n’est consommé.
+- Le mode alimentaire mesure production, consommation, importation, pillage et pertes ; il retire l’autosuffisance générique et utilise une tendance de stock pour les spécialisations.
+- Le template active les deux modes calibrés. Sur les graines 11, 29 et 47 après 1 200 cycles : zéro extinction, population médiane 98, deux établissements, saturation alimentaire médiane 0,5335 et faune médiane au plafond 20.
+- Les anciens templates sans les nouvelles sections conservent les comportements alimentaires et fauniques historiques.
+- `tests/test_simulation_metrics.py` porte les tests TDD dédiés ; la suite complète compte 182 tests.
+
+### Scénarios et modding — phase 7 (23 août 2026)
+
+- `core/scenarios.py` compose sans mutation un template de base, des mods dans l’ordre CLI, puis un scénario. Les fichiers sont exclusivement JSON et n’exécutent aucun code externe.
+- Un mod possède un `mod.id`, un objet `patch` de fusion profonde et/ou des listes `append`. Les IDs de mods et identifiants `fauna.species`/`cultures.name` en conflit sont rejetés avec des codes stables.
+- Un scénario possède un ID, des conditions initiales, des objectifs et des conditions de défaite. Les seules métriques admises sont `cycle`, `population`, `settlements`, `fauna` et `treasury`, avec les comparateurs `>=`, `<=`, `>` et `<`.
+- `world['scenario']` conserve statut, progression, cycle d’évaluation et fin. La défaite est prioritaire ; une transition victoire/défaite n’est journalisée qu’une fois en catégorie `scenario`.
+- `SimulationEngine.get_scenario_summary()` expose une copie défensive. L’état et les objectifs survivent aux checkpoints ; les anciens mondes sont initialisés paresseusement.
+- La CLI accepte `--scenario FILE` et plusieurs `--mod FILE`. Les erreurs JSON, conflits et validations utilisent le message i18n de configuration existant.
+- L’en-tête affiche titre localisé, statut et progression. `scenarios/fragile_frontier.json` et `mods/highland_bison.json` sont des exemples exécutables couverts par test.
+- `tests/test_scenarios.py` protège composition, sécurité déclarative, runtime, moteur, persistance, CLI, exemples et i18n en TDD test-first.
 ### Climat et écologie avancée — phase 6 (23 août 2026)
 
 - `core/climate.py` centralise le cycle saisonnier de douze mois, les hémisphères, la température selon latitude/altitude, l’humidité fluviale et la classification headless des biomes.
@@ -402,6 +512,8 @@ Les garde-fous suivants sont maintenant implémentés et testés :
 - `WILD_SPECIES` existe dans le registre mais la faune active est une classe `Animal` générique pilotée par `template.json`; ne pas réintroduire des sous-classes sans décision d'architecture explicite.
 - Quelques valeurs de secours internes historiques (`Unknown`, `Unknown Lands`, `WORLD`) subsistent pour des configurations déjà dégradées. Si elles deviennent des textes d'interface modifiés ou étendus, elles doivent migrer vers les trois catalogues avec tests.
 - Le format de sauvegarde v1 est un format Python binaire de confiance, non garanti compatible avec des renommages de classes ou des versions futures ; toute évolution doit prévoir une migration de version et ne jamais charger un fichier non fiable.
+- Le mode personnages est environ 3 à 14 fois plus coûteux sur les campagnes longues mesurées et amplifie l’effondrement de la graine 47 ; conserver `characters.enabled: false` par défaut tant que décision/repos et démographie ne sont pas recalibrés.
+- Le mode matériel ajoute un facteur de coût d’environ 4 à 10 sur les campagnes longues mesurées. Activé avec les ressources spatiales, il entraîne l’extinction des graines longues 29 et 47 alors que leurs témoins survivent ; conserver `materials.enabled: false` et `resources.enabled: false` avant recalibrage, profilage et optimisation.
 
 ## Où intervenir selon le changement
 
@@ -411,13 +523,17 @@ Les garde-fous suivants sont maintenant implémentés et testés :
 | Ajouter une donnée globale au monde | [`core/world_factory.py`](core/world_factory.py) | Tous les consommateurs, le rendu et `core/persistence.py` |
 | Ajouter une chronique ou un champ d'inspection | [`core/chronicles.py`](core/chronicles.py) | `core/logger.py`, `core/inspection.py`, producteur concerné, rendu et tests |
 | Modifier prix, trésorerie ou transaction | [`core/economy.py`](core/economy.py) | `template.json`, `trader.py`, constructions, inspection/rendu, locales et tests économiques |
+| Modifier biens, stockage, recettes, production ou infrastructures | [`core/materials.py`](core/materials.py) | `core/stockpiles.py`, `core/production.py`, `core/infrastructure.py`, `core/economy.py`, constructions/marchands, template/mods, inspection, métriques, checkpoint et `tests/test_materials.py` |
 | Changer relief, eau ou biomes | [`core/climate.py`](core/climate.py) pour le climat/biome, [`core/geo.py`](core/geo.py) pour le relief/eau | `render/ui_map.py`, `farmer.py`, `animal/base.py`, `template.json`, sauvegarde et locales |
+| Modifier stocks, régénération ou perturbations écologiques | [`core/resources.py`](core/resources.py) | `core/climate.py`, fermier/pêcheur/animal, volcan, métriques, template, checkpoint et `tests/test_resources.py` |
 | Ajouter/modifier une espèce animale | [`template.json`](template.json) | `core/fauna_gen.py`, `entities/species/animal/base.py`, locales/bestiaire |
+| Modifier besoins, compétences, mémoire ou notabilité | [`core/characters.py`](core/characters.py) | `core/needs.py`, `core/skills.py`, `core/memory.py`, humains/constructions concernés, inspection, métriques, checkpoint et `tests/test_characters.py` |
 | Ajouter un rôle humain | nouveau fichier sous `entities/species/human/` | registre/imports, ville ou village qui le crée, rendu/locales |
 | Changer reproduction, famille ou culture | [`entities/constructs/base.py`](entities/constructs/base.py) | `human/base.py`, `core/species.py`, `core/religion.py` |
 | Changer villes, commerce ou guerre | [`entities/constructs/city.py`](entities/constructs/city.py) | `trader.py`, `soldier.py`, `history_engine.py` |
 | Ajouter un événement | sous-classe dans `events/` + `@register_event` | `template.json` pour ses paramètres et les trois locales |
 | Modifier l'affichage général | [`render/render_engine.py`](render/render_engine.py) | module `ui_*` concerné, `main.py` pour les contrôles |
+| Ajouter un scénario ou mod | [`core/scenarios.py`](core/scenarios.py) | fichier sous `scenarios/` ou `mods/`, template, locales si texte visible et `tests/test_scenarios.py` |
 | Ajouter une langue | nouveau `locales/textes.<lang>.json` | aide CLI/README si la langue est officiellement supportée |
 
 ## Vérifications minimales avant modification

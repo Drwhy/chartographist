@@ -5,6 +5,8 @@ import hashlib
 from dataclasses import dataclass
 from . import culture
 from core.translator import Translator
+from core.config_validator import ConfigValidationError, validate_config
+from core.scenarios import ScenarioValidationError, load_config_layers
 
 _saved_term = None
 
@@ -58,6 +60,8 @@ class LaunchOptions:
     seed: int
     load_path: str | None = None
     save_path: str | None = None
+    scenario_path: str | None = None
+    mod_paths: tuple[str, ...] = ()
 
 
 def load_launch_options():
@@ -82,6 +86,18 @@ def load_launch_options():
         help=Translator.translate("cli.lang_help"),
     )
     parser.add_argument(
+        "--scenario",
+        dest="scenario_path",
+        help=Translator.translate("cli.scenario_help"),
+    )
+    parser.add_argument(
+        "--mod",
+        dest="mod_paths",
+        action="append",
+        default=[],
+        help=Translator.translate("cli.mod_help"),
+    )
+    parser.add_argument(
         "--load",
         dest="load_path",
         help=Translator.translate("cli.load_help"),
@@ -94,8 +110,28 @@ def load_launch_options():
     args = parser.parse_args()
 
     seed = stable_seed(args.seed) if args.seed else random.randint(0, 99999)
-    config = {} if args.load_path else culture.load_config(args.template)
-    return LaunchOptions(config, seed, args.load_path, args.save_path)
+    if args.load_path:
+        config = {}
+    elif args.scenario_path or args.mod_paths:
+        try:
+            config = validate_config(load_config_layers(
+                args.template,
+                scenario_path=args.scenario_path,
+                mod_paths=tuple(args.mod_paths),
+            ))
+        except (ConfigValidationError, ScenarioValidationError) as error:
+            print(Translator.translate("system.config_load_error", error=error))
+            config = {}
+    else:
+        config = culture.load_config(args.template)
+    return LaunchOptions(
+        config,
+        seed,
+        args.load_path,
+        args.save_path,
+        args.scenario_path,
+        tuple(args.mod_paths),
+    )
 
 
 def load_arguments():

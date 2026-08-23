@@ -89,6 +89,14 @@ def load_engine(path):
     from core.diplomacy import DiplomacyRegistry
     DiplomacyRegistry(engine.world)
     ClimateSystem(engine.world, engine.config)
+    from core.characters import ensure_notable_storage
+    ensure_notable_storage(engine.world)
+    from core.simulation_metrics import SimulationMetrics
+    SimulationMetrics(engine.world)
+    from core.resources import ResourceSystem
+    ResourceSystem(engine.world, engine.config)
+    from core.scenarios import ScenarioService
+    ScenarioService(engine.world, engine.config)
     engine._refresh_grid()
     return engine
 

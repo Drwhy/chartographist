@@ -62,16 +62,18 @@ class City(Construct):
 
         # 1. INDIVIDUAL UPDATES & FEEDING
         self._update_citizens(world)
+        from core.production import advance_settlement_production
+        advance_settlement_production(self, world)
 
         # 2. REPRODUCTION — religion bonus modulates growth
         religion_growth = self.religion.bonus("growth", 0) if self.religion else 0
         growth_mult = 1.0 + (religion_growth * 0.01)
-        self._handle_reproduction(chance_multiplier=growth_mult)
+        self._handle_reproduction(chance_multiplier=growth_mult, world=world)
 
         # 3. EXPANSION & TRADE (Macro Logic)
         self._manage_expansion(world)
         self._manage_trade(world)
-        self._manage_specialization()
+        self._manage_specialization(world)
 
         # 4. WAR (evaluated every 12 cycles)
         if world['cycle'] % 12 == 0:
@@ -89,12 +91,15 @@ class City(Construct):
 
     def _update_citizens(self, world):
         """Each month, citizens consume food and age."""
+        alive_before = sum(
+            not getattr(citizen, "is_dead", False) for citizen in self.citizens
+        )
         for citizen in self.citizens:
-            citizen.process_monthly_update()
+            citizen.process_monthly_update(world)
 
             # Food consumption
-            if self.food_stock > 0:
-                self.food_stock -= 1
+            from core.food_balance import consume_food
+            if consume_food(self, world, 1):
                 citizen.hunger = max(0, citizen.hunger - 10)
             else:
                 # Starvation
@@ -103,7 +108,28 @@ class City(Construct):
                     citizen.is_dead = True
             # 3. Economic update (Work)
             # This calls Farmer.work() or Citizen.work() automatically!
-            citizen.work(self, world)
+            should_work = True
+            from core.characters import CharacterService, characters_enabled
+            if characters_enabled(self.config):
+                from core.needs import set_need
+                set_need(citizen, "hunger", citizen.hunger)
+                should_work = CharacterService(
+                    citizen, self.config
+                ).prepare_action(world)
+            if should_work:
+                citizen.work(self, world)
+
+        deaths = alive_before - sum(
+            not getattr(citizen, "is_dead", False) for citizen in self.citizens
+        )
+        from core.simulation_metrics import SimulationMetrics
+        SimulationMetrics(world).record_demography("deaths", deaths)
+        from core.characters import NotabilityService, characters_enabled
+        if characters_enabled(self.config):
+            NotabilityService(world, self.config).archive_inactive()
+
+        from core.food_balance import apply_storage_loss
+        apply_storage_loss(self, world)
 
     def _manage_expansion(self, world):
         """Sends settlers if population is high enough, consuming a part of the population."""
@@ -190,14 +216,19 @@ class City(Construct):
         living_structures = [e for e in world['entities'] if type(e) in STRUCTURE_TYPES and not e.is_expired]
         if len(living_structures) >= max_cities * 0.9: return False
         return True
-    def _manage_specialization(self):
+    def _manage_specialization(self, world=None):
         """Promote one basic Citizen to Farmer per tick when food is scarce."""
-        if self.food_stock >= len(self.citizens) * 10:
+        from core.food_balance import needs_food_specialization
+        if not needs_food_specialization(
+            self, legacy_threshold=len(self.citizens) * 10
+        ):
             return
         for i, person in enumerate(self.citizens):
             if type(person) is Human:
                 new_farmer = Farmer(self.x, self.y, self.culture, self.config, name=person.name, age=person.age)
                 new_farmer.preserve_identity_from(person)
+                from core.characters import transfer_character_state
+                transfer_character_state(person, new_farmer, self.config)
                 new_farmer.faith = person.faith
                 new_farmer.species_data = person.species_data
                 new_farmer.partner = person.partner
@@ -209,6 +240,12 @@ class City(Construct):
                 if person.partner and person.partner.partner is person:
                     person.partner.partner = new_farmer
                 self.citizens[i] = new_farmer
+                if world is not None:
+                    from core.characters import NotabilityService, characters_enabled
+                    if characters_enabled(self.config):
+                        NotabilityService(world, self.config).promote(
+                            new_farmer, "role_accession", importance=20.0
+                        )
                 break  # one promotion per tick
 
     # ── WAR SYSTEM ──────────────────────────────

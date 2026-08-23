@@ -1,0 +1,21 @@
+{
+  "scenario": {
+    "id": "fragile_frontier",
+    "title_key": "scenarios.frontier.title",
+    "initial": {
+      "climate": {
+        "drought_severity": 0.25
+      }
+    },
+    "objectives": [
+      {"id": "survive_twenty_years", "metric": "cycle", "operator": ">=", "target": 240},
+      {"id": "establish_three_settlements", "metric": "settlements", "operator": ">=", "target": 3}
+    ],
+    "defeat_conditions": [
+      {"id": "extinction", "metric": "population", "operator": "<=", "target": 0}
+    ]
+  },
+  "patch": {
+    "max_fauna": 75
+  }
+}

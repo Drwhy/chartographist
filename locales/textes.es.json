@@ -1,5 +1,12 @@
 {
+  "scenarios": {
+    "frontier": {
+      "title": "Frontera frágil"
+    }
+  },
   "events": {
+    "scenario_won": "🏆 El escenario {scenario_id} ha sido superado.",
+    "scenario_lost": "💀 El escenario {scenario_id} se ha perdido.",
 "climate_drought": "☀️ Sequía intensa: la humedad baja un {severity}%.",
     "climate_flood": "🌧️ Inundación intensa: las aguas suben un {severity}%.",
     "climate_heatwave": "🌡️ Ola de calor: la anomalía alcanza el {severity}%.",
@@ -57,6 +64,10 @@
     "ruins_name": "Ruinas de {name}"
   },
   "ui": {
+    "header_scenario": "🎯 ESCENARIO: {title} | {status} | objetivos {completed}/{total}",
+    "scenario_status_active": "Activo",
+    "scenario_status_won": "Victoria",
+    "scenario_status_lost": "Derrota",
 "header_climate": "🌦️ CLIMA: {season} | sequía {drought}% | inundación {flood}%",
     "season_winter": "Invierno",
     "season_spring": "Primavera",
@@ -203,6 +214,8 @@
     }
   },
   "cli": {
+    "scenario_help": "Archivo JSON de escenario que se aplicará",
+    "mod_help": "Archivo JSON de mod; opción repetible",
     "description": "Simulación procedural de un mundo",
     "seed_help": "Semilla del mundo (entero o texto)",
     "template_help": "Ruta al archivo de plantilla JSON",
@@ -216,6 +229,7 @@
   "system": {
     "user_interrupt": "🛑 Simulación interrumpida por el usuario.",
     "world_init": "🌍 El mundo ha despertado (Semilla: {seed_val})",
+    "initial_settlement_shortfall": "Inicialización incompleta: {placed} asentamiento(s) de {requested}.",
     "locale_not_found": "⚠️ No se encontró el archivo de idioma {file_path}. Se usará el inglés.",
     "config_load_error": "⚠️ No se pudo cargar la configuración: {error}",
     "entity_bug": "⚠️ [BUG] {entity_type} en {pos} | Error: '{error}' | Archivo: {file} (línea {line})",

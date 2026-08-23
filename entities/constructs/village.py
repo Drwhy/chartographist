@@ -43,11 +43,13 @@ class Village(Construct):
 
         # 1. Monthly biological update (Hunger, Age)
         self._update_citizens(world)
+        from core.production import advance_settlement_production
+        advance_settlement_production(self, world)
 
         # 2. Reproduction — religion bonus modulates growth
         religion_growth = self.religion.bonus("growth", 0) if self.religion else 0
         growth_mult = 1.0 + (religion_growth * 0.01)
-        self._handle_reproduction(chance_multiplier=growth_mult)
+        self._handle_reproduction(chance_multiplier=growth_mult, world=world)
 
         # 3. Workforce & Evolution (Slow Tick - Every 12 months)
         if world['cycle'] % 12 == 0:
@@ -67,27 +69,55 @@ class Village(Construct):
 
     def _update_citizens(self, world):
         """Standard feeding and aging logic."""
+        alive_before = sum(
+            not getattr(citizen, "is_dead", False) for citizen in self.citizens
+        )
         for person in self.citizens:
-            person.process_monthly_update()
+            person.process_monthly_update(world)
 
             # Feeding from village stores
-            if self.food_stock >= 1:
-                self.food_stock -= 1
+            from core.food_balance import consume_food
+            if consume_food(self, world, 1):
                 person.hunger = max(0, person.hunger - 10)
             else:
                 person.hunger += 10
                 if person.hunger >= 100: person.is_dead = True
 
             # Basic work (Gathering/Small farming)
-            person.work(self, world)
+            should_work = True
+            from core.characters import CharacterService, characters_enabled
+            if characters_enabled(self.config):
+                from core.needs import set_need
+                set_need(person, "hunger", person.hunger)
+                should_work = CharacterService(
+                    person, self.config
+                ).prepare_action(world)
+            if should_work:
+                person.work(self, world)
+
+        deaths = alive_before - sum(
+            not getattr(citizen, "is_dead", False) for citizen in self.citizens
+        )
+        from core.simulation_metrics import SimulationMetrics
+        SimulationMetrics(world).record_demography("deaths", deaths)
+        from core.characters import NotabilityService, characters_enabled
+        if characters_enabled(self.config):
+            NotabilityService(world, self.config).archive_inactive()
+
+        from core.food_balance import apply_storage_loss
+        apply_storage_loss(self, world)
 
     def _manage_specialization(self, world):
         """Village logic: promote to Farmer OR spawn an external Hunter/Fisherman."""
         # A. Check internal Farmers
         # In a village, we only want a few farmers, the rest gather or hunt
         farmers_count = sum(1 for p in self.citizens if isinstance(p, Farmer))
-        if farmers_count < (self.population * 0.3) and self.food_stock < 50:
-            self._promote_to_farmer()
+        from core.food_balance import needs_food_specialization
+        if (
+            farmers_count < (self.population * 0.3)
+            and needs_food_specialization(self, legacy_threshold=50)
+        ):
+            self._promote_to_farmer(world)
 
         # B. Check External Worker (The Unit on the map)
         if self.active_worker_entity and self.active_worker_entity.is_expired:
@@ -104,12 +134,14 @@ class Village(Construct):
         if self.religion:
             agent.faith = create_faith_from_demographics(self.religion)
 
-    def _promote_to_farmer(self):
+    def _promote_to_farmer(self, world=None):
         """Turns one basic Citizen into a Farmer, preserving family bonds."""
         for i, p in enumerate(self.citizens):
             if type(p) is Human:
                 new_farmer = Farmer(self.x, self.y, self.culture, self.config, name=p.name, age=p.age)
                 new_farmer.preserve_identity_from(p)
+                from core.characters import transfer_character_state
+                transfer_character_state(p, new_farmer, self.config)
                 new_farmer.faith = p.faith
                 new_farmer.species_data = p.species_data
                 new_farmer.partner = p.partner
@@ -121,6 +153,12 @@ class Village(Construct):
                 if p.partner and p.partner.partner is p:
                     p.partner.partner = new_farmer
                 self.citizens[i] = new_farmer
+                if world is not None:
+                    from core.characters import NotabilityService, characters_enabled
+                    if characters_enabled(self.config):
+                        NotabilityService(world, self.config).promote(
+                            new_farmer, "role_accession", importance=20.0
+                        )
                 return
 
     def _is_coastal(self, world):

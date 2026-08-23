@@ -20,6 +20,13 @@ OPTIONAL_SECTION_TYPES = {
     "economy": dict,
     "diplomacy": dict,
     "climate": dict,
+    "scenario": dict,
+    "active_mods": list,
+    "ecology": dict,
+    "food_balance": dict,
+    "resources": dict,
+    "characters": dict,
+    "materials": dict,
 }
 
 
@@ -70,6 +77,8 @@ def validate_config(config):
             "food_reserve",
             "trade_capacity",
             "settler_treasury_cost",
+            "transport_cost_per_tile",
+            "risk_cost_multiplier",
         )
         for key in numeric_keys:
             value = economy.get(key)
@@ -82,6 +91,14 @@ def validate_config(config):
         reserve = economy.get("food_reserve")
         if isinstance(reserve, (int, float)) and not isinstance(reserve, bool) and reserve < 0:
             errors.append("range:economy.food_reserve:non_negative")
+        for key in ("transport_cost_per_tile", "risk_cost_multiplier"):
+            value = economy.get(key)
+            if (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and value < 0
+            ):
+                errors.append(f"range:economy.{key}:non_negative")
         for key in ("initial_treasury", "settler_treasury_cost"):
             value = economy.get(key)
             if isinstance(value, (int, float)) and not isinstance(value, bool) and value < 0:
@@ -237,6 +254,186 @@ def validate_config(config):
             and minimum > maximum
         ):
             errors.append("range:climate.anomaly_severity_bounds")
+    scenario = config.get("scenario")
+    if isinstance(scenario, dict):
+        scenario_id = scenario.get("id")
+        if not isinstance(scenario_id, str) or not scenario_id:
+            errors.append("missing:scenario.id")
+        seen_condition_ids = set()
+        for section in ("objectives", "defeat_conditions"):
+            conditions = scenario.get(section, [])
+            if not isinstance(conditions, list):
+                errors.append(f"type:scenario.{section}:list")
+                continue
+            for index, condition in enumerate(conditions):
+                path = f"scenario.{section}[{index}]"
+                if not isinstance(condition, dict):
+                    errors.append(f"type:{path}:dict")
+                    continue
+                condition_id = condition.get("id")
+                if not isinstance(condition_id, str) or not condition_id:
+                    errors.append(f"missing:{path}.id")
+                elif condition_id in seen_condition_ids:
+                    errors.append(f"duplicate:scenario.condition_id:{condition_id}")
+                else:
+                    seen_condition_ids.add(condition_id)
+                if condition.get("metric") not in {"cycle", "population", "settlements", "fauna", "treasury"}:
+                    errors.append(f"value:{path}.metric")
+                if condition.get("operator") not in {">=", "<=", ">", "<"}:
+                    errors.append(f"value:{path}.operator")
+                target = condition.get("target")
+                if isinstance(target, bool) or not isinstance(target, (int, float)):
+                    errors.append(f"type:{path}.target:int|float")
+    resources = config.get("resources")
+    if isinstance(resources, dict):
+        enabled = resources.get("enabled")
+        if enabled is not None and not isinstance(enabled, bool):
+            errors.append("type:resources.enabled:bool")
+        interval = resources.get("regeneration_interval")
+        if interval is not None:
+            if isinstance(interval, bool) or not isinstance(interval, int):
+                errors.append("type:resources.regeneration_interval:int")
+            elif interval <= 0:
+                errors.append("range:resources.regeneration_interval:positive")
+        for key in ("biomass_capacity_scale", "fish_capacity_scale"):
+            value = resources.get(key)
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                errors.append(f"type:resources.{key}:int|float")
+            elif value <= 0:
+                errors.append(f"range:resources.{key}:positive")
+        minimum_birth_resource = resources.get("minimum_birth_resource")
+        if minimum_birth_resource is not None:
+            if isinstance(minimum_birth_resource, bool) or not isinstance(
+                minimum_birth_resource, (int, float)
+            ):
+                errors.append("type:resources.minimum_birth_resource:int|float")
+            elif minimum_birth_resource < 0:
+                errors.append("range:resources.minimum_birth_resource:nonnegative")
+        for key in (
+            "biomass_regeneration_rate",
+            "soil_regeneration_rate",
+            "water_regeneration_rate",
+            "fish_regeneration_rate",
+            "forest_regeneration_rate",
+            "winter_mortality_rate",
+            "drought_pressure",
+            "flood_recovery",
+            "agriculture_soil_cost",
+            "agriculture_min_support",
+            "fire_min_forest_ratio",
+            "fire_max_moisture",
+        ):
+            value = resources.get(key)
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                errors.append(f"type:resources.{key}:int|float")
+            elif not 0 <= value <= 1:
+                errors.append(f"range:resources.{key}:0_1")
+
+    ecology = config.get("ecology")
+    if isinstance(ecology, dict):
+        limits = ecology.get("population_limits")
+        if limits is not None and not isinstance(limits, dict):
+            errors.append("type:ecology.population_limits:dict")
+        elif isinstance(limits, dict):
+            enabled = limits.get("enabled")
+            if enabled is not None and not isinstance(enabled, bool):
+                errors.append("type:ecology.population_limits.enabled:bool")
+            global_capacity = limits.get("global")
+            if global_capacity is not None:
+                if isinstance(global_capacity, bool) or not isinstance(global_capacity, int):
+                    errors.append("type:ecology.population_limits.global:int")
+                elif global_capacity < 0:
+                    errors.append("range:ecology.population_limits.global:non_negative")
+            for section_name in ("per_species", "per_biome"):
+                section = limits.get(section_name)
+                if section is not None and not isinstance(section, dict):
+                    errors.append(f"type:ecology.population_limits.{section_name}:dict")
+                    continue
+                if isinstance(section, dict):
+                    for key, value in section.items():
+                        path = f"ecology.population_limits.{section_name}.{key}"
+                        if isinstance(value, bool) or not isinstance(value, int):
+                            errors.append(f"type:{path}:int")
+                        elif value < 0:
+                            errors.append(f"range:{path}:non_negative")
+
+    food_balance = config.get("food_balance")
+    if isinstance(food_balance, dict):
+        enabled = food_balance.get("enabled")
+        if enabled is not None and not isinstance(enabled, bool):
+            errors.append("type:food_balance.enabled:bool")
+        labor_yield = food_balance.get("generic_labor_yield")
+        if labor_yield is not None:
+            if isinstance(labor_yield, bool) or not isinstance(labor_yield, int):
+                errors.append("type:food_balance.generic_labor_yield:int")
+            elif labor_yield < 0:
+                errors.append("range:food_balance.generic_labor_yield:non_negative")
+        loss_rate = food_balance.get("storage_loss_rate")
+        if loss_rate is not None:
+            if isinstance(loss_rate, bool) or not isinstance(loss_rate, (int, float)):
+                errors.append("type:food_balance.storage_loss_rate:int|float")
+            elif not 0 <= loss_rate <= 1:
+                errors.append("range:food_balance.storage_loss_rate:0_1")
+
+        window = food_balance.get("specialization_window")
+        if window is not None:
+            if isinstance(window, bool) or not isinstance(window, int):
+                errors.append("type:food_balance.specialization_window:int")
+            elif window < 2:
+                errors.append("range:food_balance.specialization_window:min_2")
+        specialization_ratio = food_balance.get("specialization_food_ratio")
+        if specialization_ratio is not None:
+            if isinstance(specialization_ratio, bool) or not isinstance(
+                specialization_ratio, (int, float)
+            ):
+                errors.append("type:food_balance.specialization_food_ratio:int|float")
+            elif not 0 <= specialization_ratio <= 1:
+                errors.append("range:food_balance.specialization_food_ratio:0_1")
+
+    characters = config.get("characters")
+    if isinstance(characters, dict):
+        enabled = characters.get("enabled")
+        if enabled is not None and not isinstance(enabled, bool):
+            errors.append("type:characters.enabled:bool")
+        for key in ("memory_limit", "decision_interval"):
+            value = characters.get(key)
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, int):
+                errors.append(f"type:characters.{key}:int")
+            elif value <= 0:
+                errors.append(f"range:characters.{key}:positive")
+        decay = characters.get("memory_decay_rate")
+        if decay is not None:
+            if isinstance(decay, bool) or not isinstance(decay, (int, float)):
+                errors.append("type:characters.memory_decay_rate:int|float")
+            elif not 0 <= decay <= 1:
+                errors.append("range:characters.memory_decay_rate:0_1")
+        threshold = characters.get("notability_threshold")
+        if threshold is not None:
+            if isinstance(threshold, bool) or not isinstance(threshold, (int, float)):
+                errors.append("type:characters.notability_threshold:int|float")
+            elif threshold < 0:
+                errors.append("range:characters.notability_threshold:nonnegative")
+        growth = characters.get("need_growth")
+        if growth is not None and not isinstance(growth, dict):
+            errors.append("type:characters.need_growth:dict")
+        elif isinstance(growth, dict):
+            for key, value in growth.items():
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    errors.append(f"type:characters.need_growth.{key}:int|float")
+                elif value < 0:
+                    errors.append(f"range:characters.need_growth.{key}:nonnegative")
+
+    materials = config.get("materials")
+    if isinstance(materials, dict):
+        from core.materials import catalog_validation_errors
+
+        errors.extend(catalog_validation_errors(materials))
     cultures = config.get("cultures")
     if isinstance(cultures, list):
         if not cultures:

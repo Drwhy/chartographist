@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass
+import math
 
 
 _DEFAULT_ACCOUNT = {
@@ -12,6 +13,9 @@ _DEFAULT_ACCOUNT = {
     "trade_earned": 0.0,
     "transactions": 0,
     "last_food_price": 0.0,
+    "goods_imported": {},
+    "goods_exported": {},
+    "last_material_prices": {},
 }
 
 
@@ -19,9 +23,10 @@ _DEFAULT_ACCOUNT = {
 class TradeTransaction:
     """Résultat immuable d'un transfert commercial de nourriture."""
 
-    quantity: int
+    quantity: float
     unit_price: float
     value: float
+    good_id: str = "food"
 
 
 def economy_settings(settlement):
@@ -41,7 +46,7 @@ def economy_enabled(settlement):
 def ensure_economy(settlement):
     """Crée ou complète paresseusement le compte d'un ancien établissement."""
     settings = economy_settings(settlement)
-    defaults = dict(_DEFAULT_ACCOUNT)
+    defaults = deepcopy(_DEFAULT_ACCOUNT)
     defaults["treasury"] = float(settings.get("initial_treasury", defaults["treasury"]))
 
     account = getattr(settlement, "economy", None)
@@ -143,3 +148,106 @@ def world_economic_summary(world):
         summary["transactions"] += account["transactions"]
     summary["treasury"] = round(summary["treasury"], 2)
     return summary
+
+
+def material_price(settlement, good_id):
+    """Price one catalog good from local scarcity and its configured base value."""
+    from core.materials import MaterialCatalog
+    from core.stockpiles import StockpileService
+
+    catalog = MaterialCatalog(getattr(settlement, "config", {}))
+    definition = catalog.good(good_id)
+    stock = StockpileService(settlement, settlement.config).quantity(good_id)
+    targets = catalog.definition.get("targets", {})
+    target = max(1.0, float(targets.get(good_id, 1.0)))
+    ratio = min(1.0, stock / target)
+    base = float(definition.get("base_value", 1.0))
+    settings = economy_settings(settlement)
+    minimum = float(settings.get("min_food_price", 0.5))
+    maximum = float(settings.get("max_food_price", 5.0))
+    price = base * (0.5 + 1.5 * (1.0 - ratio))
+    return round(min(maximum, max(minimum, price)), 2)
+
+
+def execute_material_trade(origin, target, good_id, *, capacity):
+    """Transfer one catalog good and its payment without creating either."""
+    from core.materials import MaterialCatalog
+    from core.stockpiles import StockpileService, transfer_goods
+
+    config = getattr(origin, "config", {})
+    catalog = MaterialCatalog(config)
+    unit_price = material_price(target, good_id)
+    if not catalog.enabled:
+        return TradeTransaction(0.0, unit_price, 0.0, str(good_id))
+    origin_account = ensure_economy(origin)
+    target_account = ensure_economy(target)
+    origin_stock = StockpileService(origin, config)
+    target_stock = StockpileService(target, config)
+    reserve_settings = catalog.definition.get("trade_reserve", {})
+    reserve = max(0.0, float(reserve_settings.get(good_id, 0.0)))
+    available = max(0.0, origin_stock.quantity(good_id) - reserve)
+    unit_weight = float(catalog.good(good_id)["unit_weight"])
+    room = target_stock.available_weight() / unit_weight
+    affordable = (
+        math.floor(target_account["treasury"] / unit_price)
+        if unit_price > 0 else 0
+    )
+    quantity = float(max(0, math.floor(min(
+        max(0.0, float(capacity)), available, room, affordable
+    ))))
+    if quantity <= 0:
+        return TradeTransaction(0.0, unit_price, 0.0, str(good_id))
+    movement = transfer_goods(origin, target, good_id, quantity, config)
+    transferred = float(movement["transferred"])
+    if transferred <= 0:
+        return TradeTransaction(0.0, unit_price, 0.0, str(good_id))
+    value = round(transferred * unit_price, 2)
+    origin_account["treasury"] = round(origin_account["treasury"] + value, 2)
+    target_account["treasury"] = round(target_account["treasury"] - value, 2)
+    origin_account["trade_earned"] = round(origin_account["trade_earned"] + value, 2)
+    target_account["trade_spent"] = round(target_account["trade_spent"] + value, 2)
+    origin_account["transactions"] += 1
+    target_account["transactions"] += 1
+    exported = origin_account["goods_exported"]
+    imported = target_account["goods_imported"]
+    exported[str(good_id)] = round(float(exported.get(str(good_id), 0.0)) + transferred, 6)
+    imported[str(good_id)] = round(float(imported.get(str(good_id), 0.0)) + transferred, 6)
+    origin_account["last_material_prices"][str(good_id)] = unit_price
+    target_account["last_material_prices"][str(good_id)] = unit_price
+    return TradeTransaction(transferred, unit_price, value, str(good_id))
+
+
+def select_material_market(origin, candidates, good_id, *, capacity):
+    """Rank reachable markets by expected net value without consuming randomness."""
+    settings = economy_settings(origin)
+    distance_cost = max(0.0, float(settings.get("transport_cost_per_tile", 0.0)))
+    risk_multiplier = max(0.0, float(settings.get("risk_cost_multiplier", 0.0)))
+    ranked = []
+    origin_pos = getattr(origin, "pos", (0, 0))
+    for target in candidates:
+        if getattr(target, "is_expired", False) or target is origin:
+            continue
+        price = material_price(target, good_id)
+        target_pos = getattr(target, "pos", origin_pos)
+        distance = math.dist(origin_pos, target_pos)
+        risk = max(0.0, float(getattr(target, "trade_risk", 0.0)))
+        transport = round(distance * distance_cost + risk * risk_multiplier, 2)
+        expected = round(max(0.0, float(capacity)) * price - transport, 2)
+        ranked.append({
+            "target": target,
+            "good_id": str(good_id),
+            "unit_price": price,
+            "distance": round(distance, 6),
+            "risk": risk,
+            "transport_cost": transport,
+            "expected_profit": expected,
+        })
+    if not ranked:
+        return None
+    return sorted(
+        ranked,
+        key=lambda choice: (
+            -choice["expected_profit"],
+            int(getattr(choice["target"], "entity_id", 0)),
+        ),
+    )[0]

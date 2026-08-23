@@ -29,9 +29,19 @@ class Farmer(Human):
         xp_bonus = 1 + (self.experience * 0.1)
         species_bonus = 1 + self.species_trait("harvest") * 0.1
         yield_amount = int(4 * fertility * xp_bonus * species_bonus * agriculture_yield_multiplier(world, self.config, city.x, city.y))
+        from core.resources import ResourceSystem, resources_enabled
+        if resources_enabled(self.config):
+            storage_space = max(0, int(city.max_food) - int(city.food_stock))
+            yield_amount = ResourceSystem(world, self.config).harvest_agriculture(
+                city.x, city.y, min(yield_amount, storage_space)
+            )
 
         # Ajout au stock de la cité (ne dépasse pas max_food)
-        city.food_stock = min(city.max_food, city.food_stock + yield_amount)
+        from core.food_balance import add_food
+        add_food(city, world, yield_amount, source="agriculture")
+        from core.characters import CharacterService, characters_enabled
+        if characters_enabled(self.config):
+            CharacterService(self, self.config).record_practice("agriculture", 1.0)
 
         # 3. Gain d'XP spécifique (20% de chance par mois de travail)
         if RandomService.random() < 0.2:

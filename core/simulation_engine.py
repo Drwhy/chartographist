@@ -26,10 +26,18 @@ class SimulationEngine:
         self.stats = stats
         self.config = config
         ChronicleBook(self.world)
+        from core.characters import ensure_notable_storage
+        ensure_notable_storage(self.world)
+        from core.simulation_metrics import SimulationMetrics
+        SimulationMetrics(self.world)
+        from core.resources import ResourceSystem
+        ResourceSystem(self.world, self.config)
         from core.diplomacy import DiplomacyRegistry
         from core.climate import ClimateSystem
         DiplomacyRegistry(self.world)
         ClimateSystem(self.world, self.config)
+        from core.scenarios import ScenarioService
+        ScenarioService(self.world, self.config)
 
     @classmethod
     def create(cls, config, seed, width, height):
@@ -61,6 +69,8 @@ class SimulationEngine:
         from core.climate import ClimateSystem
         from core.diplomacy import advance_diplomacy
         ClimateSystem(world, self.config).advance()
+        from core.resources import ResourceSystem
+        ResourceSystem(world, self.config).advance()
         advance_diplomacy(world, self.config)
         self._refresh_grid()
         entities_spawn.spawn_system(world, self.config)
@@ -77,6 +87,8 @@ class SimulationEngine:
                 self._log_entity_error(entity, error)
 
         EventManager.update(world, stats, self.config)
+        from core.scenarios import ScenarioService
+        ScenarioService(world, self.config).advance()
         new_logs = GameLogger.get_new_logs()
         stats["logs"].extend(new_logs)
         ChronicleBook(world).record_many(
@@ -86,6 +98,12 @@ class SimulationEngine:
             month=stats["month"],
             metadata=GameLogger.get_last_metadata(len(new_logs)),
         )
+        from core.characters import (
+            NotabilityService,
+            characters_enabled,
+        )
+        if characters_enabled(self.config):
+            NotabilityService(world, self.config).archive_inactive()
         world["entities"].remove_dead()
         return world["cycle"]
 
@@ -94,6 +112,27 @@ class SimulationEngine:
         for _ in range(cycles):
             self.step()
         return self.world, self.stats
+
+    def run_observed(self, cycles, sample_every=1):
+        """Run cycles and sample state without random draws."""
+        if not isinstance(cycles, int) or isinstance(cycles, bool) or cycles < 0:
+            raise ValueError("cycles must be a non-negative integer")
+        if not isinstance(sample_every, int) or isinstance(sample_every, bool) or sample_every <= 0:
+            raise ValueError("sample_every must be a positive integer")
+
+        samples = []
+        for index in range(cycles):
+            self.step()
+            if (index + 1) % sample_every == 0:
+                samples.append(self.get_metrics_snapshot())
+        if cycles and cycles % sample_every:
+            samples.append(self.get_metrics_snapshot())
+        return samples
+
+    def get_metrics_snapshot(self):
+        """Return a defensive snapshot of observable state and flows."""
+        from core.simulation_metrics import SimulationMetrics
+        return SimulationMetrics(self.world).snapshot()
 
     def save(self, path):
         """Crée un checkpoint versionné de cette simulation."""
@@ -130,6 +169,20 @@ class SimulationEngine:
     def inspect_entity(self, entity_id):
         """Renvoie l'instantané courant d'une entité et son historique lié."""
         return inspect_entity(self.world, entity_id)
+
+    def get_scenario_summary(self):
+        """Renvoie une copie de l'état et des objectifs du scénario."""
+        from core.scenarios import ScenarioService
+        return ScenarioService(self.world, self.config).summary()
+    def get_tile_resources(self, x, y):
+        """Return a defensive resource snapshot for one tile."""
+        from core.resources import ResourceSystem
+        return ResourceSystem(self.world, self.config).tile_snapshot(x, y)
+
+    def get_resource_summary(self):
+        """Return a defensive aggregate of renewable resources."""
+        from core.resources import ResourceSystem
+        return ResourceSystem(self.world, self.config).summary()
 
     def get_climate_snapshot(self):
         """Renvoie une copie de l'état climatique mondial."""

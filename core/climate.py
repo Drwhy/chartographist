@@ -92,6 +92,14 @@ class ClimateSystem:
             self.state["temperature_anomaly"] -= severity * 0.5
         self.state["last_anomaly"] = anomaly
         self.state["last_anomaly_cycle"] = int(cycle)
+        from core.simulation_metrics import SimulationMetrics
+        SimulationMetrics(self.world).record_activity("climate", "events")
+        if anomaly in {"drought", "flood"}:
+            from core.resources import ResourceSystem, resources_enabled
+            if resources_enabled(self.config):
+                ResourceSystem(self.world, self.config).apply_global_disturbance(
+                    anomaly, severity, duration=12
+                )
         GameLogger.log(
             Translator.translate(f"events.climate_{anomaly}", severity=round(severity * 100)),
             category="climate",

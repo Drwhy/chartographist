@@ -110,12 +110,19 @@ class Construct(Entity):
             agent.species_data = self._personal_species
             agent.speed = max(0.3, agent.speed + self._personal_species.speed_mod)
 
-    def _handle_reproduction(self, chance_multiplier=1.0):
-        """Four-phase family system: cleanup → attraction → courtship → births."""
+    def _handle_reproduction(self, chance_multiplier=1.0, world=None):
+        """Four-phase family system: cleanup, attraction, courtship and births."""
+        population_before = len(self.citizens)
         self._cleanup_partnerships()
         self._handle_attraction()
         self._handle_courtship()
         self._handle_births(chance_multiplier)
+        if world is not None:
+            from core.simulation_metrics import SimulationMetrics
+            SimulationMetrics(world).record_demography(
+                "births",
+                len(self.citizens) - population_before,
+            )
 
     def _cleanup_partnerships(self):
         """Break bonds whose partner has died; clear stale love interests."""
@@ -271,6 +278,8 @@ class Construct(Entity):
             parents=(p1, p2)
         )
         child.experience = int((p1.experience + p2.experience) * 0.05)
+        from core.characters import inherit_character_state
+        inherit_character_state(child, p1, p2, self.config)
         child.birth_city = self.name
         for parent in (p1, p2):
             if parent.faith is not None:

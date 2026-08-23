@@ -22,14 +22,19 @@ _SNAPSHOT_FIELDS = (
 
 def inspect_entity(world, entity_id):
     """Renvoie un instantané d'entité et ses chroniques, ou ``None``."""
-    entity = next(
-        (
-            candidate
-            for candidate in world.get("entities", ())
-            if getattr(candidate, "entity_id", None) == entity_id
-        ),
-        None,
-    )
+    entity = None
+    owner = None
+    for candidate in world.get("entities", ()):
+        if getattr(candidate, "entity_id", None) == entity_id:
+            entity = candidate
+            break
+        for citizen in getattr(candidate, "citizens", ()):
+            if getattr(citizen, "entity_id", None) == entity_id:
+                entity = citizen
+                owner = candidate
+                break
+        if entity is not None:
+            break
     if entity is None:
         return None
 
@@ -43,6 +48,18 @@ def inspect_entity(world, entity_id):
         if hasattr(entity, field):
             snapshot[field] = deepcopy(getattr(entity, field))
 
+    stockpile = getattr(entity, "stockpile", None)
+    if isinstance(stockpile, dict):
+        snapshot["stockpile"] = deepcopy(stockpile)
+    production = getattr(entity, "production", None)
+    if isinstance(production, dict):
+        snapshot["production"] = deepcopy(production)
+    infrastructure = getattr(entity, "infrastructure", None)
+    if isinstance(infrastructure, dict):
+        snapshot["infrastructure"] = deepcopy(infrastructure)
+    character = getattr(entity, "character", None)
+    if isinstance(character, dict):
+        snapshot["character"] = deepcopy(character)
     culture = getattr(entity, "culture", None)
     if isinstance(culture, dict):
         snapshot["culture"] = culture.get("name")
@@ -54,8 +71,14 @@ def inspect_entity(world, entity_id):
 
     from core.diplomacy import DiplomacyRegistry
 
-    return {
+    result = {
         "entity": snapshot,
         "chronicles": ChronicleBook(world).query(entity_id=entity_id),
         "relationships": DiplomacyRegistry(world).query(entity_id=entity_id),
     }
+    if owner is not None:
+        result["owner_entity_id"] = int(owner.entity_id)
+    if citizens is not None:
+        from core.characters import cohort_snapshots
+        result["cohorts"] = cohort_snapshots(entity)
+    return result

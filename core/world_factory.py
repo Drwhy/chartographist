@@ -6,6 +6,7 @@ from core.logger import GameLogger
 from core.translator import Translator
 from core.influence import InfluenceSystem
 from core.chronicles import ChronicleBook
+from core.simulation_metrics import initial_metrics_state
 
 def assemble_world(width, height, config, seed_val):
     """
@@ -30,6 +31,7 @@ def assemble_world(width, height, config, seed_val):
         'next_chronicle_id': 1,
         'diplomacy': {},
         'next_relation_id': 1,
+        'metrics': initial_metrics_state(),
         'climate': {
             'season': 'winter',
             'season_index': 0,
@@ -46,9 +48,14 @@ def assemble_world(width, height, config, seed_val):
         'road': [["  " for _ in range(width)] for _ in range(height)],
         # Core entity manager for lifeforms and structures
         'entities': EntityManager(),
+        'notables': {},
+        'notable_archive': {},
         # Influence heatmap system for fear and attraction signals
         'influence': InfluenceSystem(width, height, config)
     }
+
+    from core.resources import ResourceSystem
+    ResourceSystem(world, config)
 
     # 3. STATISTICS AND INITIALIZATION LOGS
     init_msg = Translator.translate("system.world_init", seed_val=seed_val)

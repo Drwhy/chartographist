@@ -147,6 +147,8 @@ class StableEntityIdTests(unittest.TestCase):
         settlement.config = config
         settlement.citizens = [citizen]
         settlement.food_stock = 0
+        settlement.max_food = 100
+        settlement.food_ratio_history = [0.0] * 6
 
         City._manage_specialization(settlement)
 

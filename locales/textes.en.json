@@ -1,5 +1,12 @@
 {
+  "scenarios": {
+    "frontier": {
+      "title": "Fragile Frontier"
+    }
+  },
   "events": {
+    "scenario_won": "🏆 Scenario {scenario_id} has been won.",
+    "scenario_lost": "💀 Scenario {scenario_id} has been lost.",
 "climate_drought": "☀️ Major drought: moisture drops by {severity}%.",
     "climate_flood": "🌧️ Major flood: waters rise by {severity}%.",
     "climate_heatwave": "🌡️ Heatwave: the anomaly reaches {severity}%.",
@@ -57,6 +64,10 @@
     "ruins_name": "Ruins of {name}"
   },
   "ui": {
+    "header_scenario": "🎯 SCENARIO: {title} | {status} | objectives {completed}/{total}",
+    "scenario_status_active": "Active",
+    "scenario_status_won": "Victory",
+    "scenario_status_lost": "Defeat",
 "header_climate": "🌦️ CLIMATE: {season} | drought {drought}% | flood {flood}%",
     "season_winter": "Winter",
     "season_spring": "Spring",
@@ -203,6 +214,8 @@
     }
   },
   "cli": {
+    "scenario_help": "JSON scenario file to apply",
+    "mod_help": "JSON mod file; repeatable option",
     "description": "Procedural world simulation",
     "seed_help": "World seed (integer or text)",
     "template_help": "Path to the JSON template file",
@@ -216,6 +229,7 @@
   "system": {
     "user_interrupt": "🛑 Simulation interrupted by user.",
     "world_init": "🌍 The world has awakened (Seed: {seed_val})",
+    "initial_settlement_shortfall": "Incomplete initialization: {placed} settlement(s) placed out of {requested}.",
     "locale_not_found": "⚠️ Language file {file_path} was not found. Falling back to English.",
     "config_load_error": "⚠️ Unable to load configuration: {error}",
     "entity_bug": "⚠️ [BUG] {entity_type} at {pos} | Error: '{error}' | File: {file} (line {line})",

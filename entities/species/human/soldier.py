@@ -134,6 +134,29 @@ class Soldier(Human):
         # Loot food
         loot = min(target.food_stock, int(self.strength * 20))
         target.food_stock -= loot
+        from core.simulation_metrics import SimulationMetrics
+        SimulationMetrics(world).record_food("pillaged", loot)
+        SimulationMetrics(world).record_activity("combat", "raids")
+
+        from core.characters import characters_enabled
+        if characters_enabled(self.config):
+            from core.memory import MemoryBook
+
+            intensity = min(100.0, 25.0 + kills * 10.0 + loot * 0.5)
+            for citizen in target.citizens:
+                if citizen.is_dead:
+                    continue
+                MemoryBook(citizen, self.config).remember(
+                    "raid",
+                    cycle=world.get("cycle", 0),
+                    target_id=self.entity_id,
+                    position=target.pos,
+                    intensity=intensity,
+                    reliability=1.0,
+                    sentiment=-1.0,
+                    fear=0.8,
+                    grievance=1.0,
+                )
 
         GameLogger.log(Translator.translate(
             "events.soldier_raids",

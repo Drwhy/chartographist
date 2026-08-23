@@ -49,6 +49,47 @@ Chartographist is a procedural world simulation engine written in Python that ru
     Replayable Hazards: Droughts, floods, heatwaves, and cold snaps use the centralized deterministic random service and are recorded in structured chronicles.
 
     Backward Compatibility: Templates without climate.enabled retain the exact historical biome, farming, grazing, and spawning behavior.
+
+Spatial Renewable Resources
+
+    Causal Terrain: Optional tile stocks model biomass, soil fertility, surface water, fish, and forest cover with bounded seasonal regeneration.
+
+    Conserved Harvests: Farming, fishing, and herbivore grazing cannot gain more than they remove locally; full granaries no longer waste biomass.
+
+    Persistent Disturbances: Droughts, floods, fires, and volcanoes alter spatial stocks, while deterministic fire spread follows vegetation and humidity.
+
+    Safe Opt-In: The calibrated `resources` section is bundled but disabled by default until ecological random streams can be isolated without changing historical demographic trajectories.
+
+🧠 Emergent Characters
+
+    Personal State: Optional bounded needs, practiced skills, stable traits, household inheritance, and structured memories distinguish people with the same profession.
+
+    Explainable Utility: Characters rank three candidate actions from their current needs and past experiences; expensive decisions are deterministically staggered by stable entity ID.
+
+    Lived History: Successful trades and witnessed raids create persistent memories. Role accessions promote citizens to notables without changing identity, and archived notables keep a defensive snapshot of their personal history.
+
+    Safe Opt-In: `characters.enabled` remains `false` in the reference template while long-run demographic impact and CPU cost continue to be calibrated.
+
+🧩 Scenarios & Declarative Mods
+
+    Safe JSON Layers: Mods use deep `patch` merges and explicit `append` lists; no external Python code is executed.
+
+    Persistent Objectives: Scenarios track approved world metrics, victory and defeat conditions, and survive save/resume checkpoints.
+
+    Command Line Composition: Apply multiple mods in order with `--mod`, then a scenario with `--scenario`.
+
+📦 Material Production & Multi-Good Markets
+
+    Data-Driven Goods: Optional resources, items, recipes, targets, reserves, capacities, and decay rules are validated from the template and declarative mods.
+
+    Conserved Stockpiles: Settlement storage prevents negative quantities and duplication, applies bounded decay, and transfers only goods that physically exist.
+
+    Work Orders: Shortages create deterministic production orders that require inputs, tools, labor, time, and output capacity before completion.
+
+    Scarcity Routes: Multi-good prices and market selection account for target stock, distance, risk, reserves, capacity, and buyer affordability.
+
+    Safe Opt-In: `materials.enabled` remains `false` while infrastructure, timber sourcing, regional specialization, and performance calibration are completed.
+
 👥 Civilization & Actors
 
     Intelligent Expansion: Settlers seek ideal locations to found villages, which dynamically evolve into massive Cities as their population grows.
@@ -101,9 +142,14 @@ python main.py --seed atlas --lang en --save world.chart
 python main.py --lang en --load world.chart --save world.chart
 ```
 
+Run the bundled scenario with its example fauna mod:
+
+```bash
+python main.py --seed atlas --mod mods/highland_bison.json --scenario scenarios/fragile_frontier.json --lang en
+```
 If no seed is provided, a random one will be generated. Checkpoints use Python's binary object format to preserve the full simulation graph; only load files you trust.
 
-The bundled template enables the economy, diplomacy, and seasonal climate. The `economy` section controls treasury, scarcity prices, reserves, trader capacity, and settler cost. The `diplomacy` section controls relation gains, treaty thresholds, war/truce duration, trade-pact capacity, and allied food aid. The `climate` section controls seasons, humidity, anomaly decay and hazard probability. Removing any extension section preserves its corresponding legacy behavior.
+The bundled template enables the economy, diplomacy, and seasonal climate. The `economy` section controls treasury, scarcity prices, reserves, trader capacity, settler cost, and optional material-route costs. The `diplomacy` section controls relation gains, treaty thresholds, war/truce duration, trade-pact capacity, and allied food aid. The `climate` section controls seasons, humidity, anomaly decay and hazard probability. The calibrated `resources` section controls renewable stocks and disturbances but remains disabled by default; set `resources.enabled` to `true` to opt in. The `characters` section likewise remains disabled by default and controls memory bounds, notability, personal needs, and the staggered decision interval. The opt-in `materials` section defines goods, recipes, stockpiles, food conversion, trade reserves, spatial timber sourcing, and infrastructure kits. Its first granary increases settlement storage capacity, but the system remains disabled until long-run calibration and regional specialization are complete. Removing any extension section preserves its corresponding legacy behavior.
 
 Controls during simulation:
 
@@ -121,6 +167,16 @@ chartographist/
 ├── core/
 │   ├── chronicles.py        # Structured persistent world history
 │   ├── climate.py           # Seasons, tile climate, biomes and ecology
+│   ├── resources.py         # Renewable stocks, extraction and disturbances
+│   ├── materials.py         # Validated resources, items, recipes and food-chain catalog
+│   ├── stockpiles.py        # Capacity, decay and conserved settlement inventories
+│   ├── production.py        # Shortage planning and deterministic work orders
+│   ├── infrastructure.py    # Persistent infrastructure levels and capacity bonuses
+│   ├── characters.py        # Personal state, utility choices, cohorts and notables
+│   ├── needs.py             # Bounded personal needs and monthly evolution
+│   ├── skills.py            # Practice with bounded diminishing returns
+│   ├── memory.py            # Structured memories, decay and derived opinions
+│   ├── scenarios.py         # Safe JSON mods, objectives and scenario state
 │   ├── inspection.py        # Stable-ID entity snapshots and linked history
 │   ├── discovery_service.py # Shared world knowledge for entities
 │   ├── entities.py          # Base Entity class, stable IDs & Z-Index
@@ -172,5 +228,5 @@ chartographist/
 ```
 
 
-The regression suite currently contains 143 `unittest` tests, including deterministic resume, conserved market transactions, persistent diplomacy, structured chronicles, stable-ID inspection, localization parity, and terminal navigation.
+The regression suite currently contains 265 `unittest` tests, including deterministic resume, conserved multi-good transactions, spatial material sourcing, production preconditions, infrastructure capacity, stockpile conservation and decay, persistent diplomacy, structured chronicles, stable-ID inspection, localization parity, and terminal navigation.
 Developed with ❤️ by Drwhy

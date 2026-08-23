@@ -120,7 +120,8 @@ class Hunter(Human):
         """Drops game at the village, increasing its population."""
         base = getattr(self, 'pending_food_boost', 0) or RandomService.randint(5, 12)
         boost = int(base * (1 + self.faith_bonus("harvest") * 0.1))
-        self.home_city.food_stock += boost
+        from core.food_balance import add_food
+        add_food(self.home_city, world, boost, source="hunting", respect_capacity=False)
         self.pending_food_boost = 0
 
         self.has_game = False

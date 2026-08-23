@@ -39,6 +39,124 @@
     "anomaly_min_severity": 0.2,
     "anomaly_max_severity": 0.6
   },
+  "characters": {
+    "enabled": false,
+    "memory_limit": 24,
+    "memory_decay_rate": 0.02,
+    "notability_threshold": 20.0,
+    "decision_interval": 3,
+    "need_growth": {
+      "security": 1.0,
+      "belonging": 1.0,
+      "status": 1.0,
+      "faith": 0.5,
+      "wealth": 1.0,
+      "fatigue": 3.0
+    }
+  },
+  "materials": {
+    "enabled": false,
+    "stockpile_capacity": 1000,
+    "initial_stock": {"stone_tool": 1},
+    "targets": {"food_ration": 40, "plank": 10, "granary_kit": 1},
+    "food_chain": {
+      "recipe_id": "preserve_food",
+      "raw_good_id": "raw_food",
+      "ration_good_id": "food_ration"
+    },
+    "resources": [
+      {"id": "raw_food", "unit_weight": 1.0, "decay_rate": 0.08},
+      {
+        "id": "timber",
+        "unit_weight": 2.0,
+        "decay_rate": 0.01,
+        "source": {
+          "spatial_resource": "forest_cover",
+          "stock_per_unit": 2.0,
+          "max_per_cycle": 2.0,
+          "minimum_ratio": 0.2,
+          "skill": "forestry"
+        }
+      }
+    ],
+    "items": [
+      {"id": "food_ration", "unit_weight": 1.0, "decay_rate": 0.02, "base_value": 2.0},
+      {"id": "stone_tool", "unit_weight": 2.0, "decay_rate": 0.0, "base_value": 5.0, "durability": 100},
+      {"id": "plank", "unit_weight": 1.0, "decay_rate": 0.0, "base_value": 3.0},
+      {"id": "granary_kit", "unit_weight": 4.0, "decay_rate": 0.0, "base_value": 20.0}
+    ],
+    "recipes": [
+      {
+        "id": "preserve_food",
+        "inputs": {"raw_food": 20},
+        "tools": ["stone_tool"],
+        "skill": "agriculture",
+        "cycles": 1,
+        "labor": 1.0,
+        "outputs": {"food_ration": 20}
+      },
+      {
+        "id": "saw_plank",
+        "inputs": {"timber": 1},
+        "tools": ["stone_tool"],
+        "skill": "forestry",
+        "cycles": 2,
+        "labor": 1.0,
+        "outputs": {"plank": 2}
+      },
+      {
+        "id": "build_granary",
+        "inputs": {"plank": 4},
+        "tools": ["stone_tool"],
+        "skill": "construction",
+        "cycles": 4,
+        "labor": 1.0,
+        "outputs": {"granary_kit": 1}
+      }
+    ],
+    "infrastructures": [
+      {
+        "id": "granary",
+        "kit_good_id": "granary_kit",
+        "max_level": 2,
+        "capacity_bonus": 250.0
+      }
+    ]
+  },
+  "resources": {
+    "enabled": false,
+    "regeneration_interval": 3,
+    "biomass_capacity_scale": 5000.0,
+    "fish_capacity_scale": 1000.0,
+    "biomass_regeneration_rate": 0.08,
+    "soil_regeneration_rate": 0.02,
+    "water_regeneration_rate": 0.1,
+    "fish_regeneration_rate": 0.06,
+    "forest_regeneration_rate": 0.01,
+    "winter_mortality_rate": 0.05,
+    "drought_pressure": 0.8,
+    "flood_recovery": 0.2,
+    "agriculture_soil_cost": 0.02,
+    "agriculture_min_support": 0.85,
+    "minimum_birth_resource": 1.0,
+    "fire_min_forest_ratio": 0.25,
+    "fire_max_moisture": 0.85
+  },
+  "ecology": {
+    "population_limits": {
+      "enabled": true,
+      "global": 20,
+      "per_species": {},
+      "per_biome": {}
+    }
+  },
+  "food_balance": {
+    "enabled": true,
+    "generic_labor_yield": 0,
+    "storage_loss_rate": 0.01,
+    "specialization_window": 6,
+    "specialization_food_ratio": 0.25
+  },
   "water": {
     "ocean": "🌊",
     "shore": "💧",

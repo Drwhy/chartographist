@@ -2,7 +2,12 @@ import math
 from .base import Human
 from entities.registry import register_civ
 from core.discovery_service import DiscoveryService
-from core.economy import economy_enabled, economy_settings, execute_food_trade
+from core.economy import (
+    economy_enabled,
+    economy_settings,
+    execute_food_trade,
+    execute_material_trade,
+)
 from core.diplomacy import (
     diplomacy_enabled,
     record_trade,
@@ -125,12 +130,36 @@ class Trader(Human):
             base_capacity = int(economy_settings(self.home_city).get("trade_capacity", 10))
             multiplier = trade_capacity_multiplier(world, self.home_city, self.target_city)
             capacity = int(base_capacity * multiplier) + trade_bonus
-            transaction = execute_food_trade(
-                self.home_city,
-                self.target_city,
-                capacity=capacity,
-            )
+            transaction = None
+            material_settings = self.home_city.config.get("materials", {})
+            if material_settings.get("enabled") is True:
+                food_chain = material_settings.get("food_chain", {})
+                ration_id = food_chain.get("ration_good_id")
+                if ration_id:
+                    transaction = execute_material_trade(
+                        self.home_city,
+                        self.target_city,
+                        ration_id,
+                        capacity=capacity,
+                    )
+            if transaction is None or transaction.quantity <= 0:
+                transaction = execute_food_trade(
+                    self.home_city,
+                    self.target_city,
+                    capacity=capacity,
+                )
             trade_succeeded = transaction.quantity > 0
+            from core.simulation_metrics import SimulationMetrics
+            metrics = SimulationMetrics(world)
+            metrics.record_food("imported", transaction.quantity)
+            metrics.record_activity(
+                "economy", "transactions", int(transaction.quantity > 0)
+            )
+            if transaction.good_id != "food" and transaction.quantity > 0:
+                metrics.record_material("trades")
+                metrics.record_material(
+                    "traded", transaction.quantity, good_id=transaction.good_id
+                )
             if trade_succeeded:
                 message = Translator.translate(
                     "events.trade_market_success",
@@ -148,7 +177,16 @@ class Trader(Human):
                 )
         else:
             food_delivered = 10 + trade_bonus
-            self.target_city.food_stock += food_delivered
+            from core.food_balance import add_food
+            delivered = add_food(
+                self.target_city,
+                world,
+                food_delivered,
+                source="legacy_trade",
+                respect_capacity=False,
+            )
+            from core.simulation_metrics import SimulationMetrics
+            SimulationMetrics(world).record_food("imported", delivered)
             trade_succeeded = True
             message = Translator.translate(
                 "events.trade_success",
@@ -158,6 +196,24 @@ class Trader(Human):
             )
 
         if trade_succeeded:
+            from core.characters import CharacterService, characters_enabled
+            character_config = getattr(
+                self, "config", getattr(self.home_city, "config", {})
+            )
+            if characters_enabled(character_config):
+                from core.memory import MemoryBook
+                MemoryBook(self, character_config).remember(
+                    "trade",
+                    cycle=int(world.get("cycle", 0)),
+                    target_id=self.target_city.entity_id,
+                    position=self.target_city.pos,
+                    intensity=20.0,
+                    reliability=1.0,
+                    sentiment=1.0,
+                )
+                CharacterService(self, character_config).record_practice(
+                    "commerce", 1.0
+                )
             record_trade(world, self.home_city, self.target_city)
 
         GameLogger.log(

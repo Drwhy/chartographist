@@ -95,12 +95,21 @@ class Animal(Entity):
             self._reproduce(world)
 
     def _reproduce(self, world):
-        neighbors = self._get_accessible_neighbors(world)
+        from core.ecology_limits import can_add_fauna
+        from core.simulation_metrics import SimulationMetrics
+
+        if not can_add_fauna(world, self.config, self.species_data):
+            return
+        neighbors = [
+            position for position in self._get_accessible_neighbors(world)
+            if can_add_fauna(world, self.config, self.species_data, *position)
+        ]
         if neighbors:
             spawn_pos = RandomService.choice(neighbors)
             offspring = Animal(spawn_pos[0], spawn_pos[1], self.config, self.species_data)
             world['entities'].add(offspring)
             self.energy /= 2
+            SimulationMetrics(world).record_fauna("births")
 
     # ── AI ────────────────────────────────────────────────
 
@@ -195,14 +204,22 @@ class Animal(Entity):
         possible_moves = self._get_accessible_neighbors(world)
         if not possible_moves:
             return
-        scored = [
-            ((nx, ny),
-             world['influence'].get_fear(nx, ny) * self.fear_sensitivity
-             + world['influence'].get_scent(nx, ny)
-             + RandomService.random() * 0.3)
-            for nx, ny in possible_moves
-        ]
-        self.pos = max(scored, key=lambda m: m[1])[0]
+        from core.resources import ResourceSystem, resources_enabled
+        resource_system = ResourceSystem(world, self.config) if resources_enabled(self.config) else None
+        scored = []
+        for nx, ny in possible_moves:
+            resource_bonus = 0.0
+            if resource_system is not None and self.diet != "carnivore":
+                resource_name = "fish_stock" if self.is_aquatic else "biomass"
+                resource_bonus = resource_system.ratio(resource_name, nx, ny) * 2.0
+            score = (
+                world["influence"].get_fear(nx, ny) * self.fear_sensitivity
+                + world["influence"].get_scent(nx, ny)
+                + resource_bonus
+                + RandomService.random() * 0.3
+            )
+            scored.append(((nx, ny), score))
+        self.pos = max(scored, key=lambda item: item[1])[0]
 
     def _get_accessible_neighbors(self, world):
         return [
@@ -231,7 +248,12 @@ class Animal(Entity):
             self._wander(world)
 
     def _graze(self, world):
-        if 0.0 <= world['elev'][self.y][self.x] <= 0.5:
+        if 0.0 <= world["elev"][self.y][self.x] <= 0.5:
             productivity = ecosystem_productivity(world, self.config, self.x, self.y)
             grazing_gain = max(1, round(2 * productivity))
+            from core.resources import ResourceSystem, resources_enabled
+            if resources_enabled(self.config):
+                grazing_gain = ResourceSystem(world, self.config).extract(
+                    "biomass", self.x, self.y, grazing_gain
+                )
             self.energy = min(self.max_energy, self.energy + grazing_gain)
