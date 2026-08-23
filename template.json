@@ -1,5 +1,44 @@
 {
   "world_name": "Fantasy World",
+  "economy": {
+    "enabled": true,
+    "initial_treasury": 250.0,
+    "base_food_price": 1.0,
+    "min_food_price": 0.5,
+    "max_food_price": 3.0,
+    "food_reserve": 50,
+    "trade_capacity": 15,
+    "settler_treasury_cost": 75.0
+  },
+  "diplomacy": {
+    "enabled": true,
+    "trade_trust_gain": 2,
+    "trade_tension_relief": 1,
+    "trade_interdependence_gain": 2,
+    "trade_pact_threshold": 20,
+    "alliance_threshold": 60,
+    "hostility_threshold": 50,
+    "war_threshold": 80,
+    "truce_duration": 60,
+    "war_min_duration": 60,
+    "war_exhaustion_rate": 1,
+    "trade_pact_capacity_multiplier": 1.5,
+    "alliance_aid_food": 10,
+    "alliance_aid_reserve": 50
+  },
+  "climate": {
+    "enabled": true,
+    "seasonal_amplitude": 0.2,
+    "altitude_lapse_rate": 0.6,
+    "base_humidity": 0.5,
+    "river_humidity_bonus": 0.25,
+    "temperature_anomaly_decay": 0.9,
+    "precipitation_anomaly_decay": 0.9,
+    "hazard_decay": 0.85,
+    "anomaly_chance": 0.01,
+    "anomaly_min_severity": 0.2,
+    "anomaly_max_severity": 0.6
+  },
   "water": {
     "ocean": "🌊",
     "shore": "💧",

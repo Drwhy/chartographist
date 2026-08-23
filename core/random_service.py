@@ -28,6 +28,19 @@ class RandomService:
             cls.initialize(random.randint(0, 999999))
         return cls._rng
 
+    @classmethod
+    def get_state(cls):
+        """Returns the serializable state of the deterministic generator."""
+        return cls.get_rng().getstate()
+
+    @classmethod
+    def set_state(cls, state):
+        """Restores a previously captured deterministic generator state."""
+        rng = random.Random()
+        rng.setstate(state)
+        cls._rng = rng
+        cls._instance = cls
+
     # Helper shortcuts for the most frequently used random operations
     @classmethod
     def random(cls):

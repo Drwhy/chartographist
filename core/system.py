@@ -2,6 +2,7 @@ import sys
 import random
 import argparse
 import hashlib
+from dataclasses import dataclass
 from . import culture
 from core.translator import Translator
 
@@ -51,22 +52,22 @@ def stable_seed(value):
         return int.from_bytes(digest[:8], "big")
 
 
-def load_arguments():
-    """
-    Handles command-line argument parsing for world generation and simulation settings.
-    Processes seeds, templates, and language localization.
+@dataclass(frozen=True)
+class LaunchOptions:
+    config: dict
+    seed: int
+    load_path: str | None = None
+    save_path: str | None = None
 
-    Returns:
-        tuple: (config_dict, seed_value)
-    """
+
+def load_launch_options():
+    """Parse les options complètes utilisées par l'adaptateur terminal."""
     language_parser = argparse.ArgumentParser(add_help=False)
     language_parser.add_argument("--lang", default="fr")
     language_args, _ = language_parser.parse_known_args()
     Translator.load(language_args.lang)
 
     parser = argparse.ArgumentParser(description=Translator.translate("cli.description"))
-
-    # 1. Argument definitions
     parser.add_argument("--seed", type=str, help=Translator.translate("cli.seed_help"))
     parser.add_argument(
         "--template",
@@ -80,16 +81,24 @@ def load_arguments():
         default="fr",
         help=Translator.translate("cli.lang_help"),
     )
-
+    parser.add_argument(
+        "--load",
+        dest="load_path",
+        help=Translator.translate("cli.load_help"),
+    )
+    parser.add_argument(
+        "--save",
+        dest="save_path",
+        help=Translator.translate("cli.save_help"),
+    )
     args = parser.parse_args()
 
-    # 2. Seed management (Deterministic hashing logic)
-    if args.seed:
-        seed_val = stable_seed(args.seed)
-    else:
-        seed_val = random.randint(0, 99999)
+    seed = stable_seed(args.seed) if args.seed else random.randint(0, 99999)
+    config = {} if args.load_path else culture.load_config(args.template)
+    return LaunchOptions(config, seed, args.load_path, args.save_path)
 
-    # 3. Configuration loading
-    config = culture.load_config(args.template)
 
-    return config, seed_val
+def load_arguments():
+    """Retourne le contrat historique ``(config, seed)``."""
+    options = load_launch_options()
+    return options.config, options.seed

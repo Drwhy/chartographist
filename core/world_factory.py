@@ -5,6 +5,7 @@ from core.random_service import RandomService
 from core.logger import GameLogger
 from core.translator import Translator
 from core.influence import InfluenceSystem
+from core.chronicles import ChronicleBook
 
 def assemble_world(width, height, config, seed_val):
     """
@@ -25,6 +26,19 @@ def assemble_world(width, height, config, seed_val):
         'height': height,
         'seed': seed_val,
         'cycle': 0,
+        'chronicles': [],
+        'next_chronicle_id': 1,
+        'diplomacy': {},
+        'next_relation_id': 1,
+        'climate': {
+            'season': 'winter',
+            'season_index': 0,
+            'temperature_anomaly': 0.0,
+            'precipitation_anomaly': 0.0,
+            'drought_severity': 0.0,
+            'flood_severity': 0.0,
+            'last_update_cycle': 0,
+        },
         'elev': elevation,
         'riv': rivers,
         'plates': plates,
@@ -45,4 +59,11 @@ def assemble_world(width, height, config, seed_val):
         'logs': [init_msg]
     }
 
+    ChronicleBook(world).record(
+        init_msg,
+        cycle=0,
+        year=0,
+        month=1,
+        category="system",
+    )
     return world, stats

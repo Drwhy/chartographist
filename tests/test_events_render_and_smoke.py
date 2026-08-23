@@ -13,6 +13,7 @@ from core.entities import Entity, EntityManager
 from core.grid_service import SpatialGrid
 from core.influence import InfluenceSystem
 from core.random_service import RandomService
+from core.simulation_engine import SimulationEngine
 from core.translator import Translator
 from core.world_factory import assemble_world
 from entities.species.animal.base import Animal
@@ -163,23 +164,9 @@ class EventsRenderAndSmokeTests(unittest.TestCase):
         grazer = Animal(x, y, config, animal_data())
         world["entities"].add(grazer)
 
-        for cycle in range(1, 26):
-            world["cycle"] = cycle
-            world["grid"].clear()
-            for entity in world["entities"]:
-                if not entity.is_expired:
-                    world["grid"].add_entity(entity)
-            if cycle % 10 == 0:
-                world["influence"].update()
-            for entity in list(world["entities"]):
-                entity.process_turn(world, stats)
-                if cycle % 10 == 0:
-                    entity.update_influence(world)
-                    if hasattr(entity, "check_vital_signs"):
-                        entity.check_vital_signs(world)
-            with mock.patch.object(event_manager_module, "EVENT_CATALOG", []):
-                EventManager.update(world, stats, config)
-            world["entities"].remove_dead()
+        engine = SimulationEngine(world, stats, config)
+        with mock.patch.object(event_manager_module, "EVENT_CATALOG", []):
+            engine.run(25)
 
         self.assertEqual(world["cycle"], 25)
         self.assertGreaterEqual(len(world["entities"]), 0)

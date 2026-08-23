@@ -57,6 +57,7 @@ class VolcanoEruption(BaseEvent):
                     if hasattr(entity, 'population'): # Check if it's a City or Village
                         # Replace the thriving settlement with a Ruin
                         ruin = Ruins(entity.x, entity.y, entity.culture, entity.config, entity.name)
+                        ruin.preserve_identity_from(entity)
                         world['entities'].add(ruin)
                         entity.is_expired = True
 

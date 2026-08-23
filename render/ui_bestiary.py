@@ -9,6 +9,8 @@ SPECIES_TAB = 'species'
 RELIGION_TAB = 'religion'
 GUIDE_TAB = 'guide'
 SETTLEMENTS_TAB = 'cities'
+CHRONICLES_TAB = 'chronicles'
+DIPLOMACY_TAB = 'diplomacy'
 ENTRIES_PER_PAGE = 7
 
 _GUIDE_KEYS = [
@@ -50,6 +52,10 @@ def render_bestiary(width, height, world_data, config, state):
         entries = _build_religion_entries()
     elif tab == SETTLEMENTS_TAB:
         entries = _build_settlements_entries(world_data)
+    elif tab == CHRONICLES_TAB:
+        entries = _build_chronicle_entries(world_data)
+    elif tab == DIPLOMACY_TAB:
+        entries = _build_diplomacy_entries(world_data)
     else:
         entries = _build_guide_entries()
 
@@ -65,7 +71,20 @@ def render_bestiary(width, height, world_data, config, state):
     tr = Translator.translate("ui.bestiary_tab_religion_on" if tab == RELIGION_TAB else "ui.bestiary_tab_religion_off")
     tg = Translator.translate("ui.bestiary_tab_guide_on" if tab == GUIDE_TAB else "ui.bestiary_tab_guide_off")
     tc = Translator.translate("ui.bestiary_tab_cities_on" if tab == SETTLEMENTS_TAB else "ui.bestiary_tab_cities_off")
-    nav = Translator.translate("ui.bestiary_nav", fauna=tf, species=ts, religion=tr, guide=tg, cities=tc, page=page + 1, total=total_pages)
+    th = Translator.translate("ui.bestiary_tab_chronicles_on" if tab == CHRONICLES_TAB else "ui.bestiary_tab_chronicles_off")
+    td = Translator.translate("ui.bestiary_tab_diplomacy_on" if tab == DIPLOMACY_TAB else "ui.bestiary_tab_diplomacy_off")
+    nav = Translator.translate(
+        "ui.bestiary_nav",
+        fauna=tf,
+        species=ts,
+        religion=tr,
+        guide=tg,
+        cities=tc,
+        chronicles=th,
+        diplomacy=td,
+        page=page + 1,
+        total=total_pages,
+    )
     title = Translator.translate("ui.bestiary_title")
     print(("═" * W)[:W] + eol)
     print(f"{title}   {nav}"[:W] + eol)
@@ -263,6 +282,19 @@ def _build_settlements_entries(world_data):
     return [_settlement_entry(s) for s in settlements]
 
 
+def _settlement_economy_line(settlement):
+    from core.economy import economy_snapshot
+
+    economy = economy_snapshot(settlement)
+    return Translator.translate(
+        "ui.bestiary_settlements_economy_line",
+        treasury=f"{economy['treasury']:.2f}",
+        price=f"{economy['food_price']:.2f}",
+        imported=economy["food_imported"],
+        exported=economy["food_exported"],
+    )
+
+
 def _settlement_entry(settlement):
     from entities.constructs.city import City
     from entities.species.human.base import Human
@@ -285,7 +317,7 @@ def _settlement_entry(settlement):
     couple_pairs = set()
     for c in citizens:
         if c.partner is not None and not c.partner.is_dead:
-            couple_pairs.add(frozenset({id(c), id(c.partner)}))
+            couple_pairs.add(frozenset({c.entity_id, c.partner.entity_id}))
     couples = len(couple_pairs)
 
     families  = sum(1 for c in citizens if any(not ch.is_dead for ch in c.children))
@@ -314,7 +346,48 @@ def _settlement_entry(settlement):
         "ui.bestiary_settlements_food_line",
         food=food, max_food=max_food, faith=faith_label
     )
-    return [line1, line2, line3, line4]
+    lines = [line1, line2, line3, line4]
+    from core.economy import economy_enabled
+    if economy_enabled(settlement):
+        lines.append("     " + _settlement_economy_line(settlement))
+    return lines
+
+
+# ── Diplomacy tab ──────────────────────────────────────────────────────────
+
+def _build_diplomacy_entries(world_data):
+    from core.diplomacy import DiplomacyRegistry
+
+    entities = {
+        entity.entity_id: entity
+        for entity in world_data.get("entities", [])
+        if hasattr(entity, "entity_id")
+    }
+    entries = []
+    for relation in DiplomacyRegistry(world_data).query():
+        first = entities.get(relation["first_id"])
+        second = entities.get(relation["second_id"])
+        first_name = getattr(first, "name", relation["first_id"])
+        second_name = getattr(second, "name", relation["second_id"])
+        status = Translator.translate(
+            f"ui.diplomacy_status_{relation['status']}"
+        )
+        line1 = "  " + Translator.translate(
+            "ui.diplomacy_relation_line",
+            first=first_name,
+            second=second_name,
+            status=status,
+        )
+        line2 = "     " + Translator.translate(
+            "ui.diplomacy_metrics_line",
+            trust=f"{relation['trust']:.1f}",
+            tension=f"{relation['tension']:.1f}",
+            interdependence=f"{relation['interdependence']:.1f}",
+        )
+        entries.append([line1, line2])
+    if not entries:
+        entries.append(["  " + Translator.translate("ui.diplomacy_empty")])
+    return entries
 
 
 # ── Guide tab ──────────────────────────────────────────────────────────────
@@ -330,6 +403,30 @@ def _build_guide_entries():
             entries.append([f"  {name}", f"     {desc}"])
     return entries
 
+
+# ── Chronicles tab ────────────────────────────────────────────────────────
+
+def _build_chronicle_entries(world_data):
+    from core.chronicles import ChronicleBook
+
+    entries = []
+    for entry in reversed(ChronicleBook(world_data).query()):
+        date = Translator.translate(
+            "ui.chronicle_date",
+            year=entry["year"],
+            month=entry["month"],
+            cycle=entry["cycle"],
+        )
+        category = Translator.translate(
+            f"ui.chronicle_category_{entry['category']}"
+        )
+        if category.startswith("[MISSING_TEXT:"):
+            category = Translator.translate(
+                "ui.chronicle_category",
+                category=entry["category"],
+            )
+        entries.append([f"  {date}  {category}", f"     {entry['message']}"])
+    return entries
 
 # ── Final Chronicles bestiary summary ──────────────────────────────────────
 

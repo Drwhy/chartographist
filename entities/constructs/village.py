@@ -109,6 +109,7 @@ class Village(Construct):
         for i, p in enumerate(self.citizens):
             if type(p) is Human:
                 new_farmer = Farmer(self.x, self.y, self.culture, self.config, name=p.name, age=p.age)
+                new_farmer.preserve_identity_from(p)
                 new_farmer.faith = p.faith
                 new_farmer.species_data = p.species_data
                 new_farmer.partner = p.partner
@@ -147,12 +148,20 @@ class Village(Construct):
     def _evolve_to_city(self, world):
         """Village becomes a City. Citizens and religion are transferred."""
         from entities.constructs.city import City
-        GameLogger.log(Translator.translate("entities.village_promoted", name=self.name, x=self.x, y=self.y))
+        GameLogger.log(
+            Translator.translate("entities.village_promoted", name=self.name, x=self.x, y=self.y),
+            category="settlement",
+            entity_ids=[self.entity_id],
+            position=self.pos,
+        )
 
         new_city = City(self.x, self.y, self.culture, self.config)
+        new_city.preserve_identity_from(self)
         # CRITICAL: Transfer the actual list of agents (preserving age/XP/faith)
         new_city.citizens = self.citizens
         new_city.food_stock = self.food_stock
+        if hasattr(self, 'economy'):
+            new_city.economy = self.economy
         # Transfer religion demographics from village to city
         if self.religion:
             new_city.religion = self.religion

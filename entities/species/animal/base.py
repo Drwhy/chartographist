@@ -1,4 +1,5 @@
 import math
+from core.climate import ecosystem_productivity, habitat_suitability
 from core.entities import Entity, Z_ANIMAL
 from core.logger import GameLogger
 from core.random_service import RandomService
@@ -74,6 +75,8 @@ class Animal(Entity):
         elev_min = spawn_cfg.get('elevation_min', 0.0)
         elev_max = spawn_cfg.get('elevation_max', 1.0)
         if elev_min < h < elev_max and RandomService.random() < spawn_cfg.get('chance', 0.05):
+            if habitat_suitability(world, config, species_data, x, y) <= 0:
+                return None
             return Animal(x, y, config, species_data)
         return None
 
@@ -229,4 +232,6 @@ class Animal(Entity):
 
     def _graze(self, world):
         if 0.0 <= world['elev'][self.y][self.x] <= 0.5:
-            self.energy = min(self.max_energy, self.energy + 2)
+            productivity = ecosystem_productivity(world, self.config, self.x, self.y)
+            grazing_gain = max(1, round(2 * productivity))
+            self.energy = min(self.max_energy, self.energy + grazing_gain)

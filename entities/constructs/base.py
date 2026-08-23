@@ -3,6 +3,7 @@ from core.naming import NameGenerator
 from core.random_service import RandomService
 from entities.species.human.base import Human
 from core.entities import Entity, Z_CONSTRUCT
+from core.economy import ensure_economy
 from core.logger import GameLogger
 from core.translator import Translator
 from core.religion import generate_demographics, SyncreticReligion, _find_template
@@ -24,6 +25,7 @@ class Construct(Entity):
         self.ticks_since_founded = 0
         self.stability = 1.0
         self.config = config
+        ensure_economy(self)
         self.species = "construct"
 
         # Generates a procedural place name based on cultural linguistics
@@ -212,7 +214,7 @@ class Construct(Entity):
             # Biological reproduction requires one male and one female
             if citizen.sex == partner.sex:
                 continue
-            pair_key = frozenset({id(citizen), id(partner)})
+            pair_key = frozenset({citizen.entity_id, partner.entity_id})
             if pair_key in seen:
                 continue
             seen.add(pair_key)
@@ -223,11 +225,11 @@ class Construct(Entity):
 
     def _are_related(self, p1, p2):
         """Return True if p1 and p2 share a parent or are parent and child."""
-        p1_parent_ids = {id(p) for p in (p1.parents or ()) if p is not None}
-        p2_parent_ids = {id(p) for p in (p2.parents or ()) if p is not None}
+        p1_parent_ids = {p.entity_id for p in (p1.parents or ()) if p is not None}
+        p2_parent_ids = {p.entity_id for p in (p2.parents or ()) if p is not None}
         if p1_parent_ids & p2_parent_ids:   # siblings
             return True
-        if id(p2) in p1_parent_ids or id(p1) in p2_parent_ids:  # parent-child
+        if p2.entity_id in p1_parent_ids or p1.entity_id in p2_parent_ids:  # parent-child
             return True
         return False
 

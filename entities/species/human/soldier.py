@@ -37,6 +37,15 @@ class Soldier(Human):
         if self.is_expired or self.is_dead:
             return
 
+        from core.diplomacy import diplomacy_enabled, is_at_war
+        if diplomacy_enabled(self.home_city) and not is_at_war(
+            world,
+            self.home_city.entity_id,
+            self.target_city.entity_id,
+        ):
+            self.retreating = True
+            return
+
         # Target city destroyed or expired — mission over, retreat
         if self.target_city.is_expired or getattr(self.target_city, 'population', 0) <= 0:
             self.retreating = True

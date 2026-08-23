@@ -1,4 +1,5 @@
 from .base import Human
+from core.climate import agriculture_yield_multiplier
 from core.random_service import RandomService
 
 class Farmer(Human):
@@ -27,7 +28,7 @@ class Farmer(Human):
         # 2. Production avec bonus d'Expérience + espèce
         xp_bonus = 1 + (self.experience * 0.1)
         species_bonus = 1 + self.species_trait("harvest") * 0.1
-        yield_amount = int(4 * fertility * xp_bonus * species_bonus)
+        yield_amount = int(4 * fertility * xp_bonus * species_bonus * agriculture_yield_multiplier(world, self.config, city.x, city.y))
 
         # Ajout au stock de la cité (ne dépasse pas max_food)
         city.food_stock = min(city.max_food, city.food_stock + yield_amount)

@@ -2,6 +2,13 @@ import math
 from .base import Human
 from entities.registry import register_civ
 from core.discovery_service import DiscoveryService
+from core.economy import economy_enabled, economy_settings, execute_food_trade
+from core.diplomacy import (
+    diplomacy_enabled,
+    record_trade,
+    trade_allowed,
+    trade_capacity_multiplier,
+)
 from core.logger import GameLogger
 from core.translator import Translator
 from core.random_service import RandomService
@@ -59,7 +66,7 @@ class Trader(Human):
             return
 
         # Prefer unvisited cities; fall back to all others when every city has been seen
-        unvisited = [c for c in others if id(c) not in self.visited_cities]
+        unvisited = [c for c in others if c.entity_id not in self.visited_cities]
         candidates = unvisited if unvisited else others
 
         # Score candidates: prefer medium distances over the nearest neighbour to
@@ -102,29 +109,71 @@ class Trader(Human):
         self.pos = best_move
 
     def _do_trade(self, world):
-        """Exchange goods, spread religion, build roads, and move on."""
+        """Echange des ressources, diffuse la foi, construit une route et repart."""
         trade_bonus = int(self.faith_bonus("trade")) + int(self.species_trait("trade"))
-        food_delivered = 10 + trade_bonus
-        self.target_city.food_stock += food_delivered
+        related_ids = [self.home_city.entity_id, self.target_city.entity_id, self.entity_id]
+        blocked = not trade_allowed(world, self.home_city, self.target_city)
+        trade_succeeded = False
 
-        GameLogger.log(Translator.translate("events.trade_success",
-            home_city=self.home_city.name,
-            target_city=self.target_city.name,
-            bonus=trade_bonus))
+        if blocked:
+            message = Translator.translate(
+                "events.trade_blocked_by_war",
+                home_city=self.home_city.name,
+                target_city=self.target_city.name,
+            )
+        elif economy_enabled(self.home_city):
+            base_capacity = int(economy_settings(self.home_city).get("trade_capacity", 10))
+            multiplier = trade_capacity_multiplier(world, self.home_city, self.target_city)
+            capacity = int(base_capacity * multiplier) + trade_bonus
+            transaction = execute_food_trade(
+                self.home_city,
+                self.target_city,
+                capacity=capacity,
+            )
+            trade_succeeded = transaction.quantity > 0
+            if trade_succeeded:
+                message = Translator.translate(
+                    "events.trade_market_success",
+                    home_city=self.home_city.name,
+                    target_city=self.target_city.name,
+                    quantity=transaction.quantity,
+                    value=f"{transaction.value:.2f}",
+                    price=f"{transaction.unit_price:.2f}",
+                )
+            else:
+                message = Translator.translate(
+                    "events.trade_no_surplus",
+                    home_city=self.home_city.name,
+                    target_city=self.target_city.name,
+                )
+        else:
+            food_delivered = 10 + trade_bonus
+            self.target_city.food_stock += food_delivered
+            trade_succeeded = True
+            message = Translator.translate(
+                "events.trade_success",
+                home_city=self.home_city.name,
+                target_city=self.target_city.name,
+                bonus=trade_bonus,
+            )
 
-        # --- Discovery & Road Building ---
-        self._establish_connection(world)
+        if trade_succeeded:
+            record_trade(world, self.home_city, self.target_city)
 
-        # --- Religion Spread ---
-        self._spread_religion()
+        GameLogger.log(
+            message,
+            category="diplomacy" if blocked else "economy",
+            entity_ids=related_ids,
+            position=self.target_city.pos,
+        )
 
-        self.visited_cities.add(id(self.target_city))
+        if not blocked:
+            self._establish_connection(world)
+            self._spread_religion()
+        self.visited_cities.add(self.target_city.entity_id)
         self.trades_since_home += 1
-
-        # Use the target city as the new departure point for the next leg
         self.home_city = self.target_city
         self.target_city = None
-
     def _arrive_home(self):
         """Reset the route after returning to base city."""
         self._returning_home = False
@@ -147,8 +196,8 @@ class Trader(Human):
         if not hasattr(target, 'known_cities'):
             target.known_cities = set()
 
-        home_id = id(home)
-        target_id = id(target)
+        home_id = home.entity_id
+        target_id = target.entity_id
 
         # First contact: build a road
         if target_id not in home.known_cities:

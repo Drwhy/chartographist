@@ -2,6 +2,13 @@
 from .base import Construct
 from entities.registry import register_structure, STRUCTURE_TYPES
 from core.logger import GameLogger
+from core.economy import can_afford, economy_enabled, economy_settings, spend
+from core.diplomacy import (
+    DiplomacyRegistry,
+    DiplomacyTransitionError,
+    diplomacy_enabled,
+    war_probability_multiplier,
+)
 from core.random_service import RandomService
 from core.translator import Translator
 from entities.constructs.ruins import Ruins
@@ -106,11 +113,17 @@ class City(Construct):
         # Check if we reached the threshold (e.g. 50 citizens)
         if self.population >= self.settler_threshold and self.settler_cooldown == 0:
             if self._can_world_support_new_settler(world):
+                treasury_cost = 0.0
+                if economy_enabled(self):
+                    treasury_cost = float(economy_settings(self).get("settler_treasury_cost", 0))
+                    if not can_afford(self, treasury_cost):
+                        return
 
                 # SAFETY: Ensure we don't try to remove more citizens than we have
                 actual_cost = min(len(self.citizens), self.settler_cost)
 
                 if actual_cost > 0:
+                    spend(self, treasury_cost)
                     # The 'settler_cost' citizens leave the city list
                     # We take the most 'experienced' or the youngest?
                     # Usually, we take them from the end of the list (newest)
@@ -142,8 +155,14 @@ class City(Construct):
     def _collapse_into_ruins(self, world):
         self.is_expired = True
         ruins = Ruins(self.x, self.y, self.culture, self.config, self.name)
+        ruins.preserve_identity_from(self)
         world['entities'].add(ruins)
-        GameLogger.log(Translator.translate("entities.ruins_desc", name=self.name))
+        GameLogger.log(
+            Translator.translate("entities.ruins_desc", name=self.name),
+            category="settlement",
+            entity_ids=[self.entity_id],
+            position=self.pos,
+        )
 
     # --- RE-USING YOUR REFACTORED HELPERS ---
     def _spawn_settler(self, world):
@@ -178,6 +197,7 @@ class City(Construct):
         for i, person in enumerate(self.citizens):
             if type(person) is Human:
                 new_farmer = Farmer(self.x, self.y, self.culture, self.config, name=person.name, age=person.age)
+                new_farmer.preserve_identity_from(person)
                 new_farmer.faith = person.faith
                 new_farmer.species_data = person.species_data
                 new_farmer.partner = person.partner
@@ -240,25 +260,58 @@ class City(Construct):
         proximity_factor = max(0, 1.0 - (dist / 40))  # Closer = more likely
 
         war_chance = 0.03 * pop_ratio * proximity_factor
+        if diplomacy_enabled(self):
+            war_chance *= war_probability_multiplier(
+                world,
+                self.entity_id,
+                target.entity_id,
+            )
 
         if RandomService.random() < war_chance:
-            self._declare_war(target)
+            self._declare_war(target, world)
 
-    def _declare_war(self, target):
+    def _declare_war(self, target, world=None):
         """Formally declare war on another city."""
-        self.enemies.append(target)
-        self.war_cooldown = 200  # Can't declare another war for 200 ticks
+        diplomacy_active = world is not None and diplomacy_enabled(self)
+        if diplomacy_active:
+            try:
+                DiplomacyRegistry(world).transition(
+                    self.entity_id,
+                    target.entity_id,
+                    "war",
+                    reason="war_declaration",
+                )
+            except DiplomacyTransitionError:
+                GameLogger.log(
+                    Translator.translate(
+                        "events.war_blocked_diplomacy",
+                        attacker=self.name,
+                        defender=target.name,
+                    ),
+                    category="diplomacy",
+                    entity_ids=[self.entity_id, target.entity_id],
+                    position=self.pos,
+                )
+                return False
 
-        # Mutual war: the target retaliates
-        if hasattr(target, 'enemies'):
-            if self not in target.enemies:
-                target.enemies.append(self)
+        if target not in self.enemies:
+            self.enemies.append(target)
+        self.war_cooldown = 200
 
-        GameLogger.log(Translator.translate(
-            "events.war_declared",
-            attacker=self.name, defender=target.name
-        ))
+        if hasattr(target, "enemies") and self not in target.enemies:
+            target.enemies.append(self)
 
+        GameLogger.log(
+            Translator.translate(
+                "events.war_declared",
+                attacker=self.name,
+                defender=target.name,
+            ),
+            category="diplomacy" if diplomacy_active else "event",
+            entity_ids=[self.entity_id, target.entity_id] if diplomacy_active else None,
+            position=self.pos if diplomacy_active else None,
+        )
+        return True
     def _spawn_soldier(self, world):
         """Consume citizens to create a soldier unit targeting the enemy."""
         from entities.species.human.soldier import Soldier

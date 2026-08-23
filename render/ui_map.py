@@ -1,6 +1,7 @@
 import math
 import time
 import sys
+from core.climate import biome_at
 from core.random_service import RandomService
 from core.translator import Translator
 
@@ -31,8 +32,7 @@ def get_char_at(x, y, world_data, config, entity_map=None):
         return config.get("water", {}).get("river", "~~")
 
     # 3. TERRAIN LAYER (The background map)
-    cycle = world_data.get('cycle', 0)
-    return _calculate_complex_biome(x, y, h, cycle, world_data['width'], world_data['height'], config)
+    return biome_at(x, y, h, world_data, config)
 
 def _calculate_complex_biome(x, y, h, cycle, width, height, config):
     """

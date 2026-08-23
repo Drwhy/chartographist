@@ -22,6 +22,9 @@ Ces règles s'appliquent à toute modification de ce dépôt.
 
 ## Tests obligatoires
 
+- Travailler en TDD strict pour toute modification fonctionnelle : écrire d'abord un test décrivant le comportement attendu, l'exécuter et constater qu'il échoue pour la bonne raison avant de modifier le code applicatif.
+- Suivre la boucle rouge → vert → refactorisation : changement minimal pour faire passer le test, puis amélioration sans altérer le comportement couvert.
+- Ne jamais écrire le code de production avant le test correspondant, sauf changement exclusivement documentaire ou impossibilité technique explicitement justifiée.
 - Toute modification fonctionnelle doit être accompagnée de tests automatisés nouveaux ou adaptés couvrant le comportement nominal et les cas limites pertinents.
 - Toute correction de bug doit inclure un test de non-régression qui échoue sans la correction.
 - Tester les contrats affectés entre modules, pas seulement les fonctions isolées.

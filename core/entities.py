@@ -1,3 +1,5 @@
+from core.entity_ids import EntityIdService
+
 # Display Priority Scale (Z-Index)
 # Higher values render "on top" of others.
 Z_FLOOR = 0      # Biomes, Water (Handled by the rendering engine)
@@ -15,11 +17,17 @@ class Entity:
     def __init__(self, x, y, char, z_index, speed):
         # Internal list for mutability, exposed via properties for safety.
         self._pos = [x, y]
+        self.entity_id = EntityIdService.next_id()
         self.char = char
         self.is_expired = False
         self.z_index = z_index
         self.speed = speed
         self.action_meter = 0.0
+
+    def preserve_identity_from(self, entity):
+        """Conserve l'identifiant d'une entité remplacée ou transformée."""
+        self.entity_id = entity.entity_id
+        return self
 
     @property
     def can_act(self):

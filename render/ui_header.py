@@ -43,6 +43,18 @@ def render_header(width, world_data, stats, config):
         line3 = Translator.translate("ui.header_faiths", faiths=faiths_str)
         print(f"{line3}{erase_to_end}")
 
+    climate_config = config.get("climate", {})
+    if isinstance(climate_config, dict) and climate_config.get("enabled") is True:
+        from core.climate import ClimateSystem
+        climate = ClimateSystem(world_data, config)
+        season = Translator.translate(f"ui.season_{climate.state['season']}")
+        line_climate = Translator.translate(
+            "ui.header_climate",
+            season=season,
+            drought=round(float(climate.state.get("drought_severity", 0.0)) * 100),
+            flood=round(float(climate.state.get("flood_severity", 0.0)) * 100),
+        )
+        print(f"{line_climate}{erase_to_end}")
     # Proportional separation line based on map width (character width is 2 per tile)
     print("=" * (width * 2))
 
