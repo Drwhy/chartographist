@@ -644,10 +644,13 @@ Ajouter un mode navigateur local et une couche par sprites sans déplacer la
 simulation hors de Python ni modifier le terminal historique. L'étude complète
 est dans [`ETUDE_PHASE_16_RENDU_WEB.md`](ETUDE_PHASE_16_RENDU_WEB.md).
 
-> État au 26 août 2026 : lots 16.0 à 16.5 implémentés et validés par 443 tests.
+> **Phase 16 terminée le 26 août 2026.** Les lots 16.0 à 16.7 sont
+> implémentés et validés par 446 tests.
 > Le mode terminal reste le défaut sans dépendance web ; le mode optionnel sert
 > désormais une carte Canvas navigable, les panneaux, la sélection, les contrôles
-> et les deltas WebSocket exclusivement sur une adresse de bouclage.
+> et les deltas WebSocket exclusivement sur une adresse de bouclage. La projection
+> est différée sans client et l'application des deltas côté navigateur est en O(k)
+> sur le nombre de cellules modifiées.
 
 ## Lots
 
@@ -675,7 +678,11 @@ Terminé : catalogue de 42 clés standard, manifeste v1 validé, atlas classique
 couches interchangeable à chaud avec les glyphes.
 
 ### Lots 16.6–16.7 — Optimisation et stabilisation
-Ajouter deltas et caches, puis valider terminal, web, i18n et campagnes longues.
+Terminé : projection différée tant qu'aucun client n'est connecté, index de
+cellules réutilisé pour appliquer les deltas sans recopier la carte, reprise par
+delta après reconnexion et contrats de révision couverts. Validation complète :
+446 tests, routes HTTP et commandes réelles sur `127.0.0.1`, puis trois campagnes
+60 × 30 × 1 200 cycles (graines 1661, 1667 et 1673) sans extinction.
 
 ## Critères de sortie
 
@@ -700,7 +707,8 @@ Pour réduire le risque, chaque phase suit le même découpage :
 7. **Interface et i18n** — textes fr/en/es et navigation.
 8. **Validation émergente** — tests multi-graines, simulations longues et comparaison statistique.
 
-# Prochaine étape : lots 16.6–16.7 — optimisation et stabilisation
+# Prochaine étape : planifier la phase 17
 
-Le prochain incrément mesurera le coût du rendu sprite et des deltas, puis
-validera les campagnes longues, la reconnexion et la compatibilité terminal/web.
+La phase 16 étant complète, le prochain incrément doit cadrer la phase 17 avant
+toute modification fonctionnelle : intention produit, risques, contrats
+rétrocompatibles, critères de sortie et lots TDD.

@@ -289,9 +289,15 @@ def run_web_server(host, *, address="127.0.0.1", port=8765):
 
 
 async def _publish_cycles(host, sockets):
-    previous = host.snapshot()
+    previous = None
     while not host.stopped:
         await asyncio.sleep(host.tick_interval)
+        if not sockets:
+            host.tick(publish_snapshot=False)
+            previous = None
+            continue
+        if previous is None:
+            previous = host.snapshot()
         current = host.tick()
         if current.get("revision") == previous.get("revision"):
             continue

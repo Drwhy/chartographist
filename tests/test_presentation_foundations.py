@@ -346,6 +346,30 @@ class SimulationHostTests(unittest.TestCase):
         self.assertIsInstance(errors[0], RuntimeError)
         self.assertEqual(host.engine.world["cycle"], 0)
 
+    def test_host_can_defer_projection_without_losing_revision(self):
+        projections = []
+        host = SimulationHost(
+            FakeEngine(),
+            snapshot_factory=lambda engine, revision: projections.append(
+                revision
+            ) or {
+                "revision": revision,
+                "cycle": engine.world["cycle"],
+            },
+        )
+        self.assertIsNone(host.tick(publish_snapshot=False))
+        self.assertEqual(host.revision, 1)
+        self.assertEqual(projections, [])
+        self.assertEqual(
+            host.snapshot(),
+            {"revision": 1, "cycle": 1},
+        )
+        self.assertEqual(projections, [1])
+        self.assertIsNone(host.tick(publish_snapshot=False))
+        self.assertEqual(host.revision, 2)
+        self.assertEqual(host.snapshot()["revision"], 2)
+        self.assertEqual(projections, [1, 2])
+
 
 if __name__ == "__main__":
     unittest.main()

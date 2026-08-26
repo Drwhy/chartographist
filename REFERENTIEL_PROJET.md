@@ -175,7 +175,7 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 
 | Fichier | Rôle | À modifier avec |
 |---|---|---|
-| [`ETUDE_PHASE_16_RENDU_WEB.md`](ETUDE_PHASE_16_RENDU_WEB.md) | Faisabilité, risques, architecture cible, protocole, spritesheets et plan TDD de la phase 16. | À maintenir pendant les lots 16.0 à 16.7. |
+| [`ETUDE_PHASE_16_RENDU_WEB.md`](ETUDE_PHASE_16_RENDU_WEB.md) | Faisabilité, risques, architecture cible, protocole, spritesheets, optimisations et bilan de la phase 16 terminée. | À consulter avant toute évolution des rendus web ou sprites. |
 | [`AGENTS.md`](AGENTS.md) | Directives obligatoires pour toute intervention : compatibilité, i18n et stratégie de tests. | À mettre à jour lorsque la politique de contribution évolue. |
 | [`tests/`](tests/) | Suite `unittest` de non-régression et tests d'architecture. | À étendre avec toute modification fonctionnelle, de configuration ou d'i18n. |
 | [`tools/observatory.py`](tools/observatory.py) | Banc headless multi-graines, profils court/long/reprise, statistiques d’activation et export CSV. | `SimulationEngine.run_observed()` et `core/simulation_metrics.py`. |
@@ -204,8 +204,8 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 | [`core/simulation_engine.py`](core/simulation_engine.py) | Moteur headless : initialise et possède `world`/`stats`, exécute `step()`/`run()`, isole les erreurs et expose sauvegarde, chroniques et chaînes causales, inspection, climat par monde/tuile, agrégats et instantané des systèmes. |
 | [`core/climate.py`](core/climate.py) | Service headless du cycle saisonnier, température, humidité, biomes, anomalies, productivité agricole/écologique et compatibilité de rendu historique. |
 | [`core/presentation.py`](core/presentation.py) | Résolution visuelle sémantique commune, snapshot JSON v1 en liste blanche, panneaux structurés, copies défensives et deltas bornés. |
-| [`core/simulation_host.py`](core/simulation_host.py) | Propriétaire du cycle : file de commandes bornée et thread-safe, pause/pas-à-pas/vitesse/arrêt, publication versionnée et sauvegarde sur chemin autorisé. |
-| [`core/web_server.py`](core/web_server.py) | API HTTP v1 locale, page statique, inspection, commandes filtrées, WebSocket, deltas, contrôle d'origine/taille et import paresseux d'`aiohttp`. |
+| [`core/simulation_host.py`](core/simulation_host.py) | Propriétaire du cycle : file de commandes bornée et thread-safe, pause/pas-à-pas/vitesse/arrêt, publication versionnée différable et sauvegarde sur chemin autorisé. |
+| [`core/web_server.py`](core/web_server.py) | API HTTP v1 locale, page statique, inspection, commandes filtrées, WebSocket, deltas, projection suspendue sans client, contrôle d'origine/taille et import paresseux d'`aiohttp`. |
 | [`core/tilesets.py`](core/tilesets.py) | Catalogue standard et validation stricte des manifestes/PNG de thèmes, découverte défensive sans dépendance graphique. |
 | [`core/resources.py`](core/resources.py) | Stocks spatiaux renouvelables, capacités, régénération, extraction conservatrice, perturbations persistantes, propagation du feu, migration et résumés défensifs. |
 | [`core/materials.py`](core/materials.py) | Catalogue défensif data-driven des ressources, objets, recettes, cibles, réserves, sources spatiales, infrastructures et chaîne alimentaire ; validation des IDs/références et cache runtime borné par configuration immuable. |
@@ -380,8 +380,8 @@ La suite contient 437 tests et s'organise ainsi :
 | [`tests/test_system_visibility.py`](tests/test_system_visibility.py) | Inventaire exhaustif, sérialisation défensive sans PRNG, rendu localisé et navigation terminal `[Y]`. |
 | [`tests/test_persistence.py`](tests/test_persistence.py) | IDs monotones/restaurables, continuité des transformations et relations, format invalide, états globaux, reprise déterministe, `--load`/`--save` et erreurs i18n. |
 | [`tests/__init__.py`](tests/__init__.py) | Marque le répertoire comme package de tests. |
-| [`tests/test_presentation_foundations.py`](tests/test_presentation_foundations.py) | Clés visuelles, priorité des couches, parité terminal, JSON défensif sans PRNG, panneaux structurés, deltas, bornes de configuration et hôte mono-propriétaire. |
-| [`tests/test_web_server.py`](tests/test_web_server.py) | API v1, ressources statiques filtrées, client Canvas exécutable, accessibilité, inspection, origines, tailles, commandes, WebSocket, deltas, bind loopback, imports optionnels, CLI et dispatch sans terminal. |
+| [`tests/test_presentation_foundations.py`](tests/test_presentation_foundations.py) | Clés visuelles, priorité des couches, parité terminal, JSON défensif sans PRNG, panneaux structurés, deltas, bornes de configuration, hôte mono-propriétaire et projection différée. |
+| [`tests/test_web_server.py`](tests/test_web_server.py) | API v1, ressources statiques filtrées, client Canvas exécutable, accessibilité, inspection, origines, tailles, commandes, WebSocket, deltas indexés, absence de projection sans client, reconnexion, bind loopback, imports optionnels, CLI et dispatch sans terminal. |
 | [`tests/test_tilesets.py`](tests/test_tilesets.py) | Version, licence, dimensions PNG, grille, bornes, couverture standard, chemins sûrs et fallback du manifeste classique. |
 
 Contrats désormais protégés :

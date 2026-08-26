@@ -31,9 +31,23 @@ export function cellAtCanvasPoint(x, y, camera) {
   };
 }
 
-export function applyDeltaToSnapshot(snapshot, delta) {
+export function applyDeltaToSnapshot(snapshot, delta, cellIndex = null) {
   if (!snapshot || delta.resync || snapshot.revision !== delta.from_revision) {
     return null;
+  }
+  if (cellIndex instanceof Map) {
+    for (const cell of delta.cells || []) {
+      cellIndex.set(`${cell.x},${cell.y}`, cell);
+    }
+    return {
+      ...snapshot,
+      revision: delta.to_revision,
+      cycle: delta.cycle,
+      clock: delta.clock || snapshot.clock,
+      logs: delta.logs || snapshot.logs,
+      panels: delta.panels || snapshot.panels,
+      cells: snapshot.cells,
+    };
   }
   const changes = new Map(
     (delta.cells || []).map((cell) => [`${cell.x},${cell.y}`, cell]),
@@ -262,9 +276,9 @@ function startClient() {
     }
   }
 
-  function consumeSnapshot(snapshot, center = false) {
+  function consumeSnapshot(snapshot, center = false, rebuildCells = true) {
     state.snapshot = snapshot;
-    rebuildCellIndex();
+    if (rebuildCells) rebuildCellIndex();
     if (center && snapshot.world) {
       const bounds = canvas.getBoundingClientRect();
       const naturalWidth = snapshot.world.width * camera.tileSize;
@@ -347,8 +361,12 @@ function startClient() {
       if (message.type === "snapshot") {
         consumeSnapshot(message.payload, state.snapshot === null);
       } else if (message.type === "delta") {
-        const next = applyDeltaToSnapshot(state.snapshot, message.payload);
-        if (next) consumeSnapshot(next);
+        const next = applyDeltaToSnapshot(
+          state.snapshot,
+          message.payload,
+          state.cells,
+        );
+        if (next) consumeSnapshot(next, false, false);
         else await refreshSnapshot();
       }
     });

@@ -168,6 +168,79 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(socket.messages[0]["payload"]["from_revision"], 3)
         self.assertEqual(socket.messages[0]["payload"]["to_revision"], 4)
 
+    async def test_cycle_publisher_skips_projection_without_clients(self):
+        class DeferredHost(FakeWebHost):
+            stopped = False
+            tick_interval = 0
+
+            def __init__(self):
+                super().__init__()
+                self.snapshot_calls = 0
+                self.publish_flags = []
+
+            def snapshot(self):
+                self.snapshot_calls += 1
+                return super().snapshot()
+
+            def tick(self, *, publish_snapshot=True):
+                self.publish_flags.append(publish_snapshot)
+                self.engine.world["cycle"] += 1
+                self.stopped = True
+                return None
+
+        host = DeferredHost()
+        await _publish_cycles(host, set())
+        self.assertEqual(host.snapshot_calls, 0)
+        self.assertEqual(host.publish_flags, [False])
+
+    async def test_cycle_publisher_resumes_with_delta_after_client_returns(self):
+        sockets = set()
+
+        class Socket:
+            def __init__(self):
+                self.messages = []
+
+            async def send_json(self, message):
+                self.messages.append(message)
+
+        socket = Socket()
+
+        class ReconnectingHost(FakeWebHost):
+            stopped = False
+            tick_interval = 0
+
+            def snapshot(self):
+                return {
+                    "schema_version": 1,
+                    "revision": self.revision,
+                    "cycle": self.engine.world["cycle"],
+                    "clock": {},
+                    "cells": [],
+                    "logs": [],
+                    "panels": {},
+                }
+
+            def tick(self, *, publish_snapshot=True):
+                self.revision += 1
+                self.engine.world["cycle"] += 1
+                if not publish_snapshot:
+                    sockets.add(socket)
+                    return None
+                self.stopped = True
+                return self.snapshot()
+
+        host = ReconnectingHost()
+        await _publish_cycles(host, sockets)
+        self.assertEqual(len(socket.messages), 1)
+        self.assertEqual(socket.messages[0]["type"], "delta")
+        self.assertEqual(
+            (
+                socket.messages[0]["payload"]["from_revision"],
+                socket.messages[0]["payload"]["to_revision"],
+            ),
+            (4, 5),
+        )
+
     async def test_static_client_assets_are_whitelisted(self):
         for path, content_type in (
             ("/assets/app.js", "application/javascript"),
@@ -257,6 +330,14 @@ const delta = {{
 const next = client.applyDeltaToSnapshot(snapshot, delta);
 if (next.revision !== 2 || next.cells[1].visible_key !== "hydrology.river") {{
   throw new Error("delta contract");
+}}
+const indexedCells = new Map(snapshot.cells.map((item) => [item.x + "," + item.y, item]));
+const optimized = client.applyDeltaToSnapshot(snapshot, delta, indexedCells);
+if (optimized.cells !== snapshot.cells) {{
+  throw new Error("optimized delta copied all cells");
+}}
+if (indexedCells.get("1,0").visible_key !== "hydrology.river") {{
+  throw new Error("optimized delta index");
 }}
 if (client.boundedZoom(99) !== 4 || client.boundedZoom(0) !== 0.5) {{
   throw new Error("zoom bounds");

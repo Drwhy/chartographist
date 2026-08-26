@@ -73,7 +73,7 @@ class SimulationHost:
             self._commands.append((normalized, value))
         return True
 
-    def tick(self):
+    def tick(self, *, publish_snapshot=True):
         """Traite les commandes, avance éventuellement un cycle et publie."""
         self._assert_owner()
         changed = self._drain_commands()
@@ -86,18 +86,26 @@ class SimulationHost:
             if self._pending_steps:
                 self._pending_steps -= 1
             changed = True
-        if changed or self._last_snapshot is None:
+        if changed:
             self._revision += 1
+            self._last_snapshot = (
+                self._snapshot_factory(self.engine, self._revision)
+                if publish_snapshot else None
+            )
+        elif self._last_snapshot is None and publish_snapshot:
+            if self._revision == 0:
+                self._revision += 1
             self._last_snapshot = self._snapshot_factory(
                 self.engine, self._revision
             )
-        return self._last_snapshot
+        return self._last_snapshot if publish_snapshot else None
 
     def snapshot(self):
         """Retourne le dernier état publié sans avancer la simulation."""
         self._assert_owner()
         if self._last_snapshot is None:
-            self._revision += 1
+            if self._revision == 0:
+                self._revision += 1
             self._last_snapshot = self._snapshot_factory(
                 self.engine, self._revision
             )

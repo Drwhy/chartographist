@@ -202,6 +202,28 @@ Validation automatisée : 440 tests. Validation HTTP réelle sur
 Validation automatisée : 443 tests. Validation HTTP réelle : capability,
 catalogue, manifeste de 42 sprites et PNG de 2,7 Mio servis correctement.
 
+## Lots 16.6–16.7 livrés — optimisation et stabilisation
+
+- l'hôte peut avancer sans construire de snapshot lorsqu'aucun client web n'est
+  connecté, tout en conservant une révision strictement monotone ;
+- le premier client revenu reçoit un état cohérent puis les cycles suivants
+  reprennent sous forme de deltas ;
+- le client maintient un index de cellules et applique chaque delta en O(k), sans
+  recopier ni réindexer les 1 800 cellules de la carte ;
+- le comportement historique reste le défaut : `SimulationHost.tick()` publie
+  toujours un snapshot tant que l'appelant ne demande pas explicitement de le
+  différer ;
+- sur 60 × 30 avec toutes les options, la médiane mesurée est de 41,06 ms pour
+  une projection complète, 15,31 ms pour sa sérialisation JSON et 3,73 ms pour
+  le calcul d'un delta ; les payloads médians sont de 314,8 Kio et 53,5 Kio ;
+- trois campagnes de 1 200 cycles (graines 1661, 1667 et 1673) terminent sans
+  extinction en 35,9 s cumulées.
+
+Validation finale : 446 tests, syntaxe JavaScript vérifiée, contrôle Git des
+espaces réussi et validation HTTP réelle de la page, des métadonnées, du
+snapshot ainsi que des commandes pause, pas-à-pas et reprise sur
+`127.0.0.1:9016`.
+
 ## Plan d'implémentation TDD
 
 ### Lot 16.0 — Caractérisation et budgets
