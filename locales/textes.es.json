@@ -332,6 +332,43 @@
       "nomadic": "Nómada"
     }
   },
+  "web": {
+    "simulation_controls": "Controles de simulación",
+    "observatory": "Observatorio",
+    "render_mode": "Renderizado",
+    "glyph_theme": "Glifos",
+    "sprite_theme": "Sprites",
+    "connection_connecting": "Conectando…",
+    "connection_connected": "Conectado",
+    "connection_disconnected": "Desconectado — reintentando…",
+    "year": "Año",
+    "month": "Mes",
+    "cycle": "Ciclo",
+    "pause": "Pausa",
+    "resume": "Reanudar",
+    "step": "Paso",
+    "speed": "Velocidad",
+    "logs": "Registros",
+    "systems": "Sistemas",
+    "chronicles": "Crónicas",
+    "diplomacy": "Diplomacia",
+    "why": "¿Por qué?",
+    "selection": "Selección",
+    "no_selection": "Ninguna celda seleccionada",
+    "terrain": "Terreno",
+    "entity": "Entidad",
+    "map": "Mapa del mundo",
+    "overview": "Resumen",
+    "sites": "Lugares",
+    "artifacts": "Artefactos",
+    "politics": "Política",
+    "territory": "Territorio",
+    "migration": "Migraciones",
+    "warfare": "Guerra",
+    "peace": "Paz",
+    "economy": "Economía",
+    "climate": "Clima"
+  },
   "cli": {
     "scenario_help": "Archivo JSON de escenario que se aplicará",
     "mod_help": "Archivo JSON de mod; opción repetible",
@@ -340,7 +377,13 @@
     "template_help": "Ruta al archivo de plantilla JSON",
     "lang_help": "Idioma de la simulación (fr, en, es)",
     "load_help": "Reanudar una partida local de confianza",
-    "save_help": "Guardar automáticamente el mundo al salir"
+    "save_help": "Guardar automáticamente el mundo al salir",
+    "renderer_help": "Modo de renderizado: terminal o navegador web local",
+    "host_help": "Dirección local del servidor web",
+    "port_help": "Puerto del servidor web local",
+    "tick_speed_help": "Intervalo entre ciclos de simulación, en segundos",
+    "port_error": "el puerto debe estar entre 1 y 65535",
+    "tick_speed_error": "el intervalo debe estar entre 0,01 y 10 segundos"
   },
   "religion": {
     "syncretic_name": "{god} el Doble"
@@ -355,7 +398,9 @@
     "load_success": "💾 Partida cargada: {file_path}",
     "save_success": "💾 Mundo guardado: {file_path}",
     "load_error": "⚠️ No se pudo cargar la partida {file_path}: {error}",
-    "save_error": "⚠️ No se pudo guardar la partida {file_path}: {error}"
+    "save_error": "⚠️ No se pudo guardar la partida {file_path}: {error}",
+    "web_start": "🌐 Interfaz web disponible en http://{host}:{port}",
+    "web_dependency_error": "⚠️ El modo web requiere las dependencias de requirements-web.txt."
   },
   "domains": {
     "war":       { "name": "Guerra", "t1": "el Conquistador", "t2": "el Furioso", "t3": "de la Hoja Ardiente", "t4": "el Inquebrantable", "t5": "de Voluntad de Hierro" },

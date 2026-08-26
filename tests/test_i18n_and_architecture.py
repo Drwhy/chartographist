@@ -93,10 +93,13 @@ class I18nAndArchitectureTests(unittest.TestCase):
         allowed = {Path("core/random_service.py"), Path("core/system.py")}
         violations = []
         for path in ROOT.rglob("*.py"):
-            if ".git" in path.parts or "tests" in path.parts:
+            relative = path.relative_to(ROOT)
+            if (
+                "tests" in relative.parts
+                or any(part.startswith(".") for part in relative.parts)
+            ):
                 continue
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-            relative = path.relative_to(ROOT)
             for node in ast.walk(tree):
                 imports_random = (
                     isinstance(node, ast.Import)

@@ -144,7 +144,63 @@ Budget mesuré avec `template-all.json` et `tracemalloc` : 30 × 15 en 11,47 ms
 de projection, 3,50 ms de JSON et 0,71 Mio de pic ; 60 × 30 en 32,14 ms,
 13,14 ms et 1,94 Mio ; 120 × 60 en 124,55 ms, 51,85 ms et 7,45 Mio. La cible
 60 × 30 est compatible avec une publication plafonnée ; les grandes cartes
-doivent utiliser les deltas. Validation : 425 tests complets.
+doivent utiliser les deltas. Validation actuelle : 437 tests complets.
+
+## Lot 16.3 livré — serveur et protocole local
+
+- `requirements-web.txt` garde `aiohttp` optionnel et tous les imports serveur
+  restent paresseux ;
+- `--renderer web --host --port --tick-speed` sélectionne le nouvel
+  adaptateur sans initialiser le terminal ;
+- l'API `/api/v1` sert métadonnées, snapshot et inspection d'entité ;
+- les commandes HTTP/WebSocket passent par la file bornée de `SimulationHost` ;
+- le flux commence par un snapshot puis publie des deltas versionnés ou une
+  resynchronisation complète ;
+- écoute non locale, origines étrangères, commandes inconnues, chemins clients
+  et corps supérieurs à 64 Kio sont refusés ;
+- la page statique minimale prépare le lot 16.4 sans chaîne de compilation.
+
+Validation réelle : serveur lancé sur `127.0.0.1:9016`, page HTML,
+métadonnées et snapshot 60 × 30 servis avec succès. Validation automatisée :
+437 tests.
+
+## Lot 16.4 livré — navigation navigateur
+
+- le client statique sans compilation rend les seules cellules visibles dans un
+  Canvas et conserve le glyphe comme fallback ;
+- zoom borné, déplacement souris/tactile/clavier et sélection de cellule
+  n'accèdent qu'au snapshot public ;
+- pause, reprise, pas-à-pas et vitesse utilisent les commandes filtrées du
+  protocole, avec repli HTTP si le WebSocket est momentanément indisponible ;
+- les journaux et panneaux structurés exposent systèmes, chroniques, diplomatie,
+  explications, économie, climat, sites, artefacts, politique, territoire,
+  migrations, guerre et paix ;
+- la reconnexion exponentielle resynchronise les révisions divergentes sans
+  perturber le propriétaire du moteur ;
+- l'interface est responsive, pilotable au clavier, compatible avec la réduction
+  des animations et localisée par les catalogues fr/en/es.
+
+Validation automatisée : 440 tests. Validation HTTP réelle sur
+127.0.0.1:9016 : HTML, JavaScript, métadonnées localisées et snapshot
+60 × 30 servis avec succès.
+
+## Lot 16.5 livré — spritesheets data-driven
+
+- core/tilesets.py fige 42 clés visuelles standard et valide version, identifiant,
+  chemin PNG, dimensions, grille, coordonnées, couverture, fallback et licence ;
+- la découverte ignore défensivement tout thème invalide et le serveur ne sert
+  que le manifeste et l'image déclarée d'un thème valide ;
+- l'atlas classique 8 × 8 couvre terrains, rivière, route, sites, structures,
+  professions, faune, UFO et fallbacks génériques ;
+- le Canvas compose terrain, hydrologie, infrastructure, site puis entité sans
+  recalculer de règle métier ;
+- les clés spécialisées inconnues remontent vers leur catégorie puis vers
+  fallback.unknown, de sorte qu'un mod reste visible ;
+- le sélecteur conserve les glyphes par défaut et charge le PNG une seule fois
+  lors du passage au thème sprites.
+
+Validation automatisée : 443 tests. Validation HTTP réelle : capability,
+catalogue, manifeste de 42 sprites et PNG de 2,7 Mio servis correctement.
 
 ## Plan d'implémentation TDD
 

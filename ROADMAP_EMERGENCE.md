@@ -644,9 +644,10 @@ Ajouter un mode navigateur local et une couche par sprites sans déplacer la
 simulation hors de Python ni modifier le terminal historique. L'étude complète
 est dans [`ETUDE_PHASE_16_RENDU_WEB.md`](ETUDE_PHASE_16_RENDU_WEB.md).
 
-> État au 26 août 2026 : socle de vigilance validé, lots 16.0 à 16.2 réalisés.
-> Projection JSON v1, clés sémantiques, priorité visuelle commune, panneaux
-> structurés, deltas bornés et hôte mono-propriétaire sont couverts par 425 tests.
+> État au 26 août 2026 : lots 16.0 à 16.5 implémentés et validés par 443 tests.
+> Le mode terminal reste le défaut sans dépendance web ; le mode optionnel sert
+> désormais une carte Canvas navigable, les panneaux, la sélection, les contrôles
+> et les deltas WebSocket exclusivement sur une adresse de bouclage.
 
 ## Lots
 
@@ -660,13 +661,18 @@ Créer snapshots JSON, clés de rendu stables et résolveur commun des cellules.
 Extraire cadence, pause, pas-à-pas et arrêt en préservant le terminal par défaut.
 
 ### Lot 16.3 — Serveur et protocole web local
-Servir lectures headless et flux versionné sur localhost avec reconnexion.
+Terminé : lectures headless, flux versionné, limites de requête, origines locales,
+commandes bornées et dépendance `aiohttp` optionnelle.
 
 ### Lot 16.4 — Navigation navigateur
-Afficher carte Canvas, panneaux existants, sélection et contrôles de cadence.
+Terminé : carte Canvas à rendu borné au viewport, zoom, déplacement, sélection,
+contrôles de cadence, reconnexion, journaux, panneaux, clavier, responsive et
+libellés fr/en/es.
 
 ### Lot 16.5 — Spritesheets data-driven
-Définir manifeste d'atlas, clés, fallback, thèmes, couches et licences.
+Terminé : catalogue de 42 clés standard, manifeste v1 validé, atlas classique
+8 × 8 licencié, routes filtrées, fallback progressif et thème Canvas par
+couches interchangeable à chaud avec les glyphes.
 
 ### Lots 16.6–16.7 — Optimisation et stabilisation
 Ajouter deltas et caches, puis valider terminal, web, i18n et campagnes longues.
@@ -694,6 +700,7 @@ Pour réduire le risque, chaque phase suit le même découpage :
 7. **Interface et i18n** — textes fr/en/es et navigation.
 8. **Validation émergente** — tests multi-graines, simulations longues et comparaison statistique.
 
-# Prochaine étape : lot 16.3 — serveur web local
+# Prochaine étape : lots 16.6–16.7 — optimisation et stabilisation
 
-Le socle est assaini. Le prochain incrément peut ajouter la dépendance optionnelle, les routes locales et le flux versionné sans exposer `world`, le pickle ou le PRNG.
+Le prochain incrément mesurera le coût du rendu sprite et des deltas, puis
+validera les campagnes longues, la reconnexion et la compatibilité terminal/web.

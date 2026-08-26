@@ -332,6 +332,43 @@
       "nomadic": "Nomadic"
     }
   },
+  "web": {
+    "simulation_controls": "Simulation controls",
+    "observatory": "Observatory",
+    "render_mode": "Rendering",
+    "glyph_theme": "Glyphs",
+    "sprite_theme": "Sprites",
+    "connection_connecting": "Connecting…",
+    "connection_connected": "Connected",
+    "connection_disconnected": "Disconnected — retrying…",
+    "year": "Year",
+    "month": "Month",
+    "cycle": "Cycle",
+    "pause": "Pause",
+    "resume": "Resume",
+    "step": "Step",
+    "speed": "Speed",
+    "logs": "Logs",
+    "systems": "Systems",
+    "chronicles": "Chronicles",
+    "diplomacy": "Diplomacy",
+    "why": "Why?",
+    "selection": "Selection",
+    "no_selection": "No cell selected",
+    "terrain": "Terrain",
+    "entity": "Entity",
+    "map": "World map",
+    "overview": "Overview",
+    "sites": "Sites",
+    "artifacts": "Artifacts",
+    "politics": "Politics",
+    "territory": "Territory",
+    "migration": "Migrations",
+    "warfare": "Warfare",
+    "peace": "Peace",
+    "economy": "Economy",
+    "climate": "Climate"
+  },
   "cli": {
     "scenario_help": "JSON scenario file to apply",
     "mod_help": "JSON mod file; repeatable option",
@@ -340,7 +377,13 @@
     "template_help": "Path to the JSON template file",
     "lang_help": "Simulation language (fr, en, es)",
     "load_help": "Resume a trusted local save",
-    "save_help": "Automatically save the world on exit"
+    "save_help": "Automatically save the world on exit",
+    "renderer_help": "Rendering mode: terminal or local web browser",
+    "host_help": "Local web server address",
+    "port_help": "Local web server port",
+    "tick_speed_help": "Interval between simulation cycles, in seconds",
+    "port_error": "port must be between 1 and 65535",
+    "tick_speed_error": "interval must be between 0.01 and 10 seconds"
   },
   "religion": {
     "syncretic_name": "{god} the Twofold"
@@ -355,7 +398,9 @@
     "load_success": "💾 Save loaded: {file_path}",
     "save_success": "💾 World saved: {file_path}",
     "load_error": "⚠️ Unable to load save {file_path}: {error}",
-    "save_error": "⚠️ Unable to write save {file_path}: {error}"
+    "save_error": "⚠️ Unable to write save {file_path}: {error}",
+    "web_start": "🌐 Web interface available at http://{host}:{port}",
+    "web_dependency_error": "⚠️ Web mode requires the dependencies from requirements-web.txt."
   },
   "domains": {
     "war":       { "name": "War", "t1": "the Conqueror", "t2": "the Wrathful", "t3": "of the Burning Blade", "t4": "the Unbroken", "t5": "of Iron Will" },

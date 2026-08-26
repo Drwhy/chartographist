@@ -54,6 +54,22 @@ def stable_seed(value):
         return int.from_bytes(digest[:8], "big")
 
 
+def _web_port(value):
+    numeric = int(value)
+    if not 1 <= numeric <= 65535:
+        raise argparse.ArgumentTypeError(Translator.translate("cli.port_error"))
+    return numeric
+
+
+def _tick_interval(value):
+    numeric = float(value)
+    if not 0.01 <= numeric <= 10.0:
+        raise argparse.ArgumentTypeError(
+            Translator.translate("cli.tick_speed_error")
+        )
+    return numeric
+
+
 @dataclass(frozen=True)
 class LaunchOptions:
     config: dict
@@ -62,6 +78,10 @@ class LaunchOptions:
     save_path: str | None = None
     scenario_path: str | None = None
     mod_paths: tuple[str, ...] = ()
+    renderer: str = "terminal"
+    web_host: str = "127.0.0.1"
+    web_port: int = 8765
+    tick_speed: float = 0.15
 
 
 def load_launch_options():
@@ -107,6 +127,31 @@ def load_launch_options():
         dest="save_path",
         help=Translator.translate("cli.save_help"),
     )
+    parser.add_argument(
+        "--renderer",
+        choices=("terminal", "web"),
+        default="terminal",
+        help=Translator.translate("cli.renderer_help"),
+    )
+    parser.add_argument(
+        "--host",
+        dest="web_host",
+        default="127.0.0.1",
+        help=Translator.translate("cli.host_help"),
+    )
+    parser.add_argument(
+        "--port",
+        dest="web_port",
+        type=_web_port,
+        default=8765,
+        help=Translator.translate("cli.port_help"),
+    )
+    parser.add_argument(
+        "--tick-speed",
+        type=_tick_interval,
+        default=0.15,
+        help=Translator.translate("cli.tick_speed_help"),
+    )
     args = parser.parse_args()
 
     seed = stable_seed(args.seed) if args.seed else random.randint(0, 99999)
@@ -131,6 +176,10 @@ def load_launch_options():
         args.save_path,
         args.scenario_path,
         tuple(args.mod_paths),
+        renderer=args.renderer,
+        web_host=args.web_host,
+        web_port=args.web_port,
+        tick_speed=args.tick_speed,
     )
 
 

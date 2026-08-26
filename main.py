@@ -63,13 +63,16 @@ def handle_bestiary_input(key, state):
 
 
 def main():
-    core.init_terminal()
     engine = None
     options = None
     seed = None
 
+    options = core.load_launch_options()
+    if getattr(options, "renderer", "terminal") == "web":
+        _run_web_mode(options)
+        return
+    core.init_terminal()
     try:
-        options = core.load_launch_options()
         if options.load_path:
             try:
                 engine = SimulationEngine.load(options.load_path)
@@ -103,7 +106,7 @@ def main():
 
         host = SimulationHost(
             engine,
-            tick_interval=TICK_SPEED,
+            tick_interval=getattr(options, "tick_speed", TICK_SPEED),
             save_path=options.save_path,
             max_commands=max_commands,
             snapshot_factory=_terminal_publication,
@@ -148,6 +151,76 @@ def main():
             _print_final_summary(engine.config, engine.world, engine.stats, seed)
 
 
+def _run_web_mode(options):
+    """Lance l'adaptateur web sans initialiser le terminal ANSI."""
+    engine = None
+    try:
+        if options.load_path:
+            try:
+                engine = SimulationEngine.load(options.load_path)
+            except (OSError, SaveFormatError) as error:
+                print(Translator.translate(
+                    "system.load_error",
+                    file_path=options.load_path,
+                    error=error,
+                ))
+                return
+            load_message = Translator.translate(
+                "system.load_success",
+                file_path=options.load_path,
+            )
+            engine.stats["logs"].append(load_message)
+            engine.record_chronicle(load_message, category="system")
+        else:
+            engine = SimulationEngine.create(
+                options.config,
+                options.seed,
+                WIDTH,
+                HEIGHT,
+            )
+
+        presentation = engine.config.get("presentation", {})
+        maximum = (
+            presentation.get("max_commands", 64)
+            if isinstance(presentation, dict) else 64
+        )
+        host = SimulationHost(
+            engine,
+            tick_interval=options.tick_speed,
+            max_commands=maximum,
+            save_path=options.save_path,
+        )
+        print(Translator.translate(
+            "system.web_start",
+            host=options.web_host,
+            port=options.web_port,
+        ))
+        try:
+            from core.web_server import run_web_server
+            run_web_server(
+                host,
+                address=options.web_host,
+                port=options.web_port,
+            )
+        except ModuleNotFoundError as error:
+            if error.name != "aiohttp":
+                raise
+            print(Translator.translate("system.web_dependency_error"))
+    finally:
+        if engine is not None and options.save_path:
+            try:
+                engine.save(options.save_path)
+                print(Translator.translate(
+                    "system.save_success",
+                    file_path=options.save_path,
+                ))
+            except (OSError, SaveFormatError) as error:
+                print(Translator.translate(
+                    "system.save_error",
+                    file_path=options.save_path,
+                    error=error,
+                ))
+
 
 def _terminal_publication(engine, revision):
     """Publication minimale : le terminal lit encore directement le moteur."""
@@ -158,6 +231,7 @@ def _terminal_publication(engine, revision):
     }
 
 def _print_final_summary(config, world, stats, seed):
+
     from entities.constructs.city import City
     from entities.constructs.village import Village
     from entities.species.animal.base import Animal

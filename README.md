@@ -177,6 +177,11 @@ Spatial Renewable Resources
 
     pip install -r requirements.txt
 
+    The browser mode is optional:
+    Bash
+
+    pip install -r requirements-web.txt
+
 🎮 How to Use
 
 Launch the simulation with a specific seed to generate a unique world:
@@ -184,6 +189,15 @@ Launch the simulation with a specific seed to generate a unique world:
 ```bash
 python main.py --seed atlas --lang en
 ```
+
+Launch the local browser mode, then open `http://127.0.0.1:8765`:
+
+```bash
+python main.py --renderer web --seed atlas --host 127.0.0.1 --port 8765 --tick-speed 0.15
+```
+
+The server accepts only loopback addresses. Its versioned API exposes metadata,
+snapshots, entity inspection, bounded commands, and snapshot deltas over WebSocket.
 
 Save automatically when the simulation exits, then resume that trusted local checkpoint:
 
@@ -285,5 +299,5 @@ chartographist/
 ```
 
 
-The regression suite currently contains 425 `unittest` tests, including deterministic resume, conserved multi-good transactions, spatial resources and production, local knowledge, factions and succession, territorial claims, measured pathfinding, migrating cohorts, logistical warfare, cross-system causal chains, persistent sites, artifacts and legends, causal explanations and export, semantic presentation snapshots, bounded simulation hosting, system visibility, localization parity, and terminal navigation.
+The regression suite currently contains 437 `unittest` tests, including deterministic resume, conserved multi-good transactions, spatial resources and production, local knowledge, factions and succession, territorial claims, measured pathfinding, migrating cohorts, logistical warfare, cross-system causal chains, persistent sites, artifacts and legends, causal explanations and export, semantic presentation snapshots, bounded simulation hosting, the local HTTP/WebSocket protocol, system visibility, localization parity, and terminal navigation.
 Developed with ❤️ by Drwhy

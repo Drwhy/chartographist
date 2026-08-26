@@ -332,6 +332,43 @@
       "nomadic": "Nomade"
     }
   },
+  "web": {
+    "simulation_controls": "Contrôles de simulation",
+    "observatory": "Observatoire",
+    "render_mode": "Rendu",
+    "glyph_theme": "Glyphes",
+    "sprite_theme": "Sprites",
+    "connection_connecting": "Connexion…",
+    "connection_connected": "Connecté",
+    "connection_disconnected": "Déconnecté — nouvelle tentative…",
+    "year": "Année",
+    "month": "Mois",
+    "cycle": "Cycle",
+    "pause": "Pause",
+    "resume": "Reprendre",
+    "step": "Pas à pas",
+    "speed": "Vitesse",
+    "logs": "Journaux",
+    "systems": "Systèmes",
+    "chronicles": "Chroniques",
+    "diplomacy": "Diplomatie",
+    "why": "Pourquoi ?",
+    "selection": "Sélection",
+    "no_selection": "Aucune case sélectionnée",
+    "terrain": "Terrain",
+    "entity": "Entité",
+    "map": "Carte du monde",
+    "overview": "Vue d’ensemble",
+    "sites": "Sites",
+    "artifacts": "Artefacts",
+    "politics": "Politique",
+    "territory": "Territoire",
+    "migration": "Migrations",
+    "warfare": "Guerre",
+    "peace": "Paix",
+    "economy": "Économie",
+    "climate": "Climat"
+  },
   "cli": {
     "scenario_help": "Fichier JSON de scénario à appliquer",
     "mod_help": "Fichier JSON de mod ; option répétable",
@@ -340,7 +377,13 @@
     "template_help": "Chemin vers le fichier modèle JSON",
     "lang_help": "Langue de la simulation (fr, en, es)",
     "load_help": "Reprendre une sauvegarde locale de confiance",
-    "save_help": "Sauvegarder automatiquement le monde à la sortie"
+    "save_help": "Sauvegarder automatiquement le monde à la sortie",
+    "renderer_help": "Mode de rendu : terminal ou navigateur web local",
+    "host_help": "Adresse locale du serveur web",
+    "port_help": "Port du serveur web local",
+    "tick_speed_help": "Intervalle entre deux cycles, en secondes",
+    "port_error": "le port doit être compris entre 1 et 65535",
+    "tick_speed_error": "l'intervalle doit être compris entre 0,01 et 10 secondes"
   },
   "religion": {
     "syncretic_name": "{god} le Double"
@@ -355,7 +398,9 @@
     "load_success": "💾 Sauvegarde chargée : {file_path}",
     "save_success": "💾 Monde sauvegardé : {file_path}",
     "load_error": "⚠️ Impossible de charger la sauvegarde {file_path} : {error}",
-    "save_error": "⚠️ Impossible d'enregistrer la sauvegarde {file_path} : {error}"
+    "save_error": "⚠️ Impossible d'enregistrer la sauvegarde {file_path} : {error}",
+    "web_start": "🌐 Interface web disponible sur http://{host}:{port}",
+    "web_dependency_error": "⚠️ Le mode web nécessite les dépendances de requirements-web.txt."
   },
   "domains": {
     "war":       { "name": "Guerre", "t1": "le Conquérant", "t2": "le Colérique", "t3": "de la Lame Ardente", "t4": "l'Indomptable", "t5": "à la Volonté de Fer" },

@@ -6,7 +6,7 @@ Les règles impératives de contribution sont définies dans [`AGENTS.md`](AGENT
 
 La stratégie d'évolution centrée sur l'émergence et les plans d'implémentation des phases 8 à 15 sont détaillés dans [ROADMAP_EMERGENCE.md](ROADMAP_EMERGENCE.md).
 
-> État analysé : branche `evolution`, le 26 août 2026. Le projet est une simulation Python terminal dotée d'un contrat de présentation indépendant. Une suite de 425 tests `unittest` de non-régression est disponible sous [`tests/`](tests/).
+> État analysé : branche `evolution`, le 26 août 2026. Le projet propose les adaptateurs terminal et serveur web local sur un même moteur. Une suite de 437 tests `unittest` de non-régression est disponible sous [`tests/`](tests/).
 
 ## Vue d'ensemble
 
@@ -14,12 +14,14 @@ Le programme construit un monde déterministe à partir d'une graine et de [`tem
 
 ```mermaid
 flowchart TD
-    CLI["main.py — adaptateur terminal"] --> CFG["template.json + locales"]
+    CLI["main.py — terminal ou web"] --> CFG["template.json + locales"]
     CLI --> HOST["SimulationHost — cadence et commandes bornées"]
     HOST --> ENGINE["SimulationEngine — initialisation et cycles headless"]
     CFG --> ENGINE
     ENGINE --> PROJECTOR["PresentationProjector — snapshot JSON v1"]
     ENGINE --> WORLD["world + stats — état partagé"]
+    PROJECTOR --> SERVER["WebServer — HTTP/WebSocket local"]
+    SERVER --> BROWSER["Navigateur"]
     ENGINE --> ENT["entities — acteurs et constructions"]
     ENGINE --> EVT["events — événements globaux"]
     ENT --> WORLD
@@ -177,9 +179,15 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 | [`AGENTS.md`](AGENTS.md) | Directives obligatoires pour toute intervention : compatibilité, i18n et stratégie de tests. | À mettre à jour lorsque la politique de contribution évolue. |
 | [`tests/`](tests/) | Suite `unittest` de non-régression et tests d'architecture. | À étendre avec toute modification fonctionnelle, de configuration ou d'i18n. |
 | [`tools/observatory.py`](tools/observatory.py) | Banc headless multi-graines, profils court/long/reprise, statistiques d’activation et export CSV. | `SimulationEngine.run_observed()` et `core/simulation_metrics.py`. |
-| [`main.py`](main.py) | Adaptateur terminal : arguments, chargement/sauvegarde, clavier, rendu et résumé final ; cadence et mutations passent par `SimulationHost`. | `core/simulation_engine.py`, `core/simulation_host.py`, persistance, rendu et contrôles utilisateur. |
+| [`main.py`](main.py) | Sélectionne l'adaptateur terminal historique ou le serveur web local ; chargement, sauvegarde et cadence passent par les mêmes moteur et hôte. | `core/simulation_engine.py`, `core/simulation_host.py`, `core/web_server.py`, persistance et rendus. |
 | [`template.json`](template.json) | Source de vérité des cultures, biomes, domaines religieux, archétypes d'espèces et de faune, seuils et probabilités. | Les lecteurs concernés dans `core/`, `entities/` et les libellés de `locales/`. |
-| [`requirements.txt`](requirements.txt) | Dépendances d'exécution : `noise`, `colorama`, `numpy`. | L'environnement d'installation et le README. |
+| [`requirements.txt`](requirements.txt) | Dépendances communes : `noise`, `colorama`, `numpy`. | L'environnement d'installation et le README. |
+| [`requirements-web.txt`](requirements-web.txt) | Dépendance optionnelle `aiohttp` du seul mode navigateur. | `core/web_server.py`, tests web et README. |
+| [`web/index.html`](web/index.html) | Structure accessible du client navigateur sans chaîne de compilation. | `web/app.js`, `web/styles.css`, métadonnées i18n et protocole v1. |
+| [`web/app.js`](web/app.js) | Client Canvas : deltas, viewport, zoom, déplacement, sélection, commandes, reconnexion et panneaux. | `core/presentation.py`, `core/web_server.py` et futures clés de sprites. |
+| [`web/styles.css`](web/styles.css) | Présentation sombre responsive, focus clavier et préférence de réduction des animations. | Structure de `web/index.html`. |
+| [`web/assets/tilesets/classic/tileset.json`](web/assets/tilesets/classic/tileset.json) | Manifeste v1 du thème classique : grille, coordonnées, couverture, fallback et licence. | `core/tilesets.py` et `atlas.png`. |
+| [`web/assets/tilesets/classic/atlas.png`](web/assets/tilesets/classic/atlas.png) | Atlas pixel-art 8 × 8 généré pour le projet, recadré sans rééchantillonnage. | Manifeste classique et client Canvas. |
 | [`README.md`](README.md) | Présentation utilisateur, installation et aperçu historique de l'arborescence. | À synchroniser après un changement fonctionnel visible. Sa liste de fichiers animaux séparés est obsolète. |
 | [`CLAUDE.md`](CLAUDE.md) | Notes d'architecture et conventions locales pour assistants. | À synchroniser avec le présent référentiel si les invariants changent. Fichier actuellement non suivi par Git. |
 | [`.gitignore`](.gitignore) | Exclusions Git génériques Python et outils. | Nouveaux artefacts générés. |
@@ -191,12 +199,14 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 | Fichier | Responsabilité |
 |---|---|
 | [`core/__init__.py`](core/__init__.py) | Façade exportant l'assemblage du monde et les fonctions terminal/CLI consommées par `main.py`. |
-| [`core/system.py`](core/system.py) | Mode terminal ANSI/cbreak, restauration, `LaunchOptions`, arguments i18n `--seed`, `--template`, `--lang`, `--load`, `--save`, graine stable et chargement locale/config. |
+| [`core/system.py`](core/system.py) | Terminal ANSI/cbreak, `LaunchOptions`, arguments i18n communs et options bornées `--renderer`, `--host`, `--port`, `--tick-speed`. |
 | [`core/world_factory.py`](core/world_factory.py) | Construit le dictionnaire `world` et `stats`; branche géologie, hydrologie, gestionnaire d'entités et influences. |
 | [`core/simulation_engine.py`](core/simulation_engine.py) | Moteur headless : initialise et possède `world`/`stats`, exécute `step()`/`run()`, isole les erreurs et expose sauvegarde, chroniques et chaînes causales, inspection, climat par monde/tuile, agrégats et instantané des systèmes. |
 | [`core/climate.py`](core/climate.py) | Service headless du cycle saisonnier, température, humidité, biomes, anomalies, productivité agricole/écologique et compatibilité de rendu historique. |
 | [`core/presentation.py`](core/presentation.py) | Résolution visuelle sémantique commune, snapshot JSON v1 en liste blanche, panneaux structurés, copies défensives et deltas bornés. |
 | [`core/simulation_host.py`](core/simulation_host.py) | Propriétaire du cycle : file de commandes bornée et thread-safe, pause/pas-à-pas/vitesse/arrêt, publication versionnée et sauvegarde sur chemin autorisé. |
+| [`core/web_server.py`](core/web_server.py) | API HTTP v1 locale, page statique, inspection, commandes filtrées, WebSocket, deltas, contrôle d'origine/taille et import paresseux d'`aiohttp`. |
+| [`core/tilesets.py`](core/tilesets.py) | Catalogue standard et validation stricte des manifestes/PNG de thèmes, découverte défensive sans dépendance graphique. |
 | [`core/resources.py`](core/resources.py) | Stocks spatiaux renouvelables, capacités, régénération, extraction conservatrice, perturbations persistantes, propagation du feu, migration et résumés défensifs. |
 | [`core/materials.py`](core/materials.py) | Catalogue défensif data-driven des ressources, objets, recettes, cibles, réserves, sources spatiales, infrastructures et chaîne alimentaire ; validation des IDs/références et cache runtime borné par configuration immuable. |
 | [`core/stockpiles.py`](core/stockpiles.py) | Stockage colonial versionné : migration paresseuse, capacité de base et bonus d'infrastructure, dépôts/retraits, transfert conservateur et détérioration par cycle. |
@@ -335,7 +345,7 @@ Commande canonique :
 python3 -m unittest discover -s tests -v
 ```
 
-La suite contient 425 tests et s'organise ainsi :
+La suite contient 437 tests et s'organise ainsi :
 
 | Fichier | Couverture |
 |---|---|
@@ -356,7 +366,7 @@ La suite contient 425 tests et s'organise ainsi :
 | [`tests/test_legends_and_why.py`](tests/test_legends_and_why.py) | 11 contrats TDD sur faits/récits, propagation bornée sans PRNG, motivations, artefacts légendaires, API/checkpoint/visibilité, requêtes, causalité, explications, export, configuration, i18n et onglet `[W]`. |
 | [`tests/test_climate.py`](tests/test_climate.py) | TDD des saisons, température/humidité/biomes, compatibilité legacy, moteur/rendu headless, agriculture, habitats, pâturage, anomalies, chroniques, configuration, checkpoints et i18n. |
 | [`tests/test_core_services.py`](tests/test_core_services.py) | PRNG, logger, bestiaire, chargement de configuration, traduction, noms, grille spatiale, influences, compteur d'action, gestionnaire d'entités et routes. |
-| [`tests/test_i18n_and_architecture.py`](tests/test_i18n_and_architecture.py) | Parité des 249 clés i18n, parité des placeholders, existence des clés littérales utilisées, restriction des imports `random`, schéma du template et importabilité de tous les modules. |
+| [`tests/test_i18n_and_architecture.py`](tests/test_i18n_and_architecture.py) | Parité complète des catalogues i18n, placeholders, clés littérales utilisées, restriction des imports `random`, schéma du template et importabilité des modules. |
 | [`tests/test_generation.py`](tests/test_generation.py) | Déterminisme et contrats de géologie, hydrologie, faune, espèces humanoïdes, religions et assemblage du monde. |
 | [`tests/test_economy.py`](tests/test_economy.py) | Initialisation/migration des comptes, prix de pénurie, conservation, solvabilité, mode historique, marchand, chroniques liées, expansion financée, inspection, rendu, agrégat et validation du template. |
 | [`tests/test_diplomacy.py`](tests/test_diplomacy.py) | TDD du registre, métriques, transitions, commerce, guerre, trêves, aide alliée, soldats, API headless, inspection, checkpoints, configuration, chroniques, i18n et onglet `[D]`. |
@@ -371,6 +381,8 @@ La suite contient 425 tests et s'organise ainsi :
 | [`tests/test_persistence.py`](tests/test_persistence.py) | IDs monotones/restaurables, continuité des transformations et relations, format invalide, états globaux, reprise déterministe, `--load`/`--save` et erreurs i18n. |
 | [`tests/__init__.py`](tests/__init__.py) | Marque le répertoire comme package de tests. |
 | [`tests/test_presentation_foundations.py`](tests/test_presentation_foundations.py) | Clés visuelles, priorité des couches, parité terminal, JSON défensif sans PRNG, panneaux structurés, deltas, bornes de configuration et hôte mono-propriétaire. |
+| [`tests/test_web_server.py`](tests/test_web_server.py) | API v1, ressources statiques filtrées, client Canvas exécutable, accessibilité, inspection, origines, tailles, commandes, WebSocket, deltas, bind loopback, imports optionnels, CLI et dispatch sans terminal. |
+| [`tests/test_tilesets.py`](tests/test_tilesets.py) | Version, licence, dimensions PNG, grille, bornes, couverture standard, chemins sûrs et fallback du manifeste classique. |
 
 Contrats désormais protégés :
 
