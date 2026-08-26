@@ -6,15 +6,56 @@ class GameLogger:
     _last_metadata = []
 
     @classmethod
-    def log(cls, message, *, category="event", entity_ids=None, position=None):
+    def log(
+        cls,
+        message,
+        *,
+        category="event",
+        entity_ids=None,
+        position=None,
+        event_type=None,
+        actors=None,
+        objects=None,
+        locations=None,
+        causes=None,
+        consequences=None,
+        facts=None,
+        caused_by=None,
+        text_key=None,
+        text_args=None,
+    ):
         """Ajoute un message et, facultativement, son contexte structuré."""
         if message:
             cls._logs.append(str(message))
-            cls._metadata.append({
+            metadata = {
                 "category": str(category),
                 "entity_ids": list(entity_ids or ()),
                 "position": list(position) if position is not None else None,
-            })
+            }
+            optional = {
+                "event_type": event_type,
+                "actors": actors,
+                "objects": objects,
+                "locations": locations,
+                "causes": causes,
+                "consequences": consequences,
+                "facts": facts,
+                "caused_by": caused_by,
+                "text_key": text_key,
+                "text_args": text_args,
+            }
+            for key, value in optional.items():
+                if value is not None:
+                    if isinstance(value, dict):
+                        metadata[key] = dict(value)
+                    elif isinstance(value, (list, tuple)):
+                        metadata[key] = [
+                            dict(item) if isinstance(item, dict) else item
+                            for item in value
+                        ]
+                    else:
+                        metadata[key] = value
+            cls._metadata.append(metadata)
 
     @classmethod
     def get_new_logs(cls):

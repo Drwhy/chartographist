@@ -20,6 +20,7 @@ class Entity:
         self.entity_id = EntityIdService.next_id()
         self.char = char
         self.is_expired = False
+        self.render_key = None
         self.z_index = z_index
         self.speed = speed
         self.action_meter = 0.0

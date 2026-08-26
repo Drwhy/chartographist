@@ -100,6 +100,10 @@ class ClimateSystem:
                 ResourceSystem(self.world, self.config).apply_global_disturbance(
                     anomaly, severity, duration=12
                 )
+        from core.infrastructure import damage_world_infrastructure
+        damage_world_infrastructure(
+            self.world, self.config, anomaly, severity=severity
+        )
         GameLogger.log(
             Translator.translate(f"events.climate_{anomaly}", severity=round(severity * 100)),
             category="climate",
@@ -190,9 +194,15 @@ def habitat_suitability(world, config, species_data, x, y):
     return 1.0
 
 def biome_at(x, y, elevation, world, config):
-    """Renvoie le biome logique d'une tuile."""
+    """Conserve le glyphe historique associé au biome logique."""
+    key = biome_key_at(x, y, elevation, world, config)
+    return biome_glyph(key, config)
+
+
+def biome_key_at(x, y, elevation, world, config):
+    """Renvoie l'identité sémantique du biome d'une tuile."""
     if not climate_enabled(config):
-        return legacy_biome_at(
+        return legacy_biome_key_at(
             x,
             y,
             elevation,
@@ -205,45 +215,41 @@ def biome_at(x, y, elevation, world, config):
     climate = ClimateSystem(world, config)
     temperature = climate.temperature_at(x, y)
     moisture = climate.moisture_at(x, y)
-    biomes = config.get("biomes", {})
-    water = config.get("water", {})
     h = elevation
 
     if h > 0.90:
-        return biomes.get("volcano", "🌋")
+        return "volcano"
     if h > 0.85 or temperature < 0.05:
-        return biomes.get("peak", "❄️")
+        return "peak"
     if h > 0.55:
-        return biomes.get("high_mountain", "🏔️")
+        return "high_mountain"
     if h > 0.35:
-        return biomes.get("mountain", "⛰️")
+        return "mountain"
     if h < -0.15:
-        return water.get("ocean", "🌊")
+        return "ocean"
     if h < 0:
-        return water.get("shore", "💧")
+        return "shore"
     if h < 0.05:
-        return biomes.get("sand", "🏖️")
+        return "sand"
     if temperature < 0.15:
-        return biomes.get("glaciated", "❄️")
+        return "glaciated"
     if temperature < 0.3:
-        return biomes.get("tundra", biomes.get("boreal_forest", "🌲"))
+        return "tundra"
     if moisture < 0.18:
-        return biomes.get("desert", "🏜️")
+        return "desert"
     if moisture < 0.28:
-        return biomes.get("cactus", biomes.get("grassland", "🌵"))
+        return "cactus"
     if temperature > 0.7 and moisture > 0.55:
-        return biomes.get("tropical_forest", "🌴")
+        return "tropical_forest"
     if temperature < 0.5:
-        return biomes.get("boreal_forest", "🌲")
+        return "boreal_forest"
     if moisture > 0.55:
-        return biomes.get("temperate_forest", "🌳")
-    return biomes.get("grassland", "🌿")
+        return "temperate_forest"
+    return "grassland"
 
 
-def legacy_biome_at(x, y, h, cycle, width, height, config):
-    """Formule historique extraite du rendu sans changement de seuils."""
-    biomes = config.get("biomes", {})
-    water = config.get("water", {})
+def legacy_biome_key_at(x, y, h, cycle, width, height, config):
+    """Identité sémantique issue de la formule historique inchangée."""
     half_height = height // 2
     dist_to_equator = (
         abs(y - half_height) / half_height if half_height else 0.0
@@ -256,32 +262,56 @@ def legacy_biome_at(x, y, h, cycle, width, height, config):
     )
 
     if h > 0.90:
-        return biomes.get("volcano", "🌋")
+        return "volcano"
     if h > 0.85 or temp > 0.8:
-        return biomes.get("peak", "❄️")
+        return "peak"
     if h > 0.55:
-        return biomes.get("high_mountain", "🏔️")
+        return "high_mountain"
     if h > 0.35:
-        return biomes.get("mountain", "⛰️")
+        return "mountain"
     if h < -0.15:
-        return water.get("ocean", "🌊")
+        return "ocean"
     if h < 0:
-        return water.get("shore", "💧")
+        return "shore"
     if h < 0.05:
-        return biomes.get("sand", "🏖️")
+        return "sand"
     if temp > 0.65:
-        return (
-            biomes.get("boreal_forest", "🌲")
-            if h > 0.2
-            else biomes.get("glaciated", "❄️")
-        )
+        return "boreal_forest" if h > 0.2 else "glaciated"
     if temp > 0.45:
         if h > 0.2 and 0.48 < temp < 0.55:
-            return biomes.get("autumn_forest", "🍂")
-        return biomes.get("temperate_forest", "🌳")
+            return "autumn_forest"
+        return "temperate_forest"
     if temp < 0.25 and h > 0.12:
-        return biomes.get("tropical_forest", "🌴")
-    return biomes.get("grassland", "🌿")
+        return "tropical_forest"
+    return "grassland"
+
+
+def legacy_biome_at(x, y, h, cycle, width, height, config):
+    """Formule historique extraite du rendu sans changement de glyphes."""
+    key = legacy_biome_key_at(x, y, h, cycle, width, height, config)
+    return biome_glyph(key, config)
+
+
+def biome_glyph(key, config):
+    """Associe une identité de biome à son glyphe terminal historique."""
+    if key in {"ocean", "shore"}:
+        defaults = {"ocean": "🌊", "shore": "💧"}
+        return config.get("water", {}).get(key, defaults[key])
+    defaults = {
+        "volcano": "🌋", "peak": "❄️", "high_mountain": "🏔️",
+        "mountain": "⛰️", "sand": "🏖️", "glaciated": "❄️",
+        "tundra": "🌲", "desert": "🏜️", "cactus": "🌵",
+        "tropical_forest": "🌴", "boreal_forest": "🌲",
+        "temperate_forest": "🌳", "autumn_forest": "🍂",
+        "grassland": "🌿",
+    }
+    biomes = config.get("biomes", {})
+    if key == "tundra" and key not in biomes:
+
+        return biomes.get("boreal_forest", defaults[key])
+    if key == "cactus" and key not in biomes:
+        return biomes.get("grassland", defaults[key])
+    return biomes.get(key, defaults[key])
 
 
 def _clamp(value, minimum, maximum):

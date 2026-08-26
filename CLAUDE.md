@@ -56,9 +56,8 @@ There are no build, lint, or test commands — this is a pure Python project wit
 
 ```
 Entity (base: position, energy, Z-index)
-├── Actor (culture, aging, lifespan)
-│   ├── Animal  ← data-driven via template.json
-│   └── Human roles: Settler, Hunter, Fisherman, Farmer, Trader, Soldier
+├── Animal  ← data-driven via template.json
+├── Human roles: Settler, Hunter, Fisherman, Farmer, Trader, Soldier
 └── Construct (static: cities, villages, ruins)
 ```
 

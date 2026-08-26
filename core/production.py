@@ -2,11 +2,11 @@
 
 from copy import deepcopy
 
-from core.materials import MaterialCatalog
+from core.materials import runtime_catalog
 from core.stockpiles import StockpileService
 
 
-_PRODUCTION_VERSION = 1
+_PRODUCTION_VERSION = 2
 
 
 def _empty_state():
@@ -16,8 +16,10 @@ def _empty_state():
         "orders": [],
         "last_planning_cycle": None,
         "last_sourcing_cycle": None,
+        "tool_durability": {},
+        "production_totals": {},
+        "specialization": None,
     }
-
 
 def ensure_production_state(settlement):
     state = getattr(settlement, "production", None)
@@ -30,6 +32,21 @@ def ensure_production_state(settlement):
         state["orders"] = []
     state.setdefault("last_planning_cycle", None)
     state.setdefault("last_sourcing_cycle", None)
+    durability = state.get("tool_durability")
+    if not isinstance(durability, dict):
+        durability = {}
+    state["tool_durability"] = {
+        str(key): max(0.0, float(value))
+        for key, value in durability.items()
+    }
+    totals = state.get("production_totals")
+    if not isinstance(totals, dict):
+        totals = {}
+    state["production_totals"] = {
+        str(key): max(0.0, float(value))
+        for key, value in totals.items()
+    }
+    state.setdefault("specialization", None)
     return state
 
 
@@ -39,13 +56,45 @@ class ProductionService:
     def __init__(self, settlement, config):
         self.settlement = settlement
         self.config = config if isinstance(config, dict) else {}
-        self.catalog = MaterialCatalog(self.config)
+        self.catalog = runtime_catalog(self.config)
         self.enabled = self.catalog.enabled
         self.state = ensure_production_state(settlement) if self.enabled else _empty_state()
         self.stockpile = StockpileService(settlement, self.config)
 
     def snapshot(self):
         return deepcopy(self.state)
+
+    def tool_durability(self, tool_id):
+        identifier = str(tool_id)
+        if self.stockpile.quantity(identifier) < 1.0:
+            return 0.0
+        maximum = float(self.catalog.item(identifier).get("durability", 1.0))
+        current = self.state["tool_durability"].get(identifier, maximum)
+        return round(min(maximum, max(0.0, float(current))), 6)
+
+    def _consume_tool_durability(self, recipe):
+        wear = max(0.0, float(recipe.get("tool_wear", 1.0)))
+        if wear <= 0:
+            return
+        for tool_id in recipe.get("tools", ()):
+            identifier = str(tool_id)
+            maximum = float(self.catalog.item(identifier).get("durability", 1.0))
+            remaining_wear = wear
+            durability = self.tool_durability(identifier)
+            while remaining_wear >= durability and self.stockpile.quantity(identifier) >= 1.0:
+                remaining_wear -= durability
+                self.stockpile.withdraw(identifier, 1.0)
+                if self.stockpile.quantity(identifier) < 1.0:
+                    durability = 0.0
+                    break
+                durability = maximum
+            if durability > 0:
+                durability -= remaining_wear
+                self.state["tool_durability"][identifier] = round(
+                    max(0.0, durability), 6
+                )
+            else:
+                self.state["tool_durability"].pop(identifier, None)
 
     def plan(self, cycle):
         if not self.enabled:
@@ -178,16 +227,48 @@ class ProductionService:
             order["status"] = "active"
 
         skill = self._worker_skill(worker, recipe.get("skill"))
+        from core.infrastructure import InfrastructureService
+        infrastructure_bonus = InfrastructureService(
+            self.settlement, self.config
+        ).effect("production_speed_bonus")
         order["worker_skill"] = skill
+        order["worker_id"] = (
+            None if worker is None
+            else int(getattr(worker, "entity_id", 0))
+        )
+        from core.institutions import settlement_policy_modifier
+        labor_multiplier = settlement_policy_modifier(
+            self.settlement,
+            "labor_efficiency_multiplier",
+            default=1.0,
+        )
         order["progress"] = round(
-            float(order["progress"]) + 1.0 + skill / 100.0,
+            float(order["progress"])
+            + (1.0 + skill / 100.0 + infrastructure_bonus) * labor_multiplier,
             6,
         )
         if order["progress"] >= order["required_work"]:
-            for good_id, quantity in recipe["outputs"].items():
+            products = {}
+            for field in ("outputs", "byproducts"):
+                for good_id, quantity in recipe.get(field, {}).items():
+                    products[good_id] = products.get(good_id, 0.0) + float(quantity)
+            for good_id, quantity in products.items():
                 accepted = self.stockpile.deposit(good_id, quantity)
                 if accepted != float(quantity):
                     raise RuntimeError("production output capacity failure")
+            quality_scale = max(0.0, float(recipe.get("quality_skill_scale", 0.0)))
+            order["output_quality"] = round(1.0 + skill / 100.0 * quality_scale, 6)
+            totals = self.state["production_totals"]
+            for good_id, quantity in recipe["outputs"].items():
+                identifier = str(good_id)
+                totals[identifier] = round(
+                    float(totals.get(identifier, 0.0)) + float(quantity), 6
+                )
+            self.state["specialization"] = max(
+                sorted(totals.items()),
+                key=lambda item: item[1],
+            )[0]
+            self._consume_tool_durability(recipe)
             order["status"] = "completed"
             order["completed_cycle"] = int(cycle)
         return deepcopy(order)
@@ -205,7 +286,8 @@ class ProductionService:
         )
         produced = sum(
             float(quantity) * float(self.catalog.good(good_id)["unit_weight"])
-            for good_id, quantity in recipe["outputs"].items()
+            for field in ("outputs", "byproducts")
+            for good_id, quantity in recipe.get(field, {}).items()
         )
         return self.stockpile.total_weight() - released + produced <= self.stockpile.capacity
 
@@ -350,11 +432,19 @@ def advance_settlement_production(settlement, world):
         "order": None,
         "losses": {},
         "infrastructure": {},
+        "maintenance": {},
+        "artifacts": [],
     }
     settings = config.get("materials", {}) if isinstance(config, dict) else {}
     if not isinstance(settings, dict) or settings.get("enabled") is not True:
         return result
     service = ProductionService(settlement, config)
+    from core.infrastructure import InfrastructureService
+
+    infrastructure = InfrastructureService(settlement, config)
+    result["maintenance"] = infrastructure.maintain(
+        cycle=world.get("cycle", 0)
+    )
     chain = _food_chain(config)
     recipe_id = chain.get("recipe_id")
     raw_good_id = chain.get("raw_good_id")
@@ -420,11 +510,17 @@ def advance_settlement_production(settlement, world):
             metrics.record_material(
                 "produced", produced_quantity, good_id=produced_good_id
             )
-    from core.infrastructure import InfrastructureService
-
-    result["infrastructure"] = InfrastructureService(
-        settlement, config
-    ).install_available(cycle=world.get("cycle", 0))
+        from core.artifacts import promote_completed_order
+        result["artifacts"] = promote_completed_order(
+            world,
+            settlement,
+            result["order"],
+            recipe,
+            config,
+        )
+    result["infrastructure"] = infrastructure.install_available(
+        cycle=world.get("cycle", 0)
+    )
     for infrastructure_id, quantity in result["infrastructure"].items():
         metrics.record_material(
             "infrastructure_built", quantity, good_id=infrastructure_id

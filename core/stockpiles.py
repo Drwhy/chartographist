@@ -3,7 +3,7 @@
 from copy import deepcopy
 import math
 
-from core.materials import MaterialCatalog
+from core.materials import runtime_catalog
 
 
 _STOCKPILE_VERSION = 1
@@ -23,6 +23,7 @@ def _quantity(value):
 def _infrastructure_capacity_bonus(settlement, catalog):
     state = getattr(settlement, "infrastructure", None)
     levels = state.get("levels", {}) if isinstance(state, dict) else {}
+    conditions = state.get("conditions", {}) if isinstance(state, dict) else {}
     if not isinstance(levels, dict):
         return 0.0
     definitions = catalog.definition.get("infrastructures", [])
@@ -35,7 +36,9 @@ def _infrastructure_capacity_bonus(settlement, catalog):
         identifier = str(definition.get("id", ""))
         level = max(0, int(levels.get(identifier, 0)))
         bonus = max(0.0, float(definition.get("capacity_bonus", 0.0)))
-        total += level * bonus
+        default_condition = 100.0 if level > 0 else 0.0
+        condition = min(100.0, max(0.0, float(conditions.get(identifier, default_condition))))
+        total += level * bonus * condition / 100.0
     return round(total, 6)
 
 
@@ -53,7 +56,7 @@ def _empty_state(capacity):
 
 def ensure_stockpile(settlement, config):
     """Create or migrate enabled storage without discarding existing quantities."""
-    catalog = MaterialCatalog(config)
+    catalog = runtime_catalog(config)
     capacity = catalog.definition.get("stockpile_capacity", 0)
     state = getattr(settlement, "stockpile", None)
     if not isinstance(state, dict):
@@ -106,7 +109,7 @@ class StockpileService:
     def __init__(self, settlement, config):
         self.settlement = settlement
         self.config = config if isinstance(config, dict) else {}
-        self.catalog = MaterialCatalog(self.config)
+        self.catalog = runtime_catalog(self.config)
         self.enabled = self.catalog.enabled
         capacity = self.catalog.definition.get("stockpile_capacity", 0)
         self.state = (

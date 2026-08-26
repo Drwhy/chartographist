@@ -1,4 +1,5 @@
 import json
+import pickle
 import tempfile
 import unittest
 
@@ -285,6 +286,46 @@ class SaveGameTests(unittest.TestCase):
                 restored.run(6)
 
         self.assertEqual(self.snapshot(restored), expected)
+
+    def test_checkpoint_restores_named_random_streams(self):
+        engine = self.make_engine(seed=5150)
+        RandomService.random(stream="ecology")
+        RandomService.randint(1, 10, stream="ecology")
+        expected_streams = RandomService.get_stream_states()
+
+        with tempfile.TemporaryDirectory() as directory:
+            save_path = Path(directory) / "streams.chart"
+            engine.save(save_path)
+            RandomService.initialize(1)
+            SimulationEngine.load(save_path)
+
+        self.assertEqual(RandomService.get_stream_states(), expected_streams)
+
+    def test_legacy_checkpoint_derives_new_named_streams_from_world_seed(self):
+        from core import persistence
+
+        engine = self.make_engine(seed=5150)
+        with tempfile.TemporaryDirectory() as directory:
+            save_path = Path(directory) / "legacy-streams.chart"
+            engine.save(save_path)
+
+            data = save_path.read_bytes()
+            header_size = len(persistence.SAVE_MAGIC) + persistence._VERSION_BYTES
+            payload = pickle.loads(data[header_size:])
+            payload["runtime"].pop("random_streams", None)
+            payload["runtime"].pop("random_seed", None)
+            save_path.write_bytes(
+                data[:header_size]
+                + pickle.dumps(payload, protocol=pickle.HIGHEST_PROTOCOL)
+            )
+
+            RandomService.initialize(5150)
+            expected = RandomService.random(stream="ecology")
+            RandomService.initialize(1)
+            SimulationEngine.load(save_path)
+            actual = RandomService.random(stream="ecology")
+
+        self.assertEqual(actual, expected)
 
     def test_load_restores_runtime_module_state(self):
         engine = self.make_engine(seed=6060)

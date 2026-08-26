@@ -115,7 +115,11 @@ class Human(Entity):
 
         # Natural death risk
         if self.age > 50:
-            if RandomService.random() < (self.age - 50) * 0.01:
+            from core.characters import characters_enabled
+            random_stream = (
+                "demography.lifecycle" if characters_enabled(self.config) else None
+            )
+            if RandomService.random(stream=random_stream) < (self.age - 50) * 0.01:
                 self.is_dead = True
 
     def faith_bonus(self, key, default=0):

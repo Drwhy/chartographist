@@ -4,7 +4,7 @@ from copy import deepcopy
 
 
 _METRIC_DEFAULTS = {
-    "version": 1,
+    "version": 3,
     "flows": {
         "food": {
             "produced": 0,
@@ -40,6 +40,21 @@ _METRIC_DEFAULTS = {
             "fish_harvested": 0,
             "soil_depleted": 0.0,
             "disturbances": 0,
+        },
+        "politics": {
+            "proposals": 0,
+            "enacted": 0,
+            "rejected": 0,
+            "successions": 0,
+            "crises": 0,
+            "protests": 0,
+            "sabotage": 0,
+            "coups": 0,
+            "revolts": 0,
+            "reforms": 0,
+            "exodus": 0,
+            "responses": 0,
+            "taxes": 0.0,
         },
     },
     "initialization": {
@@ -92,7 +107,9 @@ class SimulationMetrics:
         if not isinstance(storage, dict):
             storage = {}
             world["metrics"] = storage
-        _merge_defaults(storage, _METRIC_DEFAULTS)
+        if storage.get("version") != _METRIC_DEFAULTS["version"]:
+            _merge_defaults(storage, _METRIC_DEFAULTS)
+            storage["version"] = _METRIC_DEFAULTS["version"]
         self.storage = storage
 
     def record_food(self, kind, amount, *, source=None):
@@ -156,6 +173,18 @@ class SimulationMetrics:
         resources[kind] = int(updated) if isinstance(current, int) else updated
         return quantity
 
+
+    def record_politics(self, kind, amount=1):
+        politics = self.storage["flows"]["politics"]
+        if kind not in politics:
+            raise ValueError(f"unknown politics flow: {kind}")
+        quantity = max(0.0, float(amount))
+        current = politics[kind]
+        updated = round(float(current) + quantity, 6)
+        politics[kind] = (
+            int(updated) if isinstance(current, int) else updated
+        )
+        return quantity
     def _state_snapshot(self):
         settlements = []
         fauna_count = 0
@@ -191,8 +220,8 @@ class SimulationMetrics:
                     stockpile_capacity += max(0.0, float(stockpile.get("capacity", 0.0)))
                     goods = stockpile.get("goods", {})
                     if isinstance(goods, dict):
-                        from core.materials import MaterialCatalog
-                        catalog = MaterialCatalog(getattr(entity, "config", {}))
+                        from core.materials import runtime_catalog
+                        catalog = runtime_catalog(getattr(entity, "config", {}))
                         for good_id, amount in goods.items():
                             quantity = max(0.0, float(amount))
                             stockpile_goods[good_id] = round(

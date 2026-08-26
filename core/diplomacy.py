@@ -283,6 +283,10 @@ def world_diplomatic_summary(world):
             if count
             else 0.0
         ),
+        "peace": {
+            "treaties": len(world.get("peace", {}).get("treaties", ())),
+            "last_treaty": deepcopy(world.get("peace", {}).get("treaties", ())[-1]) if world.get("peace", {}).get("treaties") else None,
+        },
     }
 
 

@@ -20,6 +20,7 @@ def spawn_system(world, config):
 
 def _spawn_fauna(world, config, width, height):
     """Spawn at most one wild animal within the configured capacity."""
+    from core.resources import resources_enabled
     from core.ecology_limits import can_add_fauna, population_limits_enabled
 
     fauna_list = config.get("fauna", [])
@@ -39,9 +40,10 @@ def _spawn_fauna(world, config, width, height):
     if not candidates:
         return
 
-    species_data = RandomService.choice(candidates)
-    spawn_x = RandomService.randint(0, width - 1)
-    spawn_y = RandomService.randint(0, height - 1)
+    random_stream = "ecology" if resources_enabled(config) else None
+    species_data = RandomService.choice(candidates, stream=random_stream)
+    spawn_x = RandomService.randint(0, width - 1, stream=random_stream)
+    spawn_y = RandomService.randint(0, height - 1, stream=random_stream)
     new_animal = Animal.try_spawn(spawn_x, spawn_y, world, config, species_data)
     if new_animal and can_add_fauna(world, config, species_data, spawn_x, spawn_y):
         world["entities"].add(new_animal)

@@ -14,6 +14,7 @@ _DEFAULT_ACCOUNT = {
     "transactions": 0,
     "last_food_price": 0.0,
     "goods_imported": {},
+    "goods_lost_in_transit": {},
     "goods_exported": {},
     "last_material_prices": {},
 }
@@ -27,6 +28,9 @@ class TradeTransaction:
     unit_price: float
     value: float
     good_id: str = "food"
+    transport_cost: float = 0.0
+    lost_quantity: float = 0.0
+    shipped_quantity: float = 0.0
 
 
 def economy_settings(settlement):
@@ -41,6 +45,16 @@ def economy_settings(settlement):
 def economy_enabled(settlement):
     """Indique si le nouveau marché est activé pour cet établissement."""
     return economy_settings(settlement).get("enabled", False) is True
+
+
+def _infrastructure_effect(settlement, effect_id):
+    config = getattr(settlement, "config", {})
+    if not isinstance(config, dict):
+        return 0.0
+    from core.infrastructure import InfrastructureService
+    return InfrastructureService(
+        settlement, config
+    ).effect(effect_id)
 
 
 def ensure_economy(settlement):
@@ -152,10 +166,10 @@ def world_economic_summary(world):
 
 def material_price(settlement, good_id):
     """Price one catalog good from local scarcity and its configured base value."""
-    from core.materials import MaterialCatalog
+    from core.materials import runtime_catalog
     from core.stockpiles import StockpileService
 
-    catalog = MaterialCatalog(getattr(settlement, "config", {}))
+    catalog = runtime_catalog(getattr(settlement, "config", {}))
     definition = catalog.good(good_id)
     stock = StockpileService(settlement, settlement.config).quantity(good_id)
     targets = catalog.definition.get("targets", {})
@@ -171,11 +185,11 @@ def material_price(settlement, good_id):
 
 def execute_material_trade(origin, target, good_id, *, capacity):
     """Transfer one catalog good and its payment without creating either."""
-    from core.materials import MaterialCatalog
-    from core.stockpiles import StockpileService, transfer_goods
+    from core.materials import runtime_catalog
+    from core.stockpiles import StockpileService
 
     config = getattr(origin, "config", {})
-    catalog = MaterialCatalog(config)
+    catalog = runtime_catalog(config)
     unit_price = material_price(target, good_id)
     if not catalog.enabled:
         return TradeTransaction(0.0, unit_price, 0.0, str(good_id))
@@ -187,34 +201,76 @@ def execute_material_trade(origin, target, good_id, *, capacity):
     reserve = max(0.0, float(reserve_settings.get(good_id, 0.0)))
     available = max(0.0, origin_stock.quantity(good_id) - reserve)
     unit_weight = float(catalog.good(good_id)["unit_weight"])
-    room = target_stock.available_weight() / unit_weight
-    affordable = (
-        math.floor(target_account["treasury"] / unit_price)
-        if unit_price > 0 else 0
+    settings = economy_settings(origin)
+    cost_reduction = min(0.95, _infrastructure_effect(origin, "transport_cost_reduction"))
+    loss_reduction = min(0.95, _infrastructure_effect(origin, "transport_loss_reduction"))
+    origin_pos = getattr(origin, "pos", (0, 0))
+    target_pos = getattr(target, "pos", origin_pos)
+    distance = math.dist(origin_pos, target_pos)
+    risk = max(0.0, float(getattr(target, "trade_risk", 0.0)))
+    transport_cost = round(
+        (
+            distance * max(0.0, float(settings.get("transport_cost_per_tile", 0.0)))
+            + risk * max(0.0, float(settings.get("risk_cost_multiplier", 0.0)))
+        ) * (1.0 - cost_reduction),
+        2,
     )
-    quantity = float(max(0, math.floor(min(
-        max(0.0, float(capacity)), available, room, affordable
+    loss_per_tile = max(0.0, float(settings.get("transport_loss_per_tile", 0.0)))
+    loss_rate = min(0.95, distance * loss_per_tile * (1.0 - loss_reduction))
+    room = target_stock.available_weight() / unit_weight
+    shipped = float(max(0, math.floor(min(
+        max(0.0, float(capacity)), available
     ))))
-    if quantity <= 0:
+    delivered = 0.0
+    while shipped > 0:
+        delivered = float(math.floor(shipped * (1.0 - loss_rate)))
+        total_due = round(delivered * unit_price + transport_cost, 2)
+        if (
+            delivered > 0
+            and delivered <= room
+            and total_due <= target_account["treasury"]
+        ):
+            break
+        shipped -= 1.0
+    if shipped <= 0:
         return TradeTransaction(0.0, unit_price, 0.0, str(good_id))
-    movement = transfer_goods(origin, target, good_id, quantity, config)
-    transferred = float(movement["transferred"])
-    if transferred <= 0:
-        return TradeTransaction(0.0, unit_price, 0.0, str(good_id))
+    removed = origin_stock.withdraw(good_id, shipped)
+    transferred = target_stock.deposit(good_id, delivered)
+    if removed != shipped or transferred != delivered:
+        raise RuntimeError("material transport conservation failure")
+    lost = round(shipped - transferred, 6)
     value = round(transferred * unit_price, 2)
-    origin_account["treasury"] = round(origin_account["treasury"] + value, 2)
-    target_account["treasury"] = round(target_account["treasury"] - value, 2)
-    origin_account["trade_earned"] = round(origin_account["trade_earned"] + value, 2)
-    target_account["trade_spent"] = round(target_account["trade_spent"] + value, 2)
+    total_payment = round(value + transport_cost, 2)
+    origin_account["treasury"] = round(origin_account["treasury"] + total_payment, 2)
+    target_account["treasury"] = round(target_account["treasury"] - total_payment, 2)
+    origin_account["trade_earned"] = round(
+        origin_account["trade_earned"] + total_payment, 2
+    )
+    target_account["trade_spent"] = round(
+        target_account["trade_spent"] + total_payment, 2
+    )
     origin_account["transactions"] += 1
     target_account["transactions"] += 1
     exported = origin_account["goods_exported"]
     imported = target_account["goods_imported"]
-    exported[str(good_id)] = round(float(exported.get(str(good_id), 0.0)) + transferred, 6)
+    losses = origin_account["goods_lost_in_transit"]
+    exported[str(good_id)] = round(float(exported.get(str(good_id), 0.0)) + shipped, 6)
     imported[str(good_id)] = round(float(imported.get(str(good_id), 0.0)) + transferred, 6)
+    if lost > 0:
+        losses[str(good_id)] = round(
+            float(losses.get(str(good_id), 0.0)) + lost, 6
+        )
     origin_account["last_material_prices"][str(good_id)] = unit_price
     target_account["last_material_prices"][str(good_id)] = unit_price
-    return TradeTransaction(transferred, unit_price, value, str(good_id))
+    return TradeTransaction(
+        transferred,
+        unit_price,
+        value,
+        str(good_id),
+        transport_cost,
+        lost,
+        shipped,
+    )
 
 
 def select_material_market(origin, candidates, good_id, *, capacity):
@@ -222,6 +278,9 @@ def select_material_market(origin, candidates, good_id, *, capacity):
     settings = economy_settings(origin)
     distance_cost = max(0.0, float(settings.get("transport_cost_per_tile", 0.0)))
     risk_multiplier = max(0.0, float(settings.get("risk_cost_multiplier", 0.0)))
+    loss_per_tile = max(0.0, float(settings.get("transport_loss_per_tile", 0.0)))
+    cost_reduction = min(0.95, _infrastructure_effect(origin, "transport_cost_reduction"))
+    loss_reduction = min(0.95, _infrastructure_effect(origin, "transport_loss_reduction"))
     ranked = []
     origin_pos = getattr(origin, "pos", (0, 0))
     for target in candidates:
@@ -231,8 +290,12 @@ def select_material_market(origin, candidates, good_id, *, capacity):
         target_pos = getattr(target, "pos", origin_pos)
         distance = math.dist(origin_pos, target_pos)
         risk = max(0.0, float(getattr(target, "trade_risk", 0.0)))
-        transport = round(distance * distance_cost + risk * risk_multiplier, 2)
-        expected = round(max(0.0, float(capacity)) * price - transport, 2)
+        transport = round(
+            (distance * distance_cost + risk * risk_multiplier) * (1.0 - cost_reduction), 2
+        )
+        loss_rate = min(0.95, distance * loss_per_tile * (1.0 - loss_reduction))
+        delivered = max(0.0, float(capacity)) * (1.0 - loss_rate)
+        expected = round(delivered * price - transport, 2)
         ranked.append({
             "target": target,
             "good_id": str(good_id),
@@ -240,6 +303,7 @@ def select_material_market(origin, candidates, good_id, *, capacity):
             "distance": round(distance, 6),
             "risk": risk,
             "transport_cost": transport,
+            "loss_rate": round(loss_rate, 6),
             "expected_profit": expected,
         })
     if not ranked:

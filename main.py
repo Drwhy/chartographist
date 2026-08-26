@@ -6,9 +6,10 @@ import traceback
 import core
 from core.persistence import SaveFormatError
 from core.simulation_engine import SimulationEngine
+from core.simulation_host import SimulationHost
 from core.translator import Translator
 from render.render_engine import RenderEngine
-from render.ui_bestiary import print_bestiary_summary, FAUNA_TAB, SPECIES_TAB, RELIGION_TAB, GUIDE_TAB, SETTLEMENTS_TAB, CHRONICLES_TAB, DIPLOMACY_TAB
+from render.ui_bestiary import print_bestiary_summary, FAUNA_TAB, SPECIES_TAB, RELIGION_TAB, GUIDE_TAB, SETTLEMENTS_TAB, CHRONICLES_TAB, DIPLOMACY_TAB, SYSTEMS_TAB, WHY_TAB
 
 # --- GLOBAL CONFIGURATION ---
 WIDTH, HEIGHT = 60, 30
@@ -40,10 +41,20 @@ def handle_bestiary_input(key, state):
         "c": SETTLEMENTS_TAB,
         "h": CHRONICLES_TAB,
         "d": DIPLOMACY_TAB,
+        "y": SYSTEMS_TAB,
+        "w": WHY_TAB,
     }
     normalized = key.lower()
     if normalized in tabs:
         state["tab"] = tabs[normalized]
+        state["page"] = 0
+    elif state.get("tab") == WHY_TAB and normalized in {"1", "2", "3", "4"}:
+        state["why_filter"] = {
+            "1": "all",
+            "2": "warfare",
+            "3": "artifacts",
+            "4": "legends",
+        }[normalized]
         state["page"] = 0
     elif normalized == "n":
         state["page"] += 1
@@ -86,10 +97,21 @@ def main():
 
         renderer = RenderEngine(WIDTH, HEIGHT, config)
         bestiary_state = {'active': False, 'tab': FAUNA_TAB, 'page': 0}
+        presentation_config = config.get("presentation", {})
+        max_commands = presentation_config.get("max_commands", 64) \
+            if isinstance(presentation_config, dict) else 64
+
+        host = SimulationHost(
+            engine,
+            tick_interval=TICK_SPEED,
+            save_path=options.save_path,
+            max_commands=max_commands,
+            snapshot_factory=_terminal_publication,
+        )
 
         renderer.draw_frame(world, stats, reveal=True)
         while world['cycle'] < MAX_CYCLES:
-            engine.step()
+            host.tick()
 
             key = check_input()
             if key:
@@ -99,7 +121,7 @@ def main():
                 renderer.draw_bestiary(world, bestiary_state)
             else:
                 renderer.draw_frame(world, stats)
-            time.sleep(TICK_SPEED)
+            time.sleep(host.tick_interval)
 
     except KeyboardInterrupt:
         print("\033[?25h")
@@ -125,6 +147,15 @@ def main():
                     ))
             _print_final_summary(engine.config, engine.world, engine.stats, seed)
 
+
+
+def _terminal_publication(engine, revision):
+    """Publication minimale : le terminal lit encore directement le moteur."""
+    return {
+        "schema_version": 1,
+        "revision": int(revision),
+        "cycle": int(engine.world.get("cycle", 0)),
+    }
 
 def _print_final_summary(config, world, stats, seed):
     from entities.constructs.city import City

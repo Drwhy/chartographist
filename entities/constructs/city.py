@@ -60,6 +60,8 @@ class City(Construct):
     def update(self, world, stats):
         if self.is_expired: return
 
+        from core.knowledge import KnowledgeService
+        KnowledgeService(self, self.config).advance(world)
         # 1. INDIVIDUAL UPDATES & FEEDING
         self._update_citizens(world)
         from core.production import advance_settlement_production

@@ -1,4 +1,5 @@
 import math
+from copy import deepcopy
 from .base import Human
 from entities.registry import register_civ
 from core.discovery_service import DiscoveryService
@@ -63,7 +64,15 @@ class Trader(Human):
                 self.target_city = self.base_city
                 return
 
-        all_cities = DiscoveryService.get_known_settlements(world)
+        from core.knowledge import KnowledgeService, knowledge_enabled
+        knowledge_book = None
+        if knowledge_enabled(self.config):
+            knowledge_book = KnowledgeService(self.home_city, self.config)
+            knowledge_book.observe(world)
+            knowledge_book.observe_tile(world, self.pos)
+            all_cities = knowledge_book.known_settlements(world)
+        else:
+            all_cities = DiscoveryService.get_known_settlements(world)
         others = [c for c in all_cities if c != self.home_city and not c.is_expired]
 
         if not others:
@@ -79,14 +88,55 @@ class Trader(Human):
         def city_score(c):
             d = math.dist(self.pos, c.pos)
             proximity = 1.0 / (1.0 + abs(d - 15) / 10.0)  # sweet spot ~15 tiles away
+            if knowledge_book is not None:
+                fact = knowledge_book.best_fact(
+                    "settlement", c.entity_id, claim="state"
+                )
+                value = fact.get("value", {}) if isinstance(fact, dict) else {}
+                ratio = (
+                    float(value.get("food_ratio", 0.5))
+                    if isinstance(value, dict) else 0.5
+                )
+                reliability = float(fact.get("reliability", 0.0)) if fact else 0.0
+                return proximity + (1.0 - min(1.0, max(0.0, ratio))) * reliability
             return proximity + RandomService.random() * 0.3
 
         self.target_city = max(candidates, key=city_score)
+        if knowledge_book is not None:
+            fact = (
+                knowledge_book.best_fact(
+                    "settlement", self.target_city.entity_id, claim="state"
+                )
+                or knowledge_book.best_fact(
+                    "settlement", self.target_city.entity_id
+                )
+            )
+            if fact is not None:
+                self.knowledge_decision = deepcopy(fact)
 
     def _move_smart(self, world):
         """Move toward target while being repelled by the Fear Heatmap."""
         possible_moves = self._get_accessible_neighbors(world)
         if not possible_moves: return
+        from core.pathfinding import PathfindingService, known_tiles_for
+        pathfinder = PathfindingService(world, getattr(self, "config", {}))
+        if pathfinder.enabled:
+            route = pathfinder.find_path(
+                self.pos,
+                self.target_city.pos,
+                known_tiles=known_tiles_for(self),
+            )
+            if route["reachable"] and len(route["path"]) > 1:
+                next_tile = tuple(route["path"][1])
+                if next_tile in possible_moves:
+                    self.pos = next_tile
+                    self.pathfinding_decision = {
+                        "target": list(self.target_city.pos),
+                        "next_tile": list(next_tile),
+                        "cost": route["cost"],
+                        "cache_hit": route["cache_hit"],
+                    }
+                    return
 
         best_move = self.pos
         max_score = -float('inf')
@@ -129,8 +179,20 @@ class Trader(Human):
         elif economy_enabled(self.home_city):
             base_capacity = int(economy_settings(self.home_city).get("trade_capacity", 10))
             multiplier = trade_capacity_multiplier(world, self.home_city, self.target_city)
+            from core.institutions import settlement_policy_modifier
+            multiplier *= settlement_policy_modifier(
+                self.home_city,
+                "trade_capacity_multiplier",
+                default=1.0,
+            )
             capacity = int(base_capacity * multiplier) + trade_bonus
             transaction = None
+            from core.infrastructure import InfrastructureService
+            capacity += int(
+                InfrastructureService(
+                    self.home_city, self.home_city.config
+                ).effect("trade_capacity_bonus")
+            )
             material_settings = self.home_city.config.get("materials", {})
             if material_settings.get("enabled") is True:
                 food_chain = material_settings.get("food_chain", {})
@@ -273,6 +335,45 @@ class Trader(Human):
                 home_city=home.name,
                 target_city=target.name
             ))
+        from core.knowledge import KnowledgeService, knowledge_enabled
+        if knowledge_enabled(getattr(home, "config", {})):
+            home_book = KnowledgeService(home, home.config)
+            target_book = KnowledgeService(target, target.config)
+            home_facts = home_book.query()
+            target_facts = target_book.query()
+            cycle = int(world.get("cycle", 0))
+            distance = math.dist(home.pos, target.pos)
+            for observer_book, observer, subject in (
+                (home_book, home, target),
+                (target_book, target, home),
+            ):
+                observer_book.learn(
+                    kind="settlement",
+                    subject_id=subject.entity_id,
+                    claim="state",
+                    value={
+                        "exists": True,
+                        "name": str(getattr(subject, "name", "")),
+                        "population": int(getattr(subject, "population", 0)),
+                        "food_ratio": round(
+                            max(0.0, float(getattr(subject, "food_stock", 0.0)))
+                            / max(1.0, float(getattr(subject, "max_food", 1.0))),
+                            6,
+                        ),
+                    },
+                    cycle=cycle,
+                    source_id=observer.entity_id,
+                    source_type="observed",
+                    reliability=1.0,
+                    position=subject.pos,
+                )
+            home_book.transmit_to(
+                target, cycle=cycle, distance=distance, facts=home_facts
+            )
+            target_book.transmit_to(
+                home, cycle=cycle, distance=distance, facts=target_facts
+            )
+
 
     def _spread_religion(self):
         """Trader's faith influences the target city's demographics."""

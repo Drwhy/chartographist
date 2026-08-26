@@ -109,6 +109,19 @@ class NeedsAndSkillsTests(unittest.TestCase):
         service.advance(world)
         self.assertTrue(all(0 <= value <= 100 for value in person.character["needs"].values()))
 
+    def test_current_character_state_skips_default_reconstruction(self):
+        from unittest import mock
+        from core.characters import CharacterService
+
+        config = character_config()
+        person = human(config)
+
+        with mock.patch(
+            "core.characters._default_state",
+            side_effect=AssertionError("current state rebuilt"),
+        ):
+            self.assertTrue(CharacterService(person, config).enabled)
+
     def test_skill_practice_has_diminishing_returns_and_is_bounded(self):
         from core.skills import practice_skill
 
@@ -277,6 +290,28 @@ class UtilityDecisionTests(unittest.TestCase):
         world["cycle"] = due_cycle
         self.assertFalse(CharacterService(person, config).prepare_action(world))
         self.assertEqual(person.character["last_decision"]["selected"], "rest")
+
+
+    def test_ordinary_cohorts_use_a_slower_cadence_than_notables(self):
+        from core.characters import CharacterService
+
+        config = character_config(
+            decision_interval=3,
+            cohort_decision_interval=12,
+        )
+        person = human(config)
+        person.character["needs"]["fatigue"] = 100.0
+        world = character_world(person)
+        cycle = next(
+            value for value in range(1, 13)
+            if (value + person.entity_id) % 3 == 0
+            and (value + person.entity_id) % 12 != 0
+        )
+        world["cycle"] = cycle
+
+        self.assertTrue(CharacterService(person, config).prepare_action(world))
+        person.character["notability"]["is_notable"] = True
+        self.assertFalse(CharacterService(person, config).prepare_action(world))
 
 
     def test_past_raid_changes_future_decision_without_randomness(self):
@@ -539,6 +574,42 @@ class NotabilityAndIntegrationTests(unittest.TestCase):
         self.assertEqual(restored.world["notables"], world["notables"])
 
 
+class FamilyRandomIsolationTests(unittest.TestCase):
+    def test_character_family_decisions_use_demography_stream(self):
+        from entities.constructs.base import Construct
+
+        config = character_config()
+        first = human(config, "Ada")
+        second = human(config, "Bea")
+        first.age = second.age = 25
+        first.sex = "F"
+        second.sex = "M"
+        first.partner = second
+        second.partner = first
+        settlement = Construct.__new__(Construct)
+        settlement.config = config
+        settlement.citizens = [first, second]
+        settlement.food_stock = 10
+
+        RandomService.initialize(9753)
+        default_before = RandomService.get_state()
+        settlement._handle_births(chance_multiplier=0.0)
+
+        self.assertEqual(RandomService.get_state(), default_before)
+        self.assertIn("demography", RandomService.get_stream_states())
+
+    def test_character_natural_death_uses_lifecycle_stream(self):
+        config = character_config()
+        person = human(config, "Elder")
+        person.age = 60
+        RandomService.initialize(8642)
+        default_before = RandomService.get_state()
+
+        person.process_monthly_update({"cycle": 1})
+
+        self.assertEqual(RandomService.get_state(), default_before)
+        self.assertIn("demography.lifecycle", RandomService.get_stream_states())
+
 class CharacterConfigurationTests(unittest.TestCase):
     def test_template_keeps_calibrated_character_simulation_opt_in(self):
         from core.config_validator import validate_config
@@ -548,6 +619,7 @@ class CharacterConfigurationTests(unittest.TestCase):
 
         self.assertFalse(config["characters"]["enabled"])
         self.assertEqual(config["characters"]["memory_limit"], 24)
+        self.assertEqual(config["characters"]["cohort_decision_interval"], 6)
 
     def test_validator_rejects_invalid_character_values(self):
         from core.config_validator import ConfigValidationError, validate_config
@@ -559,6 +631,7 @@ class CharacterConfigurationTests(unittest.TestCase):
             "memory_decay_rate": 2,
             "notability_threshold": -1,
             "decision_interval": 0,
+            "cohort_decision_interval": 0,
         }
 
         with self.assertRaises(ConfigValidationError) as caught:
@@ -569,6 +642,10 @@ class CharacterConfigurationTests(unittest.TestCase):
         self.assertIn("range:characters.memory_decay_rate:0_1", caught.exception.errors)
         self.assertIn("range:characters.notability_threshold:nonnegative", caught.exception.errors)
         self.assertIn("range:characters.decision_interval:positive", caught.exception.errors)
+        self.assertIn(
+            "range:characters.cohort_decision_interval:positive",
+            caught.exception.errors,
+        )
 
 
 if __name__ == "__main__":

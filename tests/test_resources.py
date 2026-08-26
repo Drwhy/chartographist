@@ -3,6 +3,7 @@ import json
 import math
 import unittest
 from types import SimpleNamespace
+from unittest import mock
 
 from core.entities import EntityManager
 from core.random_service import RandomService
@@ -585,6 +586,106 @@ class ResourceConsumerTests(unittest.TestCase):
             animal._wander(world)
 
         self.assertEqual(animal.pos, (2, 0))
+
+    def test_resource_fauna_randomness_is_isolated_from_legacy_stream(self):
+        from core.resources import ResourceSystem
+        from entities.species.animal.base import Animal
+
+        config = resource_config()
+        world = resource_world(width=3, height=1)
+        world["influence"] = SimpleNamespace(
+            get_fear=lambda x, y: 0.0,
+            get_scent=lambda x, y: 0.0,
+        )
+        ResourceSystem(world, config)
+        animal = Animal(
+            1,
+            0,
+            config,
+            {
+                "species": "grazer",
+                "name": "Grazer",
+                "char": "g",
+                "diet": "herbivore",
+            },
+        )
+        RandomService.initialize(1357)
+        default_before = RandomService.get_state()
+
+        animal._wander(world)
+
+        self.assertEqual(RandomService.get_state(), default_before)
+        self.assertIn("ecology", RandomService.get_stream_states())
+
+    def test_resource_fauna_lifecycle_uses_only_the_ecology_stream(self):
+        from entities.spawn_system import _spawn_fauna
+        from entities.species.animal.base import Animal
+
+        species = {
+            "species": "grazer",
+            "name": "Grazer",
+            "char": "g",
+            "diet": "herbivore",
+            "food_value": [5, 10],
+            "energy": 140,
+            "max_energy": 150,
+            "repro_threshold": 120,
+            "spawn": {
+                "elevation_min": 0.0,
+                "elevation_max": 1.0,
+                "chance": 1.0,
+            },
+        }
+        config = resource_config()
+        config.update({"fauna": [species], "max_fauna": 20})
+        world = resource_world()
+        RandomService.initialize(2468)
+        default_before = RandomService.get_state()
+
+        spawned = Animal.try_spawn(0, 0, world, config, species)
+        self.assertIsInstance(spawned, Animal)
+        world["entities"].add(spawned)
+        spawned._reproduce(world)
+        _ = spawned.food_value
+
+        prey = Animal(0, 0, config, {
+            **species,
+            "species": "prey",
+            "name": "Prey",
+            "energy": 10,
+        })
+        prey.get_defense_power = lambda: 0.1
+        spawned.target = prey
+        spawned._attack_target(world)
+
+        _spawn_fauna(world, config, world["width"], world["height"])
+
+        self.assertEqual(RandomService.get_state(), default_before)
+        self.assertIn("ecology", RandomService.get_stream_states())
+
+    def test_legacy_fauna_lifecycle_keeps_using_the_default_stream(self):
+        from entities.species.animal.base import Animal
+
+        config = {}
+        species = {
+            "species": "legacy_grazer",
+            "name": "Legacy Grazer",
+            "char": "g",
+            "diet": "herbivore",
+            "spawn": {
+                "elevation_min": 0.0,
+                "elevation_max": 1.0,
+                "chance": 1.0,
+            },
+        }
+        world = resource_world()
+        RandomService.initialize(9753)
+        default_before = RandomService.get_state()
+
+        self.assertIsInstance(Animal.try_spawn(0, 0, world, config, species), Animal)
+
+        self.assertNotEqual(RandomService.get_state(), default_before)
+        self.assertNotIn("ecology", RandomService.get_stream_states())
 
     def test_local_resource_shortage_blocks_enabled_herbivore_reproduction(self):
         from core.ecology_limits import can_add_fauna

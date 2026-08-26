@@ -25,7 +25,7 @@ class SimulationEngine:
         self.world = world
         self.stats = stats
         self.config = config
-        ChronicleBook(self.world)
+        ChronicleBook(self.world, self.config)
         from core.characters import ensure_notable_storage
         ensure_notable_storage(self.world)
         from core.simulation_metrics import SimulationMetrics
@@ -36,6 +36,26 @@ class SimulationEngine:
         from core.climate import ClimateSystem
         DiplomacyRegistry(self.world)
         ClimateSystem(self.world, self.config)
+        from core.factions import politics_enabled
+        if politics_enabled(self.config):
+            from core.politics import PoliticsService
+            PoliticsService(self.world, self.config)
+        from core.territory import TerritorySystem
+        TerritorySystem(self.world, self.config)
+        from core.pathfinding import PathfindingService
+        PathfindingService(self.world, self.config)
+        from core.migration import MigrationSystem
+        MigrationSystem(self.world, self.config)
+        from core.warfare import WarfareSystem
+        WarfareSystem(self.world, self.config)
+        from core.peace import PeaceSystem
+        PeaceSystem(self.world, self.config)
+        from core.sites import SiteRegistry
+        SiteRegistry(self.world, self.config)
+        from core.artifacts import ArtifactRegistry
+        ArtifactRegistry(self.world, self.config)
+        from core.legends import LegendRegistry
+        LegendRegistry(self.world, self.config)
         from core.scenarios import ScenarioService
         ScenarioService(self.world, self.config)
 
@@ -89,9 +109,23 @@ class SimulationEngine:
         EventManager.update(world, stats, self.config)
         from core.scenarios import ScenarioService
         ScenarioService(world, self.config).advance()
+        from core.factions import politics_enabled
+        if politics_enabled(self.config):
+            from core.politics import PoliticsService
+            PoliticsService(world, self.config).advance()
+        from core.warfare import WarfareSystem
+        WarfareSystem(world, self.config).advance()
+        from core.migration import MigrationSystem
+        MigrationSystem(world, self.config).advance()
+        from core.territory import TerritorySystem
+        TerritorySystem(world, self.config).advance()
+        from core.sites import SiteRegistry
+        SiteRegistry(world, self.config).advance()
+        from core.legends import LegendRegistry
+        LegendRegistry(world, self.config).advance()
         new_logs = GameLogger.get_new_logs()
         stats["logs"].extend(new_logs)
-        ChronicleBook(world).record_many(
+        ChronicleBook(world, self.config).record_many(
             new_logs,
             cycle=world["cycle"],
             year=stats["year"],
@@ -134,6 +168,17 @@ class SimulationEngine:
         from core.simulation_metrics import SimulationMetrics
         return SimulationMetrics(self.world).snapshot()
 
+    def get_systems_snapshot(self):
+        """Return the state and cumulative effects of influential systems."""
+        from core.system_visibility import systems_snapshot
+        return systems_snapshot(self.world, self.config)
+
+    def get_presentation_snapshot(self, revision=0):
+        """Projette une vue JSON défensive pour les adaptateurs visuels."""
+        from core.presentation import PresentationProjector
+
+        return PresentationProjector(self).snapshot(revision=revision)
+
     def save(self, path):
         """Crée un checkpoint versionné de cette simulation."""
         from core.persistence import save_engine
@@ -145,9 +190,26 @@ class SimulationEngine:
         from core.persistence import load_engine
         return load_engine(path)
 
-    def record_chronicle(self, message, *, category="event", entity_ids=None, position=None):
+    def record_chronicle(
+        self,
+        message,
+        *,
+        category="event",
+        entity_ids=None,
+        position=None,
+        event_type=None,
+        actors=None,
+        objects=None,
+        locations=None,
+        causes=None,
+        consequences=None,
+        facts=None,
+        caused_by=None,
+        text_key=None,
+        text_args=None,
+    ):
         """Ajoute une trace structurée à la date courante de la simulation."""
-        return ChronicleBook(self.world).record(
+        return ChronicleBook(self.world, self.config).record(
             message,
             cycle=self.world["cycle"],
             year=self.stats["year"],
@@ -155,11 +217,173 @@ class SimulationEngine:
             category=category,
             entity_ids=entity_ids,
             position=position,
+            event_type=event_type,
+            actors=actors,
+            objects=objects,
+            locations=locations,
+            causes=causes,
+            consequences=consequences,
+            facts=facts,
+            caused_by=caused_by,
+            text_key=text_key,
+            text_args=text_args,
         )
 
     def get_chronicles(self, **filters):
         """Interroge les chroniques sans exposer leur stockage mutable."""
-        return ChronicleBook(self.world).query(**filters)
+        return ChronicleBook(self.world, self.config).query(**filters)
+
+    def get_chronicle(self, chronicle_id):
+        """Renvoie une chronique par identifiant sans exposer l'état mutable."""
+        return ChronicleBook(self.world, self.config).get(chronicle_id)
+
+    def get_chronicle_chain(self, chronicle_id, *, direction="causes", max_depth=32):
+        """Parcourt les causes ou les conséquences d'une chronique."""
+        return ChronicleBook(self.world, self.config).causal_chain(
+            chronicle_id,
+            direction=direction,
+            max_depth=max_depth,
+        )
+    def create_site(self, kind, position, **context):
+        """Crée ou retrouve un site persistant."""
+        from core.sites import SiteRegistry
+
+        return SiteRegistry(self.world, self.config).create(
+            kind,
+            position,
+            **context,
+        )
+
+    def get_site(self, site_id):
+        """Renvoie un site par identifiant stable."""
+        from core.sites import SiteRegistry
+
+        return SiteRegistry(self.world, self.config).get(site_id)
+
+    def get_sites(self, **filters):
+        """Filtre les sites persistants sans exposer leur stockage."""
+        from core.sites import SiteRegistry
+
+        return SiteRegistry(self.world, self.config).query(**filters)
+
+    def get_sites_summary(self):
+        """Agrège les sites persistants et leurs états."""
+        from core.sites import SiteRegistry
+
+        return SiteRegistry(self.world, self.config).summary()
+
+
+    def create_artifact(self, item_id, **context):
+        """Crée ou retrouve un artefact persistant."""
+        from core.artifacts import ArtifactRegistry
+
+        return ArtifactRegistry(self.world, self.config).create(
+            item_id,
+            **context,
+        )
+
+    def get_artifact(self, artifact_id):
+        """Renvoie un artefact par identifiant stable."""
+        from core.artifacts import ArtifactRegistry
+
+        return ArtifactRegistry(self.world, self.config).get(artifact_id)
+
+    def get_artifacts(self, **filters):
+        """Filtre les artefacts sans exposer leur stockage mutable."""
+        from core.artifacts import ArtifactRegistry
+
+        return ArtifactRegistry(self.world, self.config).query(**filters)
+
+    def get_artifacts_summary(self):
+        """Agrège les artefacts et leur provenance."""
+        from core.artifacts import ArtifactRegistry
+
+        return ArtifactRegistry(self.world, self.config).summary()
+
+    def create_legend(self, chronicle_id, *, importance, **subject):
+        """Promeut une chronique factuelle en légende publique."""
+        from core.legends import LegendRegistry
+
+        return LegendRegistry(self.world, self.config).promote_chronicle(
+            chronicle_id,
+            importance=importance,
+            **subject,
+        )
+
+    def propagate_legend(self, legend_id, **context):
+        """Propage une version culturelle ou factionnelle d'une légende."""
+        from core.legends import LegendRegistry
+
+        return LegendRegistry(self.world, self.config).propagate(
+            legend_id,
+            **context,
+        )
+
+    def get_legend(self, legend_id):
+        """Renvoie une légende sans exposer son stockage."""
+        from core.legends import LegendRegistry
+
+        return LegendRegistry(self.world, self.config).get(legend_id)
+
+    def get_legends(self, **filters):
+        """Filtre les légendes et leurs versions publiques."""
+        from core.legends import LegendRegistry
+
+        return LegendRegistry(self.world, self.config).query(**filters)
+
+    def get_legends_summary(self):
+        """Agrège propagation, renommée et motivations légendaires."""
+        from core.legends import LegendRegistry
+
+        return LegendRegistry(self.world, self.config).summary()
+
+    def query_history(self, **filters):
+        """Interroge ensemble événements, sites, objets et légendes."""
+        from core.why import ExplanationService
+
+        return ExplanationService(
+            self.world, self.config
+        ).query(**filters)
+
+    def explain(self, subject_kind, subject_id, **context):
+        """Explique une situation actuelle depuis ses causes observables."""
+        from core.why import ExplanationService
+
+        return ExplanationService(
+            self.world, self.config
+        ).why(subject_kind, subject_id, **context)
+
+    def get_timeline(self, **filters):
+        """Construit une chronologie filtrée."""
+        from core.why import ExplanationService
+
+        return ExplanationService(
+            self.world, self.config
+        ).timeline(**filters)
+
+    def get_causal_view(self, chronicle_id, *, max_depth=32):
+        """Construit les deux directions du voisinage causal."""
+        from core.why import ExplanationService
+
+        return ExplanationService(
+            self.world, self.config
+        ).causal_view(chronicle_id, max_depth=max_depth)
+    def get_explanations_overview(self, category=None):
+        """Résume les causes observables sans dépendre d'un rendu."""
+        from core.why import ExplanationService
+
+        return ExplanationService(
+            self.world, self.config
+        ).overview(category=category)
+
+
+    def export_history_json(self, *, indent=2):
+        """Exporte l'histoire structurée sans modifier le monde."""
+        from core.why import ExplanationService
+
+        return ExplanationService(
+            self.world, self.config
+        ).export_json(indent=indent)
 
     def get_economic_summary(self):
         """Agrège les marchés actifs sans dépendance envers le rendu."""
@@ -211,10 +435,65 @@ class SimulationEngine:
         from core.diplomacy import DiplomacyRegistry
         return DiplomacyRegistry(self.world).query(**filters)
 
+
     def get_diplomatic_summary(self):
-        """Agrège les relations diplomatiques courantes."""
+        """Return the aggregate diplomatic state."""
         from core.diplomacy import world_diplomatic_summary
         return world_diplomatic_summary(self.world)
+
+    def get_political_summary(self):
+        """Return an aggregate of factions, institutions and conflicts."""
+        from core.politics import world_political_summary
+        return world_political_summary(self.world, self.config)
+
+
+    def find_path(self, start, goal, *, known_tiles=None):
+        """Compute a deterministic measured path through the current world."""
+        from core.pathfinding import PathfindingService
+        return PathfindingService(self.world, self.config).find_path(
+            start, goal, known_tiles=known_tiles
+        )
+
+    def get_pathfinding_summary(self):
+        """Return cache and workload measurements for pathfinding."""
+        from core.pathfinding import PathfindingService
+        return PathfindingService(self.world, self.config).summary()
+
+    def get_territory_summary(self):
+        """Return aggregate territorial control and contested borders."""
+        from core.territory import TerritorySystem
+        return TerritorySystem(self.world, self.config).summary()
+
+    def get_tile_territory(self, x, y):
+        """Return a defensive snapshot of territorial claims on one tile."""
+        from core.territory import TerritorySystem
+        return TerritorySystem(self.world, self.config).tile_snapshot(x, y)
+    def get_migration_summary(self):
+        """Return recent cohorts, diasporas and integration state."""
+        from core.migration import MigrationSystem
+        return MigrationSystem(self.world, self.config).summary()
+
+    def declare_war(self, attacker_id, defender_id, *, cause, objective, evidence=None):
+        """Declare a causal war and mobilize both settlements."""
+        from core.warfare import WarfareSystem
+        return WarfareSystem(self.world, self.config).declare_war(
+            attacker_id,
+            defender_id,
+            cause=cause,
+            objective=objective,
+            evidence=evidence,
+        )
+
+    def get_warfare_summary(self):
+        """Return active campaigns and their accumulated costs."""
+        from core.warfare import WarfareSystem
+        return WarfareSystem(self.world, self.config).summary()
+
+
+    def get_peace_summary(self):
+        """Return treaties and persistent postwar consequences."""
+        from core.peace import PeaceSystem
+        return PeaceSystem(self.world, self.config).summary()
 
     def _refresh_grid(self):
         grid = self.world["grid"]

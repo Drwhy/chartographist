@@ -221,11 +221,12 @@ class ClimateEngineAndRenderTests(unittest.TestCase):
         )
         config = climate_config()
 
-        with mock.patch("render.ui_map.biome_at", return_value="shared") as shared:
+        with mock.patch("core.presentation.biome_key_at", return_value="grassland"), \
+                mock.patch("core.presentation.biome_glyph", return_value="shared") as shared:
             rendered = get_char_at(1, 1, world, config)
 
         self.assertEqual(rendered, "shared")
-        shared.assert_called_once_with(1, 1, world["elev"][1][1], world, config)
+        shared.assert_called_once_with("grassland", config)
 
 class ClimateEcologyTests(unittest.TestCase):
     def _farmer(self, config):
@@ -371,6 +372,30 @@ class ClimateAnomalyConfigPersistenceTests(unittest.TestCase):
         self.assertEqual(len(logs), 1)
         self.assertNotIn("MISSING_TEXT", logs[0])
         self.assertEqual(metadata[0]["category"], "climate")
+
+    def test_flood_anomaly_damages_configured_infrastructure(self):
+        from unittest import mock
+        from core.climate import ClimateSystem
+        from core.random_service import RandomService
+
+        world = make_world(cycle=0)
+        config = climate_config(
+            anomaly_chance=1.0,
+            anomaly_min_severity=0.4,
+            anomaly_max_severity=0.4,
+        )
+        climate = ClimateSystem(world, config)
+        world["cycle"] = 1
+
+        with (
+            mock.patch.object(RandomService, "random", return_value=0.0),
+            mock.patch.object(RandomService, "choice", return_value="flood"),
+            mock.patch.object(RandomService, "uniform", return_value=0.4),
+            mock.patch("core.infrastructure.damage_world_infrastructure") as damage,
+        ):
+            climate.advance()
+
+        damage.assert_called_once_with(world, config, "flood", severity=0.4)
 
     def test_engine_records_triggered_anomaly_as_climate_chronicle(self):
         from unittest import mock

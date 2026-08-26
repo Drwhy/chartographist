@@ -60,6 +60,30 @@ class CoreServicesTests(unittest.TestCase):
         self.assertEqual(values_a, values_b)
         self.assertEqual(shuffled_a, shuffled_b)
 
+    def test_named_random_streams_are_deterministic_and_isolated(self):
+        RandomService.initialize(2468)
+        default_before = RandomService.get_state()
+        ecology_a = [
+            RandomService.random(stream="ecology"),
+            RandomService.randint(1, 100, stream="ecology"),
+            RandomService.choice(["a", "b", "c"], stream="ecology"),
+        ]
+
+        self.assertEqual(RandomService.get_state(), default_before)
+
+        RandomService.initialize(2468)
+        ecology_b = [
+            RandomService.random(stream="ecology"),
+            RandomService.randint(1, 100, stream="ecology"),
+            RandomService.choice(["a", "b", "c"], stream="ecology"),
+        ]
+
+        self.assertEqual(ecology_a, ecology_b)
+        self.assertNotEqual(
+            RandomService.get_rng("ecology").getstate(),
+            RandomService.get_rng().getstate(),
+        )
+
     def test_logger_flushes_and_ignores_empty_messages(self):
         GameLogger.log(None)
         GameLogger.log(42)

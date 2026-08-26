@@ -201,12 +201,12 @@ def catalog_validation_errors(section):
         skill = recipe.get("skill")
         if not isinstance(skill, str) or not skill:
             errors.append(f"missing:materials.recipes.{identifier}.skill")
-        for field in ("inputs", "outputs"):
-            quantities = recipe.get(field)
+        for field in ("inputs", "outputs", "byproducts"):
+            quantities = recipe.get(field, {} if field == "byproducts" else None)
             if not isinstance(quantities, dict):
                 errors.append(f"type:materials.recipes.{identifier}.{field}:dict")
                 continue
-            if not quantities:
+            if not quantities and field != "byproducts":
                 errors.append(f"empty:materials.recipes.{identifier}.{field}")
             for good_id, quantity in quantities.items():
                 if good_id not in goods:
@@ -227,6 +227,23 @@ def catalog_validation_errors(section):
                     errors.append(
                         f"reference:materials.recipes.{identifier}.tools:{tool_id}"
                     )
+        quality_scale = recipe.get("quality_skill_scale")
+        if quality_scale is not None:
+            if not _is_number(quality_scale):
+                errors.append(
+                    f"type:materials.recipes.{identifier}.quality_skill_scale:int|float"
+                )
+            elif quality_scale < 0:
+                errors.append(
+                    f"range:materials.recipes.{identifier}.quality_skill_scale:nonnegative"
+                )
+        tool_wear = recipe.get("tool_wear")
+        if tool_wear is not None:
+            _validate_positive_number(
+                tool_wear,
+                f"materials.recipes.{identifier}.tool_wear",
+                errors,
+            )
     infrastructures = section.get("infrastructures", [])
     if not isinstance(infrastructures, list):
         errors.append("type:materials.infrastructures:list")
@@ -261,11 +278,72 @@ def catalog_validation_errors(section):
                 errors.append(
                     f"range:materials.infrastructures.{identifier}.max_level:positive"
                 )
-            _validate_positive_number(
-                definition.get("capacity_bonus"),
-                f"materials.infrastructures.{identifier}.capacity_bonus",
-                errors,
-            )
+            capacity_bonus = definition.get("capacity_bonus")
+            if capacity_bonus is not None:
+                _validate_positive_number(
+                    capacity_bonus,
+                    f"materials.infrastructures.{identifier}.capacity_bonus",
+                    errors,
+                )
+            effects = definition.get("effects")
+            if effects is not None:
+                if not isinstance(effects, dict):
+                    errors.append(
+                        f"type:materials.infrastructures.{identifier}.effects:dict"
+                    )
+                else:
+                    rate_effects = {
+                        "transport_cost_reduction",
+                        "transport_loss_reduction",
+                    }
+                    for effect_id, value in effects.items():
+                        path = (
+                            f"materials.infrastructures.{identifier}.effects.{effect_id}"
+                        )
+                        if effect_id in rate_effects:
+                            _validate_rate(value, path, errors)
+                        else:
+                            _validate_positive_number(value, path, errors)
+            maintenance = definition.get("maintenance")
+            if maintenance is not None:
+                if not isinstance(maintenance, dict):
+                    errors.append(
+                        f"type:materials.infrastructures.{identifier}.maintenance:dict"
+                    )
+                else:
+                    for good_id, quantity in maintenance.items():
+                        if good_id not in goods:
+                            errors.append(
+                                "reference:materials.infrastructures."
+                                f"{identifier}.maintenance:{good_id}"
+                            )
+                        _validate_positive_number(
+                            quantity,
+                            "materials.infrastructures."
+                            f"{identifier}.maintenance.{good_id}",
+                            errors,
+                        )
+            repair_amount = definition.get("repair_amount")
+            if repair_amount is not None:
+                _validate_positive_number(
+                    repair_amount,
+                    f"materials.infrastructures.{identifier}.repair_amount",
+                    errors,
+                )
+            hazard_damage = definition.get("hazard_damage")
+            if hazard_damage is not None:
+                if not isinstance(hazard_damage, dict):
+                    errors.append(
+                        f"type:materials.infrastructures.{identifier}.hazard_damage:dict"
+                    )
+                else:
+                    for hazard_id, amount in hazard_damage.items():
+                        _validate_positive_number(
+                            amount,
+                            "materials.infrastructures."
+                            f"{identifier}.hazard_damage.{hazard_id}",
+                            errors,
+                        )
     food_chain = section.get("food_chain")
     if food_chain is not None:
         if not isinstance(food_chain, dict):
@@ -335,3 +413,22 @@ class MaterialCatalog:
             result["kind"] = "item"
             return result
         raise KeyError(key)
+
+
+_RUNTIME_CATALOG_CACHE = []
+_RUNTIME_CATALOG_CACHE_LIMIT = 16
+
+
+def runtime_catalog(config):
+    """Reuse one validated catalog for an immutable runtime configuration."""
+    resolved = config if isinstance(config, dict) else {}
+    definition = resolved.get("materials")
+    for cached_config, cached_definition, cached_catalog in _RUNTIME_CATALOG_CACHE:
+        if cached_config is resolved and cached_definition is definition:
+            return cached_catalog
+
+    catalog = MaterialCatalog(resolved)
+    _RUNTIME_CATALOG_CACHE.append((resolved, definition, catalog))
+    if len(_RUNTIME_CATALOG_CACHE) > _RUNTIME_CATALOG_CACHE_LIMIT:
+        _RUNTIME_CATALOG_CACHE.pop(0)
+    return catalog

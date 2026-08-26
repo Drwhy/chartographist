@@ -42,6 +42,22 @@ def settlement(*, population=3, food=30, treasury=75.0, transactions=2):
 
 
 class SimulationMetricsTests(unittest.TestCase):
+    def test_legacy_metric_schema_is_merged_only_once(self):
+        from core import simulation_metrics
+
+        world = observed_world()
+        world["metrics"] = {"version": 1}
+        with mock.patch(
+            "core.simulation_metrics._merge_defaults",
+            wraps=simulation_metrics._merge_defaults,
+        ) as merge:
+            simulation_metrics.SimulationMetrics(world)
+            first_count = merge.call_count
+            simulation_metrics.SimulationMetrics(world)
+
+        self.assertGreater(first_count, 0)
+        self.assertEqual(merge.call_count, first_count)
+        self.assertEqual(world["metrics"]["version"], 3)
     def test_service_initializes_serializable_state_and_returns_defensive_snapshots(self):
         from core.simulation_metrics import SimulationMetrics
 

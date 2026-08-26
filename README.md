@@ -14,11 +14,26 @@ Chartographist is a procedural world simulation engine written in Python that ru
 
 📚 Structured Chronicles & Inspection
 
-    Persistent History: Every simulation keeps a versioned, structured chronology with cycle, date, category, related entity IDs, and location.
+    Persistent Causal History: Optional v2 chronicles connect typed events through bounded causes and consequences while preserving legacy messages and saves.
 
-    Headless Queries: SimulationEngine can filter chronicles or inspect a live entity by its stable ID without starting the terminal UI.
+    Headless Queries: SimulationEngine can filter facts by event, actor, object or place, traverse causal chains, or inspect a live entity without starting the terminal UI.
 
-    In-App Chronicle: Open the bestiary overlay and press H to browse the newest world events first.
+🏛️ Persistent Sites
+
+    Stable Place Identity: Optional battlefields, ruins, sanctuaries, mines and remarkable roads retain bounded ownership, occupation, resource and event history.
+
+    Visible Evolution: Destruction, reconstruction, reoccupation and overgrowth change data-driven map symbols; physical ruins are synchronized instead of hiding the site’s state.
+
+    Real Integrations: Battles create battlefields, ruins enter the registry, settlers can refound them, and headless/checkpoint/system views preserve the same identity.
+
+    In-App Chronicle: Press H to browse events and causal-link counts; press Y to inspect the history system’s volume, types and effects.
+🏺 Persistent Artifacts
+
+    Conserved Promotion: High-quality produced items can become unique artifacts and leave the fungible stock without duplicating material.
+
+    Durable Provenance: Creator, materials, inscription, holders, locations and bounded transfers survive checkpoints and remain inspectable.
+
+    Emergent Influence: Renown affects holder prestige, territorial claims and pilgrimage attraction; battles can deterministically loot artifacts.
 
 💰 Conserved Market Economy
 
@@ -58,7 +73,7 @@ Spatial Renewable Resources
 
     Persistent Disturbances: Droughts, floods, fires, and volcanoes alter spatial stocks, while deterministic fire spread follows vegetation and humidity.
 
-    Safe Opt-In: The calibrated `resources` section is bundled but disabled by default until ecological random streams can be isolated without changing historical demographic trajectories.
+    Safe Opt-In: The calibrated `resources` section uses an isolated, checkpointed ecology random stream but remains disabled by default to preserve historical trajectories.
 
 🧠 Emergent Characters
 
@@ -68,7 +83,7 @@ Spatial Renewable Resources
 
     Lived History: Successful trades and witnessed raids create persistent memories. Role accessions promote citizens to notables without changing identity, and archived notables keep a defensive snapshot of their personal history.
 
-    Safe Opt-In: `characters.enabled` remains `false` in the reference template while long-run demographic impact and CPU cost continue to be calibrated.
+    Safe Opt-In: `characters.enabled` remains `false`; ordinary cohorts use a slower configurable cadence while notables retain detailed decisions.
 
 🧩 Scenarios & Declarative Mods
 
@@ -86,9 +101,44 @@ Spatial Renewable Resources
 
     Work Orders: Shortages create deterministic production orders that require inputs, tools, labor, time, and output capacity before completion.
 
-    Scarcity Routes: Multi-good prices and market selection account for target stock, distance, risk, reserves, capacity, and buyer affordability.
+    Scarcity Routes: Multi-good prices and market selection account for stock, distance, risk, transport cost and losses, capacity, and affordability.
 
-    Safe Opt-In: `materials.enabled` remains `false` while infrastructure, timber sourcing, regional specialization, and performance calibration are completed.
+    Productive Infrastructure: Granaries, roads, markets, workshops, and fortifications are built, maintained, damaged, repaired, and apply condition-scaled effects.
+
+    Safe Opt-In: `materials.enabled` remains `false` to preserve the historical simulation unless the complete material economy is explicitly requested.
+
+🗺️ Local Knowledge & Rumors
+
+    Partial Worlds: Settlements and agents observe only nearby sites and visited tiles; maps can age and carry terrain, biome, river, and resource observations.
+
+    Traveling Information: Trade and migration move bounded facts with explicit observed, reported, copied, sold, or stolen provenance.
+
+    Explainable Belief: Reliability decays with time, distance, and retransmission, while personality affects belief and conflicting sources may coexist.
+
+    Safe Opt-In: `knowledge.enabled` remains `false` to preserve omniscient historical behavior unless local information is explicitly requested.
+
+
+🏛️ Factions, Institutions & Politics
+
+    Competing Interests: Profession, faith, and household factions keep stable identities, bounded influence, satisfaction, grievances, and incompatible objectives.
+
+    Person-Based Institutions: Data-driven offices use existing notable identities for eligibility, succession, vacancies, regencies, and legitimacy crises.
+
+    Measurable Policies: Collective proposals record supporters, opponents, causes, winners, and losers; temporary policies affect production, trade, defense, taxation, and religious dissent.
+
+������ Territories, Migration & Causal Warfare
+
+    Dynamic Claims: Optional territorial influence propagates from population, roads, fortifications, distance, and strategic resources into owned tiles, contested borders, and diplomatic grievances.
+
+    Measured Paths: A bounded deterministic A* service combines elevation, roads, weather, danger, and local map knowledge. Its cache invalidates when the world changes; traders and soldiers use it only when enabled.
+
+    Migrating Cohorts: Hunger, war, climate, persecution, and opportunity move bounded groups of real citizens, including selected notables. Culture, faith, skills, diseases, stories, family networks, diasporas, integration, and returnees remain inspectable.
+
+    Logistical War: Every campaign records a cause, objective, evidence, armies, supply cost, morale, command, casualties, prisoners, sieges, occupations, retreats, and an explicit end.
+
+    Consequential Peace: Treaties can transfer contested territory, food tribute, hostages, and commercial rights while leaving debts, veterans, refugees, ruins, and postwar grievances.
+
+    Safe Opt-In: `territory`, `pathfinding`, `migration`, `warfare`, and `peace` are disabled by default and persist through checkpoints when activated.
 
 👥 Civilization & Actors
 
@@ -149,10 +199,12 @@ python main.py --seed atlas --mod mods/highland_bison.json --scenario scenarios/
 ```
 If no seed is provided, a random one will be generated. Checkpoints use Python's binary object format to preserve the full simulation graph; only load files you trust.
 
-The bundled template enables the economy, diplomacy, and seasonal climate. The `economy` section controls treasury, scarcity prices, reserves, trader capacity, settler cost, and optional material-route costs. The `diplomacy` section controls relation gains, treaty thresholds, war/truce duration, trade-pact capacity, and allied food aid. The `climate` section controls seasons, humidity, anomaly decay and hazard probability. The calibrated `resources` section controls renewable stocks and disturbances but remains disabled by default; set `resources.enabled` to `true` to opt in. The `characters` section likewise remains disabled by default and controls memory bounds, notability, personal needs, and the staggered decision interval. The opt-in `materials` section defines goods, recipes, stockpiles, food conversion, trade reserves, spatial timber sourcing, and infrastructure kits. Its first granary increases settlement storage capacity, but the system remains disabled until long-run calibration and regional specialization are complete. Removing any extension section preserves its corresponding legacy behavior.
+The bundled template enables the economy, diplomacy, and seasonal climate. The optional `resources`, `characters`, `materials`, `knowledge`, `politics`, `territory`, `pathfinding`, `migration`, `warfare`, `peace`, `sites`, `artifacts`, `legends`, and `explanations` sections remain disabled by default to preserve historical trajectories. They add renewable spatial stocks, people and production, local knowledge and politics, territory, migration and warfare, persistent places and objects, divergent public legends, and causal explanations. Removing an extension section preserves its legacy behavior.
 
 Controls during simulation:
 
+    W: Open the Why tab; 1/2/3/4 filter all, warfare, artifacts, or legends.
+    Y: Open the Systems tab, including the visible legend state.
     B: Open or close the inspection/bestiary overlay.
     H: Open the structured Chronicles tab while the overlay is active.
     D: Open the Diplomacy tab while the overlay is active.
@@ -166,9 +218,13 @@ Controls during simulation:
 chartographist/
 ├── core/
 │   ├── chronicles.py        # Structured persistent world history
+│   ├── sites.py             # Persistent indexed places and lifecycle
 │   ├── climate.py           # Seasons, tile climate, biomes and ecology
 │   ├── resources.py         # Renewable stocks, extraction and disturbances
+│   ├── artifacts.py         # Unique objects, provenance and renown
 │   ├── materials.py         # Validated resources, items, recipes and food-chain catalog
+│   ├── legends.py           # Cultural public narratives and renown
+│   ├── why.py               # Causal queries, explanations and JSON export
 │   ├── stockpiles.py        # Capacity, decay and conserved settlement inventories
 │   ├── production.py        # Shortage planning and deterministic work orders
 │   ├── infrastructure.py    # Persistent infrastructure levels and capacity bonuses
@@ -185,6 +241,7 @@ chartographist/
 │   ├── diplomacy.py         # Persistent relations, treaties, war and allied aid
 │   ├── persistence.py       # Versioned save/load checkpoints
 │   ├── simulation_engine.py # Headless initialization and cycle runner
+│   ├── system_visibility.py # Observable state/effects of influential systems
 │   ├── logger.py            # Legacy strings plus optional chronicle metadata
 │   ├── naming.py            # Procedural name generator
 │   ├── random_service.py    # Centralized deterministic PRNG
@@ -201,7 +258,7 @@ chartographist/
 │   │   └── animal/
 │   │       └── base.py      # Data-driven predator/prey & heatmap navigation
 │   ├── constructs/
-│   │   ├── base.py          # Construct base & Cultural Drift logic
+│   │   ├── base.py          # Construct base, families, species and religion
 │   │   ├── city.py          # Expansion hubs & growth logic
 │   │   ├── ruins.py         # Abandoned settlement markers
 │   │   └── village.py       # Early-stage settlements
@@ -223,10 +280,10 @@ chartographist/
 │   └── textes.fr.json       # French localization
 ├── render/
 │   ├── render_engine.py     # ASCII/Emoji UI orchestration
-│   └── ui_bestiary.py       # Paged inspection, economy, diplomacy and Chronicles overlay
+│   └── ui_bestiary.py       # Paged inspection, diplomacy, Systems and Chronicles overlay
 └── main.py                  # Simulation entry point
 ```
 
 
-The regression suite currently contains 265 `unittest` tests, including deterministic resume, conserved multi-good transactions, spatial material sourcing, production preconditions, infrastructure capacity, stockpile conservation and decay, persistent diplomacy, structured chronicles, stable-ID inspection, localization parity, and terminal navigation.
+The regression suite currently contains 425 `unittest` tests, including deterministic resume, conserved multi-good transactions, spatial resources and production, local knowledge, factions and succession, territorial claims, measured pathfinding, migrating cohorts, logistical warfare, cross-system causal chains, persistent sites, artifacts and legends, causal explanations and export, semantic presentation snapshots, bounded simulation hosting, system visibility, localization parity, and terminal navigation.
 Developed with ❤️ by Drwhy

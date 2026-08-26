@@ -117,18 +117,40 @@ def _merge_defaults(target, defaults):
                 _merge_defaults(target[key], default)
 
 
+def _state_is_current(state):
+    if not isinstance(state, dict) or state.get("version") != CHARACTER_VERSION:
+        return False
+    required = {
+        "needs", "skills", "traits", "memories", "next_memory_id",
+        "notability", "household_id", "last_needs_cycle",
+        "last_decision_cycle", "last_decision",
+    }
+    return (
+        required.issubset(state)
+        and isinstance(state["needs"], dict)
+        and set(NEED_NAMES).issubset(state["needs"])
+        and isinstance(state["skills"], dict)
+        and set(SKILL_NAMES).issubset(state["skills"])
+        and isinstance(state["traits"], dict)
+        and set(TRAIT_NAMES).issubset(state["traits"])
+    )
+
+
 def ensure_character_state(person, config):
     """Create or migrate personal state without consuming simulation randomness."""
     existing = getattr(person, "character", None)
     if not characters_enabled(config) and not isinstance(existing, dict):
         return {}
 
-    defaults = _default_state(person)
-    if isinstance(existing, dict):
+    if _state_is_current(existing):
+        state = existing
+    elif isinstance(existing, dict):
+        defaults = _default_state(person)
         _merge_defaults(existing, defaults)
         existing["version"] = CHARACTER_VERSION
         state = existing
     else:
+        defaults = _default_state(person)
         state = defaults
         person.character = state
 
@@ -233,6 +255,16 @@ class CharacterService:
         self.advance(world)
         cycle = int(world.get("cycle", 0))
         interval = max(1, int(self.settings.get("decision_interval", 1)))
+        notability = self.state.get("notability", {})
+        is_notable = (
+            isinstance(notability, dict)
+            and notability.get("is_notable") is True
+        )
+        if not is_notable:
+            interval = max(
+                interval,
+                int(self.settings.get("cohort_decision_interval", interval)),
+            )
         entity_id = int(getattr(self.person, "entity_id", 0))
         if interval > 1 and (cycle + entity_id) % interval != 0:
             return True

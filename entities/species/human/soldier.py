@@ -158,6 +158,24 @@ class Soldier(Human):
                     grievance=1.0,
                 )
 
+        from core.knowledge import KnowledgeService, knowledge_enabled
+        if knowledge_enabled(self.config):
+            KnowledgeService(target, self.config).learn(
+                kind="threat",
+                subject_id=self.entity_id,
+                claim="raid",
+                value={
+                    "attacker_city_id": int(self.home_city.entity_id),
+                    "kills": int(kills),
+                    "loot": int(loot),
+                },
+                cycle=int(world.get("cycle", 0)),
+                source_id=int(target.entity_id),
+                source_type="observed",
+                reliability=1.0,
+                position=target.pos,
+            )
+
         GameLogger.log(Translator.translate(
             "events.soldier_raids",
             soldier=self.name, city=target.name,
@@ -177,6 +195,25 @@ class Soldier(Human):
         possible_moves = self._get_accessible_neighbors(world)
         if not possible_moves:
             return
+        from core.pathfinding import PathfindingService, known_tiles_for
+        pathfinder = PathfindingService(world, getattr(self, "config", {}))
+        if pathfinder.enabled:
+            route = pathfinder.find_path(
+                self.pos,
+                target_pos,
+                known_tiles=known_tiles_for(self),
+            )
+            if route["reachable"] and len(route["path"]) > 1:
+                next_tile = tuple(route["path"][1])
+                if next_tile in possible_moves:
+                    self.pos = next_tile
+                    self.pathfinding_decision = {
+                        "target": list(target_pos),
+                        "next_tile": list(next_tile),
+                        "cost": route["cost"],
+                        "cache_hit": route["cache_hit"],
+                    }
+                    return
 
         best_move = self.pos
         max_score = -float('inf')

@@ -8,7 +8,7 @@ from core.translator import Translator
 @register_civ
 class Fisherman(Human):
     def __init__(self, x, y, culture, config, home_pos, home_city):
-        # Initialization via Actor (handles culture and config)
+        # Initialize the human base with culture and configuration
         super().__init__(x, y, culture, config, 1)
         # Identity attributes
         self.home_pos = home_pos

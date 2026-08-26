@@ -44,6 +44,20 @@ def material_config():
 
 
 class MaterialCatalogTests(unittest.TestCase):
+    def test_runtime_catalog_is_built_once_per_immutable_configuration(self):
+        from core.materials import catalog_validation_errors, runtime_catalog
+
+        config = material_config()
+        with mock.patch(
+            "core.materials.catalog_validation_errors",
+            wraps=catalog_validation_errors,
+        ) as validate:
+            first = runtime_catalog(config)
+            second = runtime_catalog(config)
+
+        self.assertIs(first, second)
+        self.assertEqual(validate.call_count, 1)
+
     def test_missing_section_is_disabled_empty_and_does_not_mutate_config(self):
         from core.materials import MaterialCatalog
 
@@ -84,6 +98,22 @@ class MaterialCatalogTests(unittest.TestCase):
         self.assertIs(validate_config(config), config)
         self.assertFalse(config["materials"]["enabled"])
         self.assertGreater(len(MaterialCatalog(config).snapshot()["recipes"]), 0)
+        self.assertIn(
+            "repair_stone_tool",
+            {recipe["id"] for recipe in config["materials"]["recipes"]},
+        )
+        granary = config["materials"]["infrastructures"][0]
+        self.assertEqual(granary["maintenance"], {"plank": 1})
+        self.assertGreater(granary["repair_amount"], 0)
+        self.assertEqual(config["materials"]["targets"]["stone_tool"], 1)
+        infrastructure_ids = {
+            definition["id"]
+            for definition in config["materials"]["infrastructures"]
+        }
+        self.assertEqual(
+            infrastructure_ids,
+            {"granary", "road", "market", "workshop", "fortification"},
+        )
 
     def test_validator_rejects_duplicates_unknown_references_and_invalid_numbers(self):
         from core.config_validator import ConfigValidationError, validate_config
@@ -95,6 +125,10 @@ class MaterialCatalogTests(unittest.TestCase):
         recipe["inputs"] = {"missing": 0}
         recipe["tools"] = ["missing_tool"]
         recipe["cycles"] = 0
+        recipe["byproducts"] = {"missing_scrap": 0}
+        recipe["quality_skill_scale"] = -1
+        recipe["tool_wear"] = 0
+        config["economy"]["transport_loss_per_tile"] = 2
         config["materials"]["targets"] = {"missing_target": -1}
         config["materials"]["trade_reserve"] = {"missing_reserve": -1}
         config["materials"]["food_chain"] = {
@@ -113,6 +147,17 @@ class MaterialCatalogTests(unittest.TestCase):
         self.assertIn("range:materials.recipes.preserve_food.inputs.missing:positive", caught.exception.errors)
         self.assertIn("reference:materials.recipes.preserve_food.tools:missing_tool", caught.exception.errors)
         self.assertIn("range:materials.recipes.preserve_food.cycles:positive", caught.exception.errors)
+        self.assertIn(
+            "reference:materials.recipes.preserve_food.byproducts:missing_scrap",
+            caught.exception.errors,
+        )
+        self.assertIn(
+            "range:materials.recipes.preserve_food.byproducts.missing_scrap:positive",
+            caught.exception.errors,
+        )
+        self.assertIn("range:materials.recipes.preserve_food.quality_skill_scale:nonnegative", caught.exception.errors)
+        self.assertIn("range:materials.recipes.preserve_food.tool_wear:positive", caught.exception.errors)
+        self.assertIn("range:economy.transport_loss_per_tile:0_1", caught.exception.errors)
         self.assertIn("reference:materials.targets:missing_target", caught.exception.errors)
         self.assertIn("range:materials.targets.missing_target:nonnegative", caught.exception.errors)
         self.assertIn("reference:materials.trade_reserve:missing_reserve", caught.exception.errors)
@@ -321,6 +366,35 @@ class ProductionOrderTests(unittest.TestCase):
         self.assertEqual(stockpile.quantity("food_ration"), 1.0)
         self.assertEqual(stockpile.quantity("stone_tool"), 1.0)
 
+    def test_tool_durability_is_consumed_and_breakage_blocks_next_order(self):
+        from core.production import ProductionService
+        from core.stockpiles import StockpileService
+
+        config, settlement = self.production_setup(cycles=1)
+        config["materials"]["items"][1]["durability"] = 2
+        config["materials"]["recipes"][0]["inputs"] = {"raw_food": 1}
+        stockpile = StockpileService(settlement, config)
+        stockpile.deposit("raw_food", 3)
+        stockpile.deposit("stone_tool", 1)
+        service = ProductionService(settlement, config)
+
+        service.plan(cycle=1)
+        first = service.advance(cycle=1)
+        service.plan(cycle=2)
+        second = service.advance(cycle=2)
+        service.plan(cycle=3)
+        blocked = service.advance(cycle=3)
+
+        self.assertEqual(first["status"], "completed")
+        self.assertEqual(second["status"], "completed")
+        self.assertEqual(stockpile.quantity("stone_tool"), 0.0)
+        self.assertEqual(service.tool_durability("stone_tool"), 0.0)
+        self.assertEqual(blocked["status"], "waiting")
+        self.assertEqual(
+            stockpile.quantity("raw_food"),
+            1.0,
+        )
+
     def test_blocked_high_priority_order_does_not_starve_feasible_work(self):
         from core.production import ProductionService
         from core.stockpiles import StockpileService
@@ -375,6 +449,80 @@ class ProductionOrderTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["worker_skill"], 100.0)
         self.assertEqual(stockpile.quantity("food_ration"), 1.0)
+
+    def test_policy_multiplier_changes_real_production_progress(self):
+        from core.production import ProductionService
+        from core.stockpiles import StockpileService
+
+        config, settlement = self.production_setup(cycles=4)
+        stockpile = StockpileService(settlement, config)
+        stockpile.deposit("raw_food", 2)
+        stockpile.deposit("stone_tool", 1)
+        settlement.political_modifiers = {
+            "labor_efficiency_multiplier": 0.5,
+        }
+        service = ProductionService(settlement, config)
+        service.plan(cycle=1)
+
+        result = service.advance(cycle=1)
+
+        self.assertEqual(result["progress"], 0.5)
+    def test_workshop_effect_accelerates_real_production(self):
+        from core.infrastructure import InfrastructureService
+        from core.production import ProductionService
+        from core.stockpiles import StockpileService
+
+        config, settlement = self.production_setup(cycles=2)
+        config["materials"]["items"].append({
+            "id": "workshop_kit",
+            "unit_weight": 1,
+            "decay_rate": 0,
+            "base_value": 1,
+        })
+        config["materials"]["infrastructures"] = [{
+            "id": "workshop",
+            "kit_good_id": "workshop_kit",
+            "max_level": 1,
+            "effects": {"production_speed_bonus": 1.0},
+        }]
+        stockpile = StockpileService(settlement, config)
+        stockpile.deposit("workshop_kit", 1)
+        InfrastructureService(settlement, config).install_available(cycle=1)
+        stockpile.deposit("raw_food", 2)
+        stockpile.deposit("stone_tool", 1)
+        service = ProductionService(settlement, config)
+        service.plan(cycle=1)
+
+        self.assertEqual(service.advance(cycle=1)["status"], "completed")
+
+    def test_quality_byproducts_and_specialization_are_recorded(self):
+        from core.production import ProductionService
+        from core.stockpiles import StockpileService
+
+        config, settlement = self.production_setup(cycles=1)
+        config["materials"]["items"].append({
+            "id": "scrap",
+            "unit_weight": 0.1,
+            "decay_rate": 0,
+            "base_value": 0,
+        })
+        recipe = config["materials"]["recipes"][0]
+        recipe["byproducts"] = {"scrap": 1}
+        recipe["quality_skill_scale"] = 0.5
+        stockpile = StockpileService(settlement, config)
+        stockpile.deposit("raw_food", 2)
+        stockpile.deposit("stone_tool", 1)
+        worker = SimpleNamespace(
+            character={"skills": {"agriculture": 100.0}},
+        )
+        service = ProductionService(settlement, config)
+        service.plan(cycle=1)
+
+        completed = service.advance(worker=worker, cycle=1)
+
+        self.assertEqual(completed["output_quality"], 1.5)
+        self.assertEqual(stockpile.quantity("scrap"), 1.0)
+        self.assertEqual(service.snapshot()["specialization"], "food_ration")
 
     def test_disabled_production_preserves_legacy_settlement(self):
         from core.production import ProductionService
@@ -716,6 +864,9 @@ class InfrastructureTests(unittest.TestCase):
                 "kit_good_id": "granary_kit",
                 "max_level": 1,
                 "capacity_bonus": 1,
+                "maintenance": {"missing": 1, "raw_food": 0},
+                "repair_amount": 0,
+                "hazard_damage": {"flood": -1},
             },
         ]
 
@@ -725,6 +876,16 @@ class InfrastructureTests(unittest.TestCase):
         self.assertIn("range:materials.infrastructures.granary.max_level:positive", errors)
         self.assertIn("range:materials.infrastructures.granary.capacity_bonus:positive", errors)
         self.assertIn("duplicate:materials.infrastructure:granary", errors)
+        self.assertIn(
+            "reference:materials.infrastructures.granary.maintenance:missing",
+            errors,
+        )
+        self.assertIn(
+            "range:materials.infrastructures.granary.maintenance.raw_food:positive",
+            errors,
+        )
+        self.assertIn("range:materials.infrastructures.granary.repair_amount:positive", errors)
+        self.assertIn("range:materials.infrastructures.granary.hazard_damage.flood:positive", errors)
 
     def test_granary_consumes_one_kit_and_increases_capacity_defensively(self):
         from core.infrastructure import InfrastructureService
@@ -750,6 +911,116 @@ class InfrastructureTests(unittest.TestCase):
         self.assertEqual(StockpileService(settlement, config).quantity("granary_kit"), 0.0)
         self.assertEqual(settlement.infrastructure["levels"]["granary"], 1)
         self.assertEqual(unnecessary_orders, [])
+
+    def test_damage_reduces_effective_capacity_and_repair_consumes_materials(self):
+        from core.infrastructure import InfrastructureService
+        from core.stockpiles import StockpileService
+
+        config = self.config()
+        definition = config["materials"]["infrastructures"][0]
+        definition["maintenance"] = {"raw_food": 2}
+        definition["repair_amount"] = 25
+        settlement = self.settlement(config)
+        stockpile = StockpileService(settlement, config)
+        stockpile.deposit("granary_kit", 1)
+        service = InfrastructureService(settlement, config)
+        service.install_available(cycle=1)
+        stockpile.deposit("raw_food", 2)
+
+        damaged = service.damage("granary", 50)
+        capacity_after_damage = stockpile.refresh_capacity()
+        repaired = service.maintain(cycle=2)
+        capacity_after_repair = stockpile.refresh_capacity()
+
+        self.assertEqual(damaged, 50.0)
+        self.assertEqual(capacity_after_damage, 125.0)
+        self.assertEqual(repaired, {"granary": 25.0})
+        self.assertEqual(capacity_after_repair, 137.5)
+        self.assertEqual(stockpile.quantity("raw_food"), 0.0)
+        self.assertEqual(service.condition("granary"), 75.0)
+
+    def test_settlement_production_automatically_competes_for_repairs(self):
+        from core.infrastructure import InfrastructureService
+        from core.production import advance_settlement_production
+        from core.stockpiles import StockpileService
+
+        config = self.config()
+        definition = config["materials"]["infrastructures"][0]
+        definition["maintenance"] = {"raw_food": 2}
+        definition["repair_amount"] = 25
+        settlement = self.settlement(config)
+        stockpile = StockpileService(settlement, config)
+        stockpile.deposit("granary_kit", 1)
+        infrastructure = InfrastructureService(settlement, config)
+        infrastructure.install_available(cycle=1)
+        infrastructure.damage("granary", 50)
+        stockpile.deposit("raw_food", 2)
+
+        result = advance_settlement_production(settlement, {"cycle": 2})
+
+        self.assertEqual(result["maintenance"], {"granary": 25.0})
+        self.assertEqual(stockpile.quantity("raw_food"), 0.0)
+        self.assertEqual(infrastructure.condition("granary"), 75.0)
+        self.assertEqual(
+            StockpileService(settlement, config).capacity,
+            137.5,
+        )
+
+    def test_hazard_damage_is_data_driven_and_bounded(self):
+        from core.infrastructure import (
+            InfrastructureService,
+            damage_world_infrastructure,
+        )
+        from core.stockpiles import StockpileService
+
+        config = self.config()
+        definition = config["materials"]["infrastructures"][0]
+        definition["hazard_damage"] = {"flood": 40}
+        settlement = self.settlement(config)
+        stockpile = StockpileService(settlement, config)
+        stockpile.deposit("granary_kit", 1)
+        infrastructure = InfrastructureService(settlement, config)
+        infrastructure.install_available(cycle=1)
+        world = {"entities": [settlement]}
+
+        damaged = damage_world_infrastructure(
+            world, config, "flood", severity=0.5
+        )
+
+        self.assertEqual(damaged, {settlement.entity_id: {"granary": 20.0}})
+        self.assertEqual(infrastructure.condition("granary"), 80.0)
+
+    def test_infrastructure_effects_scale_with_level_and_condition(self):
+        from core.infrastructure import InfrastructureService
+        from core.stockpiles import StockpileService
+        from entities.constructs.base import Construct
+
+        config = self.config()
+        definition = config["materials"]["infrastructures"][0]
+        definition["effects"] = {
+            "production_speed_bonus": 1.0,
+            "transport_cost_reduction": 0.2,
+            "transport_loss_reduction": 0.4,
+            "defense_bonus": 0.3,
+            "trade_capacity_bonus": 2.0,
+        }
+        settlement = self.settlement(config)
+        stockpile = StockpileService(settlement, config)
+        stockpile.deposit("granary_kit", 1)
+        service = InfrastructureService(settlement, config)
+        service.install_available(cycle=1)
+
+        self.assertEqual(service.effect("production_speed_bonus"), 1.0)
+        self.assertEqual(service.effect("defense_bonus"), 0.3)
+        self.assertEqual(Construct.get_defense_power(settlement), 0.3)
+        settlement.political_modifiers = {"defense_multiplier": 2.0}
+        self.assertEqual(Construct.get_defense_power(settlement), 0.6)
+        settlement.political_modifiers = {}
+        service.damage("granary", 50)
+        self.assertEqual(service.effect("production_speed_bonus"), 0.5)
+        self.assertEqual(service.effect("transport_cost_reduction"), 0.1)
+        self.assertEqual(service.effect("transport_loss_reduction"), 0.2)
+        self.assertEqual(Construct.get_defense_power(settlement), 0.15)
 
     def test_completed_order_installs_granary_and_records_observable_flow(self):
         from core.production import advance_settlement_production
@@ -849,6 +1120,42 @@ class MultiGoodMarketTests(unittest.TestCase):
         self.assertGreater(choice["expected_profit"], 0)
         self.assertIn("unit_price", choice)
         self.assertIn("transport_cost", choice)
+
+    def test_transport_cost_and_losses_are_applied_and_accounted(self):
+        from core.economy import ensure_economy, execute_material_trade
+        from core.stockpiles import StockpileService
+
+        config = self.market_config()
+        config["economy"]["transport_cost_per_tile"] = 0.2
+        config["economy"]["transport_loss_per_tile"] = 0.1
+        origin = self.market(73, config, 10, (0, 0))
+        target = self.market(74, config, 100, (5, 0))
+        origin_stock = StockpileService(origin, config)
+        target_stock = StockpileService(target, config)
+        origin_stock.deposit("food_ration", 10)
+        before_money = (
+            ensure_economy(origin)["treasury"]
+            + ensure_economy(target)["treasury"]
+        )
+
+        transaction = execute_material_trade(
+            origin, target, "food_ration", capacity=4
+        )
+
+        self.assertEqual(transaction.shipped_quantity, 4.0)
+        self.assertEqual(transaction.quantity, 2.0)
+        self.assertEqual(transaction.lost_quantity, 2.0)
+        self.assertEqual(transaction.transport_cost, 1.0)
+        self.assertEqual(origin_stock.quantity("food_ration"), 6.0)
+        self.assertEqual(target_stock.quantity("food_ration"), 2.0)
+        self.assertEqual(
+            ensure_economy(origin)["goods_lost_in_transit"],
+            {"food_ration": 2.0},
+        )
+        self.assertAlmostEqual(
+            ensure_economy(origin)["treasury"] + ensure_economy(target)["treasury"],
+            before_money,
+        )
 
     def test_real_trader_prefers_configured_material_rations_then_preserves_legacy_food(self):
         from entities.species.human.trader import Trader

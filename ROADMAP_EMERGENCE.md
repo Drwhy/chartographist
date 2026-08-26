@@ -84,6 +84,7 @@ flowchart LR
     P12 --> P13
     P13 --> P14["Phase 14 — Territoires et migrations"]
     P14 --> P15["Phase 15 — Histoire profonde et légendes"]
+    P15 --> P16["Phase 16 — Rendu web et sprites"]
     P10 --> P15
 ```
 
@@ -178,7 +179,7 @@ Rendre visibles les boucles actives, dormantes ou dominantes avant de modifier l
 
 # Phase 9 — Ressources spatiales et écologie renouvelable
 
-> État : terminée en mode opt-in le 23 août 2026. Validation : 209 tests, 3 × 120 cycles actifs sans extinction, puis 3 × 1 200 cycles actifs. Une extinction tardive, causée par la divergence du flux aléatoire faunique plutôt que par un stock local nul, maintient `resources.enabled` à `false` dans le template de référence pour éviter toute régression du mode standard.
+> État : terminée en mode opt-in le 24 août 2026. Le cycle de vie faunique actif utilise un flux `ecology` isolé et persisté ; le mode historique conserve le flux par défaut. Validation commune aux phases 9–11 : 284 tests, 98 tests dédiés et 3 × 1 200 cycles combinés sans extinction. `resources.enabled` reste à `false` pour préserver le mode standard.
 
 ## Intention d’émergence
 
@@ -256,7 +257,7 @@ Chaque valeur possède capacité, stock courant et taux de régénération.
 
 # Phase 10 — Besoins, compétences, mémoire et personnages notables
 
-> État : socle terminé en mode opt-in le 23 août 2026. Validation : 233 tests, 20 × 120 cycles actifs sans extinction, puis 3 × 1 200 cycles actifs. La graine 47 s’éteint uniquement en mode personnages actif et le coût long passe d’environ 0,7–0,9 s à 2,9–10,2 s selon la population ; `characters.enabled` reste donc à `false` dans le template de référence pendant la calibration.
+> État : terminée en mode opt-in le 24 août 2026. Les citoyens ordinaires utilisent une cadence de cohorte configurable, les notables gardent la cadence fine et les états courants évitent une migration coûteuse. Validation commune aux phases 9–11 : 284 tests, 98 tests dédiés et 3 × 1 200 cycles combinés sans extinction. `characters.enabled` reste à `false` pour préserver le mode standard.
 
 ## Intention d’émergence
 
@@ -332,14 +333,14 @@ Un personnage notable possède :
 - Les promotions de métier conservent identité, famille, compétences et souvenirs. Les enfants héritent de traits moyens et d’une part bornée des compétences parentales.
 - `world['notables']` et `world['notable_archive']` sont sérialisables ; l’archive est idempotente et conserve un instantané défensif complet.
 - Inspection, cohortes et métriques exposent décisions, repos, promotions, archives et état courant sans consommer le PRNG.
-- Les 20 graines courtes actives terminent avec 2–3 colonies et 19–72 habitants. Sur les trois graines longues, les populations finales sont 3, 53 et 0 ; la graine 47 témoin conserve 60 habitants avec le système désactivé.
+- À cadence de cohorte 6, les trois graines longues survivent et le coût baisse d’environ 31–33 % après optimisation des états déjà migrés.
 - Les producteurs de mémoire pour sauvetages, conversions et catastrophes restent à brancher lors des phases information/institutions ; le schéma les accepte déjà sans nouveau format.
 
 ---
 
 # Phase 11 — Production, inventaires, métiers et marchés
 
-> État : socle 11.1–11.4 et premier incrément 11.5 livrés en mode opt-in le 23 août 2026 ; entretien, dommages, transport et spécialisations régionales restent ouverts. Validation : 265 tests et 20 × 120 cycles combinés sans extinction. Sur 1 200 cycles combinés, la graine 11 survit mais les graines 29 et 47 s’éteignent alors que leurs témoins désactivés survivent ; le mode reste donc désactivé par défaut.
+> État : terminée en mode opt-in le 24 août 2026. Durabilité, qualité, sous-produits, spécialisation, coûts/pertes de transport, cinq infrastructures, entretien, dommages et réparation concurrente sont opérationnels. Validation commune aux phases 9–11 : 284 tests, 98 tests dédiés et 3 × 1 200 cycles combinés sans extinction. `materials.enabled` reste à `false` pour préserver le mode standard.
 
 
 ## Intention d’émergence
@@ -405,15 +406,17 @@ Faire naître les métiers, échanges et crises depuis des chaînes de productio
 - Les transactions multi-biens conservent monnaie et marchandises ; les prix, la distance et le risque influencent le classement déterministe des marchés.
 - Un ordre irréalisable ne bloque plus les recettes réalisables, ce qui protège la production alimentaire d’une famine de file.
 - Le bois est prélevé de manière conservatrice dans la forêt locale, sous plancher écologique, puis transformé en planches par un travailleur compétent.
-- Le premier ordre d’infrastructure produit un kit de grenier : son installation persistante et idempotente augmente la capacité de stockage de 250 par niveau, jusqu’à deux niveaux, sans produire de kit après saturation.
+- Les outils s’usent et sont remplacés ; qualité, sous-produits, totaux et spécialisation sont persistés. Grenier, route, marché, atelier et fortification appliquent leurs effets selon leur niveau et condition.
 - Inspection et métriques rendent visibles stocks, capacités, ordres, production, pertes et échanges.
-- Les critères « préconditions de production », « pénurie observable » et « prix influençant les routes » disposent d’un socle testable. Le critère de spécialisations régionales n’est pas encore satisfait.
-- Restent à livrer : durabilité des outils, qualité/sous-produits, coût/péages/pertes de transport, entretien, dommages, autres infrastructures et arbitrage régional. Le mode demeure désactivé par défaut pendant ce travail, le recalibrage démographique et le profilage.
+- Entretien et réparation consomment des matériaux ; les aléas endommagent les infrastructures. Coûts et pertes modifient les routes tout en réconciliant monnaie, biens livrés et perdus.
+- Les quatre critères de sortie sont couverts. Sur 24 × 12 × 1 200, les graines 11/29/47 finissent à 28/31/11 habitants, 1/2/1 établissements et 20/20/5 animaux : aucune extinction.
 
 
 ---
 
 # Phase 12 — Information locale, exploration et rumeurs
+
+> État : terminée en mode opt-in le 24 août 2026. Validation : 19 contrats dédiés, 303 tests complets et 3 × 1 200 cycles avec les phases 9–12 actives sans extinction. `knowledge.enabled` reste à `false` pour préserver le mode historique.
 
 ## Intention d’émergence
 
@@ -459,6 +462,8 @@ Supprimer l’omniscience. Faire de l’information une ressource qui voyage, vi
 ---
 
 # Phase 13 — Factions, institutions et politique
+
+> État : terminée en mode opt-in le 24 août 2026. Validation : 22 contrats dédiés, 330 tests complets et 3 × 240 cycles headless. L’historique conserve au plus 256 conflits par établissement et chaque type de faction au plus 32 groupes ; `politics.enabled` reste à `false` pour préserver le mode historique.
 
 ## Intention d’émergence
 
@@ -512,6 +517,8 @@ Faire de la colonie un ensemble d’intérêts concurrents, pas un acteur homog�
 ---
 
 # Phase 14 — Territoires, logistique, migrations et guerre causale
+
+> État : terminée en mode opt-in le 24 août 2026. Validation : 36 contrats dédiés, 366 tests complets et 3 × 120 cycles avec territoire, chemins, migrations, guerre et paix actifs. Le profil mesuré passe de 0,1041 s à 0,1902 s en moyenne sur 120 cycles (carte 20 × 12), sans erreur d’entité ; les cinq sections restent désactivées par défaut.
 
 ## Intention d’émergence
 
@@ -570,6 +577,18 @@ Donner une géographie réelle au pouvoir. Une guerre doit découler d’enjeux 
 ## Intention d’émergence
 
 Rendre les chaînes causales lisibles et mémorables. L’histoire ne doit pas seulement être un journal de chaînes, mais un graphe de faits, acteurs, objets, lieux et conséquences.
+> État du lot 15.1 : terminé en mode opt-in le 24 août 2026. Les chroniques v2 forment un graphe borné et rétrocompatible ; guerre, paix et migration produisent des faits structurés visibles dans les onglets `[H]` et `[Y]`.
+
+> État du lot 15.2 : terminé en mode opt-in le 24 août 2026. Les sites disposent d’identités stables, d’un cycle de vie borné, de chroniques structurées, d’une apparence évolutive et d’une visibilité carte/headless/[Y] ; batailles, ruines et recolonisation alimentent réellement le registre.
+
+> État du lot 15.3 : terminé en mode opt-in le 25 août 2026. Les objets produits peuvent devenir des artefacts matériels conservés, dotés d’une provenance bornée et de transferts explicites ; leur renommée agit sur prestige, revendications et attractivité de pèlerinage, avec visibilité headless/[H]/[Y].
+
+> État du lot 15.4 : terminé en mode opt-in le 25 août 2026. Les faits restent distincts des versions publiques culturelles ou partisanes ; propagation, renommée et motivations sont bornées, déterministes, persistantes et visibles dans l'API headless et l'onglet `[Y]`.
+
+> État du lot 15.5 : terminé en mode opt-in le 25 août 2026. Le service « Pourquoi ? » interroge entités, lieux, objets, familles et événements, construit vues chronologiques et causales, explique faim, guerres, sites et artefacts, puis expose filtres terminal `[W]` et export JSON.
+
+> **Phase 15 terminée le 25 août 2026.** Validation : 411 tests complets et benchmark 3 × 120 cycles sur 60 × 30 avec toutes les options actives en 1,33 à 1,77 s par graine ; 41 à 58 artefacts et 40 à 58 versions de légendes ont émergé sans erreur.
+
 
 ## Plan d’implémentation
 
@@ -617,6 +636,51 @@ Rendre les chaînes causales lisibles et mémorables. L’histoire ne doit pas s
 
 ---
 
+# Phase 16 — Rendu web, navigation navigateur et spritesheets
+
+## Intention
+
+Ajouter un mode navigateur local et une couche par sprites sans déplacer la
+simulation hors de Python ni modifier le terminal historique. L'étude complète
+est dans [`ETUDE_PHASE_16_RENDU_WEB.md`](ETUDE_PHASE_16_RENDU_WEB.md).
+
+> État au 26 août 2026 : socle de vigilance validé, lots 16.0 à 16.2 réalisés.
+> Projection JSON v1, clés sémantiques, priorité visuelle commune, panneaux
+> structurés, deltas bornés et hôte mono-propriétaire sont couverts par 425 tests.
+
+## Lots
+
+### Lot 16.0 — Caractérisation, budgets et décision d'architecture
+Figer la priorité visuelle, mesurer les budgets et valider protocole et dépendance.
+
+### Lot 16.1 — Projection sémantique
+Créer snapshots JSON, clés de rendu stables et résolveur commun des cellules.
+
+### Lot 16.2 — Hôte de simulation
+Extraire cadence, pause, pas-à-pas et arrêt en préservant le terminal par défaut.
+
+### Lot 16.3 — Serveur et protocole web local
+Servir lectures headless et flux versionné sur localhost avec reconnexion.
+
+### Lot 16.4 — Navigation navigateur
+Afficher carte Canvas, panneaux existants, sélection et contrôles de cadence.
+
+### Lot 16.5 — Spritesheets data-driven
+Définir manifeste d'atlas, clés, fallback, thèmes, couches et licences.
+
+### Lots 16.6–16.7 — Optimisation et stabilisation
+Ajouter deltas et caches, puis valider terminal, web, i18n et campagnes longues.
+
+## Critères de sortie
+
+- Sans nouvelle option, le mode terminal est inchangé.
+- Le navigateur n'accède directement ni à `world`, ni au pickle, ni au PRNG.
+- Glyphes et sprites partagent les mêmes clés et priorités.
+- Le profil 60 × 30 reste fluide sur matériel modeste.
+- Déconnexion et fermeture ne corrompent jamais le moteur.
+
+---
+
 # Ordre de réalisation recommandé à l’intérieur de chaque phase
 
 Pour réduire le risque, chaque phase suit le même découpage :
@@ -630,12 +694,6 @@ Pour réduire le risque, chaque phase suit le même découpage :
 7. **Interface et i18n** — textes fr/en/es et navigation.
 8. **Validation émergente** — tests multi-graines, simulations longues et comparaison statistique.
 
-# Prochaine étape : terminer la phase 11
+# Prochaine étape : lot 16.3 — serveur web local
 
-Le socle matériel est disponible en mode opt-in. Le prochain incrément doit fermer les boucles encore dormantes avant d’ouvrir la phase 12 :
-
-1. ajouter l’entretien et les dommages au grenier existant, avec ordres de réparation concurrents et migration de l’état ;
-2. faire construire atelier, marché, route et fortification depuis des ordres concurrents, puis brancher leurs effets sur production, transport et défense ;
-3. compléter coûts, pertes et péages de transport pour que l’arbitrage multi-biens choisisse des routes réellement différentes ;
-4. ajouter durabilité des outils, qualité et sous-produits sans rompre la conservation des biens ;
-5. recalibrer la boucle ressources–matériaux sur les graines longues, profiler, puis n’activer les modes par défaut qu’après survie comparable des témoins et satisfaction du critère de spécialisation régionale.
+Le socle est assaini. Le prochain incrément peut ajouter la dépendance optionnelle, les routes locales et le flux versionné sans exposer `world`, le pickle ou le PRNG.

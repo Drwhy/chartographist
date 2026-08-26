@@ -81,7 +81,11 @@ def load_engine(path):
     if not hasattr(engine, "world") or not hasattr(engine, "stats") or not hasattr(engine, "config"):
         raise SaveFormatError("invalid_engine")
 
-    _restore_runtime_state(runtime)
+    world_seed = engine.world.get(
+        "seed",
+        engine.stats.get("seed") if isinstance(engine.stats, dict) else None,
+    )
+    _restore_runtime_state(runtime, seed=world_seed)
     width = engine.world["width"]
     height = engine.world["height"]
     engine.world["grid"] = SpatialGrid(width, height, cell_size=10)
@@ -97,6 +101,12 @@ def load_engine(path):
     ResourceSystem(engine.world, engine.config)
     from core.scenarios import ScenarioService
     ScenarioService(engine.world, engine.config)
+    from core.factions import politics_enabled
+    if politics_enabled(engine.config):
+        from core.politics import PoliticsService
+        PoliticsService(engine.world, engine.config)
+    from core.sites import SiteRegistry
+    SiteRegistry(engine.world, engine.config)
     engine._refresh_grid()
     return engine
 
@@ -104,6 +114,8 @@ def load_engine(path):
 def _capture_runtime_state():
     return {
         "random": RandomService.get_state(),
+        "random_seed": RandomService.get_seed(),
+        "random_streams": RandomService.get_stream_states(),
         "next_entity_id": EntityIdService.get_state(),
         "events": list(EVENT_CATALOG),
         "religion_templates": religion_module._RELIGION_TEMPLATES,
@@ -119,8 +131,10 @@ def _capture_runtime_state():
     }
 
 
-def _restore_runtime_state(runtime):
-    RandomService.set_state(runtime["random"])
+def _restore_runtime_state(runtime, seed=None):
+    random_seed = runtime.get("random_seed", seed)
+    RandomService.set_state(runtime["random"], seed=random_seed)
+    RandomService.set_stream_states(runtime.get("random_streams", {}))
     EntityIdService.set_state(runtime["next_entity_id"])
     EVENT_CATALOG[:] = runtime["events"]
 
