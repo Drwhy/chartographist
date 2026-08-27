@@ -90,6 +90,26 @@ export function resolveSprite(manifest, visualKey) {
   return manifest.sprites[manifest.fallback];
 }
 
+export function edgeBlendProfile(x, y, direction, depth = 0.18, steps = 8) {
+  const count = Math.max(2, Math.min(16, Math.trunc(Number(steps)) || 8));
+  const maximum = Math.max(0.01, Math.min(0.5, Number(depth) || 0.18));
+  const directionSalt = direction === "left" ? 0x51ed270b : 0x2c1b3c6d;
+  let seed = (
+    Math.imul(Math.trunc(Number(x)) || 0, 0x165667b1)
+    ^ Math.imul(Math.trunc(Number(y)) || 0, 0x27d4eb2d)
+    ^ directionSalt
+  ) >>> 0;
+  const profile = [];
+  for (let index = 0; index < count; index += 1) {
+    seed ^= seed << 13;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    const variation = 0.35 + ((seed >>> 0) % 651) / 1000;
+    profile.push(Number((maximum * variation).toFixed(6)));
+  }
+  return profile;
+}
+
 function terrainColor(cell) {
   const key = String(cell.terrain_key || cell.visible_key || "").split(".").at(-1);
   if (cell.visible_key === "hydrology.river") return "#327da8";
@@ -186,6 +206,7 @@ function startClient() {
     );
     context.textAlign = "center";
     context.textBaseline = "middle";
+    context.imageSmoothingEnabled = false;
     context.font = `${Math.max(7, Math.floor(size * 0.58))}px ui-monospace, monospace`;
     for (let y = minY; y < maxY; y += 1) {
       for (let x = minX; x < maxX; x += 1) {
@@ -197,20 +218,31 @@ function startClient() {
         context.fillRect(left, top, Math.ceil(size), Math.ceil(size));
         if (state.tileset && state.renderMode !== "glyphs") {
           const manifest = state.tileset.manifest;
-          for (const visualKey of resolveSpriteLayers(cell)) {
-            const sprite = resolveSprite(manifest, visualKey);
-            if (!sprite) continue;
-            context.drawImage(
-              state.tileset.image,
-              sprite.x * manifest.tile_width,
-              sprite.y * manifest.tile_height,
-              manifest.tile_width,
-              manifest.tile_height,
+          const layers = resolveSpriteLayers(cell);
+          const terrainSprite = resolveSprite(manifest, layers[0]);
+          if (terrainSprite) drawSprite(terrainSprite, left, top, size);
+          if (manifest.edge_blending?.mode === "interlaced") {
+            drawTerrainEdge(
+              cell,
+              state.cells.get(`${x},${y - 1}`),
+              "top",
               left,
               top,
-              Math.ceil(size),
-              Math.ceil(size),
+              size,
             );
+            drawTerrainEdge(
+              cell,
+              state.cells.get(`${x - 1},${y}`),
+              "left",
+              left,
+              top,
+              size,
+            );
+          }
+          for (const visualKey of layers.slice(1)) {
+            const sprite = resolveSprite(manifest, visualKey);
+            if (!sprite) continue;
+            drawSprite(sprite, left, top, size);
           }
         } else if (cell.entity || cell.site_key || cell.hydrology_key || cell.infrastructure_key) {
           context.fillStyle = "#f2ead3";
@@ -223,6 +255,67 @@ function startClient() {
         }
       }
     }
+  }
+
+  function drawSprite(sprite, left, top, size) {
+    const manifest = state.tileset.manifest;
+    context.drawImage(
+      state.tileset.image,
+      sprite.x * manifest.tile_width,
+      sprite.y * manifest.tile_height,
+      manifest.tile_width,
+      manifest.tile_height,
+      left,
+      top,
+      Math.ceil(size),
+      Math.ceil(size),
+    );
+  }
+
+  function drawTerrainEdge(cell, neighbor, direction, left, top, size) {
+    if (!neighbor || neighbor.terrain_key === cell.terrain_key) return;
+    const manifest = state.tileset.manifest;
+    const sprite = resolveSprite(
+      manifest,
+      `terrain.${String(neighbor.terrain_key || "unknown")}`,
+    );
+    if (!sprite) return;
+    const blending = manifest.edge_blending;
+    const profile = edgeBlendProfile(
+      cell.x,
+      cell.y,
+      direction,
+      blending.depth,
+      8,
+    );
+    context.save();
+    context.beginPath();
+    if (direction === "top") {
+      context.moveTo(left, top);
+      context.lineTo(left + size, top);
+      for (let index = profile.length; index >= 0; index -= 1) {
+        const depth = profile[Math.min(index, profile.length - 1)];
+        context.lineTo(
+          left + (index / profile.length) * size,
+          top + depth * size,
+        );
+      }
+    } else {
+      context.moveTo(left, top);
+      context.lineTo(left, top + size);
+      for (let index = profile.length; index >= 0; index -= 1) {
+        const depth = profile[Math.min(index, profile.length - 1)];
+        context.lineTo(
+          left + depth * size,
+          top + (index / profile.length) * size,
+        );
+      }
+    }
+    context.closePath();
+    context.clip();
+    context.globalAlpha = blending.opacity;
+    drawSprite(sprite, left, top, size);
+    context.restore();
   }
 
   function rebuildCellIndex() {

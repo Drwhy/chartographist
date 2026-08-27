@@ -82,6 +82,10 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
             meta["tilesets"][0]["manifest_url"],
             "/api/v1/tilesets/classic",
         )
+        interwoven = next(
+            item for item in meta["tilesets"] if item["id"] == "interwoven"
+        )
+        self.assertEqual(interwoven["name"], "Chartographist Entrelacé")
         self.assertIn("websocket", meta["capabilities"])
         self.assertIn("spritesheets", meta["capabilities"])
 
@@ -259,6 +263,17 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response.status, 200)
         self.assertEqual(response.content_type, "image/png")
+        response = await self.client.get("/api/v1/tilesets/interwoven")
+        self.assertEqual(response.status, 200)
+        interwoven = await response.json()
+        self.assertEqual(interwoven["id"], "interwoven")
+        self.assertEqual(interwoven["tile_width"], interwoven["tile_height"])
+        self.assertEqual(interwoven["edge_blending"]["mode"], "interlaced")
+        response = await self.client.get(
+            "/assets/tilesets/interwoven/atlas.png"
+        )
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.content_type, "image/png")
         response = await self.client.get("/api/v1/tilesets/unknown")
         self.assertEqual(response.status, 404)
         response = await self.client.get(
@@ -296,6 +311,7 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
             "addEventListener(\"keydown\"",
             "loadTileset",
             "resolveSpriteLayers",
+            "edgeBlendProfile",
             "drawImage",
         ):
             self.assertIn(fragment, script)
@@ -371,6 +387,18 @@ const siteSprite = client.resolveSprite(manifest, "site.ruins.ancient");
 const fallbackSprite = client.resolveSprite(manifest, "mod.unknown");
 if (siteSprite.x !== 2 || fallbackSprite.x !== 0) {{
   throw new Error("sprite fallback contract");
+}}
+const blendA = client.edgeBlendProfile(4, 7, "top", 0.18, 8);
+const blendB = client.edgeBlendProfile(4, 7, "top", 0.18, 8);
+const blendOther = client.edgeBlendProfile(5, 7, "top", 0.18, 8);
+if (blendA.length !== 8 || JSON.stringify(blendA) !== JSON.stringify(blendB)) {{
+  throw new Error("edge blend determinism contract");
+}}
+if (JSON.stringify(blendA) === JSON.stringify(blendOther)) {{
+  throw new Error("edge blend spatial variation contract");
+}}
+if (blendA.some((value) => value <= 0 || value > 0.18)) {{
+  throw new Error("edge blend bounds contract");
 }}
 """
         completed = subprocess.run(

@@ -338,6 +338,7 @@
     "render_mode": "Rendu",
     "glyph_theme": "Glyphes",
     "sprite_theme": "Sprites",
+    "tileset_interwoven": "Chartographist Entrelacé",
     "connection_connecting": "Connexion…",
     "connection_connected": "Connecté",
     "connection_disconnected": "Déconnecté — nouvelle tentative…",

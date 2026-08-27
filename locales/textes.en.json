@@ -338,6 +338,7 @@
     "render_mode": "Rendering",
     "glyph_theme": "Glyphs",
     "sprite_theme": "Sprites",
+    "tileset_interwoven": "Chartographist Interwoven",
     "connection_connecting": "Connecting…",
     "connection_connected": "Connected",
     "connection_disconnected": "Disconnected — retrying…",

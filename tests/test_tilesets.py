@@ -12,6 +12,7 @@ from core.tilesets import (
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "web/assets/tilesets/classic/tileset.json"
+INTERWOVEN_MANIFEST = ROOT / "web/assets/tilesets/interwoven/tileset.json"
 
 
 class TilesetContractTests(unittest.TestCase):
@@ -47,6 +48,48 @@ class TilesetContractTests(unittest.TestCase):
         invalid_manifests.append(wrong_size)
         for candidate in invalid_manifests:
             with self.subTest(candidate=candidate):
+                with self.assertRaises(TilesetValidationError):
+                    validate_tileset_manifest(
+                        candidate,
+                        image_size=(1248, 1248),
+                    expected_id="classic",
+                )
+
+    def test_interwoven_tileset_has_square_tiles_and_opt_in_edge_blending(self):
+        manifest = load_tileset_manifest(INTERWOVEN_MANIFEST)
+
+        self.assertEqual(manifest["id"], "interwoven")
+        self.assertEqual(manifest["name_key"], "web.tileset_interwoven")
+        self.assertEqual(manifest["tile_width"], manifest["tile_height"])
+        self.assertEqual((manifest["columns"], manifest["rows"]), (8, 8))
+        self.assertEqual(
+            manifest["edge_blending"],
+            {"mode": "interlaced", "depth": 0.18, "opacity": 0.72},
+        )
+        self.assertTrue(STANDARD_VISUAL_KEYS.issubset(manifest["sprites"]))
+
+    def test_edge_blending_is_optional_and_strictly_validated(self):
+        classic = load_tileset_manifest(MANIFEST)
+        self.assertEqual(classic["edge_blending"], {"mode": "none"})
+
+        valid = copy.deepcopy(classic)
+        valid["edge_blending"] = {
+            "mode": "interlaced",
+            "depth": 0.2,
+            "opacity": 0.5,
+        }
+        invalid_values = [
+            {"mode": "blur", "depth": 0.2, "opacity": 0.5},
+            {"mode": "interlaced", "depth": 0, "opacity": 0.5},
+            {"mode": "interlaced", "depth": 0.6, "opacity": 0.5},
+            {"mode": "interlaced", "depth": 0.2, "opacity": 0},
+            {"mode": "interlaced", "depth": 0.2, "opacity": 1.1},
+            {"mode": "interlaced", "depth": 0.2},
+        ]
+        for edge_blending in invalid_values:
+            with self.subTest(edge_blending=edge_blending):
+                candidate = copy.deepcopy(valid)
+                candidate["edge_blending"] = edge_blending
                 with self.assertRaises(TilesetValidationError):
                     validate_tileset_manifest(
                         candidate,

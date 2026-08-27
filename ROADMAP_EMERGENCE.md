@@ -1,6 +1,6 @@
 # Roadmap d’émergence de Chartographist
 
-Ce document transforme l’analyse approfondie du projet en plan d’implémentation. Il prolonge les phases 0 à 7 déjà réalisées et devient la feuille de route des phases 8 à 15.
+Ce document transforme l’analyse approfondie du projet en plan d’implémentation. Il prolonge les phases 0 à 7 déjà réalisées et devient la feuille de route des phases 8 à 17.
 
 Les règles de [`AGENTS.md`](AGENTS.md) restent impératives : prévention des régressions, TDD strict test-first, déterminisme via `RandomService`, i18n fr/en/es et mise à jour de [`REFERENTIEL_PROJET.md`](REFERENTIEL_PROJET.md) après toute évolution structurante.
 
@@ -85,6 +85,7 @@ flowchart LR
     P13 --> P14["Phase 14 — Territoires et migrations"]
     P14 --> P15["Phase 15 — Histoire profonde et légendes"]
     P15 --> P16["Phase 16 — Rendu web et sprites"]
+    P16 --> P17["Phase 17 — Archives et relecture"]
     P10 --> P15
 ```
 
@@ -675,7 +676,9 @@ libellés fr/en/es.
 ### Lot 16.5 — Spritesheets data-driven
 Terminé : catalogue de 42 clés standard, manifeste v1 validé, atlas classique
 8 × 8 licencié, routes filtrées, fallback progressif et thème Canvas par
-couches interchangeable à chaud avec les glyphes.
+couches interchangeable à chaud avec les glyphes. Un second atlas Interwoven
+8 × 8 ajoute des sprites carrés et un mélange interlacé optionnel des frontières
+de terrains, sans modifier le thème classique.
 
 ### Lots 16.6–16.7 — Optimisation et stabilisation
 Terminé : projection différée tant qu'aucun client n'est connecté, index de
@@ -707,8 +710,64 @@ Pour réduire le risque, chaque phase suit le même découpage :
 7. **Interface et i18n** — textes fr/en/es et navigation.
 8. **Validation émergente** — tests multi-graines, simulations longues et comparaison statistique.
 
-# Prochaine étape : planifier la phase 17
+# Phase 17 — Archives portables, chronologie et relecture
 
-La phase 16 étant complète, le prochain incrément doit cadrer la phase 17 avant
-toute modification fonctionnelle : intention produit, risques, contrats
-rétrocompatibles, critères de sortie et lots TDD.
+## Intention
+
+Permettre à l'utilisateur de revoir et partager l'histoire d'un monde sans
+exposer le checkpoint Python et sans transformer la consultation en mutation de
+la simulation. L'étude complète est dans
+[`ETUDE_PHASE_17_ARCHIVES_RELECTURE.md`](ETUDE_PHASE_17_ARCHIVES_RELECTURE.md).
+
+> État au 26 août 2026 : lots 17.0 à 17.2 terminés. Le format portable v1 et
+> l'enregistreur borné sont implémentés ; aucune option CLI ne les active encore.
+
+## Lots
+
+### Lot 17.0 — Caractérisation et ADR
+Terminé : le profil 60 × 30 × 1 200 retient une image clé tous les 60 cycles,
+une archive estimée à 7,069 Mio et une reconstruction exacte de 59 deltas en
+42,935 ms médianes (50,123 ms au 95e percentile).
+
+### Lot 17.1 — Format et validation
+Terminé : manifeste v1 canonique, membres JSON/NDJSON bornés, empreintes SHA-256,
+écriture temporaire synchronisée puis remplacée atomiquement, et rejets
+structurés des archives dangereuses, surdimensionnées ou incohérentes.
+
+### Lot 17.2 — Enregistreur borné
+Terminé : staging disque, mémoire limitée à un segment, image clé tous les 60
+cycles, finalisation atomique normale ou sur `Ctrl+C`, abandon sur erreur et
+consommateur optionnel de snapshots. Un smoke test 60 × 30 × 120 reproduit
+exactement l'état sans enregistrement et produit une archive de 0,745 Mio.
+
+### Lot 17.3 — Lecture headless
+Reconstruire une révision et comparer deux dates sans PRNG ni état global.
+
+### Lot 17.4 — API locale de consultation
+Servir une archive choisie au lancement, en lecture seule et sur boucle locale.
+
+### Lot 17.5 — Frise navigateur
+Naviguer dans le temps, rejoindre les faits marquants et visualiser les écarts.
+
+### Lot 17.6 — CLI, i18n et documentation
+Ajouter les options opt-in, les libellés fr/en/es et le parcours utilisateur.
+
+### Lot 17.7 — Performance et stabilisation
+Valider sécurité, déterminisme, campagnes longues et absence de régression.
+
+## Critères de sortie
+
+- Une histoire de 1 200 cycles est consultable et partageable sans `pickle`.
+- Une archive ne peut jamais muter ou reprendre directement la simulation.
+- L'enregistrement désactivé ne pénalise pas les modes existants.
+- Le lecteur refuse les archives hors limites avant reconstruction.
+- Le navigateur distingue sans ambiguïté direct et archive.
+- Terminal, web direct, sprites et checkpoints historiques restent compatibles.
+
+---
+
+# Prochaine étape : lot 17.3 — lecture headless
+
+Le prochain incrément reconstruira une révision ou un cycle depuis l'image clé
+précédente, sans PRNG ni mutation globale, puis exposera une comparaison
+structurée entre deux dates.

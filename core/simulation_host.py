@@ -1,6 +1,7 @@
 """Hôte mono-propriétaire pour piloter un moteur depuis plusieurs adaptateurs."""
 
 from collections import deque
+from copy import deepcopy
 import threading
 
 
@@ -20,6 +21,7 @@ class SimulationHost:
         max_commands=64,
         save_path=None,
         snapshot_factory=None,
+        snapshot_consumers=(),
     ):
         if isinstance(max_commands, bool) or int(max_commands) <= 0:
             raise ValueError("max_commands must be a positive integer")
@@ -30,6 +32,9 @@ class SimulationHost:
         self._max_commands = int(max_commands)
         self._save_path = None if save_path is None else str(save_path)
         self._snapshot_factory = snapshot_factory or _default_snapshot
+        self._snapshot_consumers = tuple(snapshot_consumers)
+        if any(not callable(consumer) for consumer in self._snapshot_consumers):
+            raise TypeError("snapshot consumers must be callable")
         self._tick_interval = self._validated_speed(tick_interval)
         self._paused = False
         self._stopped = False
@@ -88,16 +93,12 @@ class SimulationHost:
             changed = True
         if changed:
             self._revision += 1
-            self._last_snapshot = (
-                self._snapshot_factory(self.engine, self._revision)
-                if publish_snapshot else None
-            )
+            needs_snapshot = publish_snapshot or bool(self._snapshot_consumers)
+            self._last_snapshot = self._build_snapshot() if needs_snapshot else None
         elif self._last_snapshot is None and publish_snapshot:
             if self._revision == 0:
                 self._revision += 1
-            self._last_snapshot = self._snapshot_factory(
-                self.engine, self._revision
-            )
+            self._last_snapshot = self._build_snapshot()
         return self._last_snapshot if publish_snapshot else None
 
     def snapshot(self):
@@ -106,11 +107,14 @@ class SimulationHost:
         if self._last_snapshot is None:
             if self._revision == 0:
                 self._revision += 1
-            self._last_snapshot = self._snapshot_factory(
-                self.engine, self._revision
-            )
-        from copy import deepcopy
+            self._last_snapshot = self._build_snapshot()
         return deepcopy(self._last_snapshot)
+
+    def _build_snapshot(self):
+        snapshot = self._snapshot_factory(self.engine, self._revision)
+        for consumer in self._snapshot_consumers:
+            consumer(deepcopy(snapshot))
+        return snapshot
 
     def _drain_commands(self):
         with self._lock:

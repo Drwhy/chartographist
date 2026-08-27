@@ -125,6 +125,12 @@ def validate_tileset_manifest(manifest, *, image_size, expected_id=None):
     for field in ("name", "source"):
         if not isinstance(license_data.get(field), str) or not license_data[field].strip():
             raise TilesetValidationError(f"license_{field}")
+    name_key = manifest.get("name_key")
+    if name_key is not None and (
+        not isinstance(name_key, str)
+        or not re.fullmatch(r"web\.tileset_[a-z0-9_]{1,64}", name_key)
+    ):
+        raise TilesetValidationError("name_key")
 
     sprites = manifest.get("sprites")
     if not isinstance(sprites, dict) or not sprites:
@@ -145,11 +151,13 @@ def validate_tileset_manifest(manifest, *, image_size, expected_id=None):
     missing = STANDARD_VISUAL_KEYS - normalized_sprites.keys()
     if missing:
         raise TilesetValidationError(f"coverage:{sorted(missing)[0]}")
+    edge_blending = _edge_blending(manifest.get("edge_blending"))
 
     return {
         "schema_version": TILESET_SCHEMA_VERSION,
         "id": identifier,
         "name": str(manifest.get("name") or identifier),
+        "name_key": name_key,
         "image": image,
         "tile_width": tile_width,
         "tile_height": tile_height,
@@ -161,6 +169,7 @@ def validate_tileset_manifest(manifest, *, image_size, expected_id=None):
             "source": license_data["source"].strip(),
         },
         "sprites": normalized_sprites,
+        "edge_blending": edge_blending,
     }
 
 
@@ -210,3 +219,28 @@ def _coordinate(value, maximum, key):
     if type(value) is not int or not 0 <= value < maximum:
         raise TilesetValidationError(f"sprite_bounds:{key}")
     return value
+
+
+def _edge_blending(value):
+    if value is None:
+        return {"mode": "none"}
+    if not isinstance(value, dict) or value.get("mode") != "interlaced":
+        raise TilesetValidationError("edge_blending")
+    if set(value) != {"mode", "depth", "opacity"}:
+        raise TilesetValidationError("edge_blending")
+    depth = value["depth"]
+    opacity = value["opacity"]
+    if (
+        isinstance(depth, bool)
+        or not isinstance(depth, (int, float))
+        or not 0 < float(depth) <= 0.5
+        or isinstance(opacity, bool)
+        or not isinstance(opacity, (int, float))
+        or not 0 < float(opacity) <= 1
+    ):
+        raise TilesetValidationError("edge_blending")
+    return {
+        "mode": "interlaced",
+        "depth": float(depth),
+        "opacity": float(opacity),
+    }

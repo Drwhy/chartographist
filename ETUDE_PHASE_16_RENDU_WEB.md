@@ -224,6 +224,19 @@ espaces réussi et validation HTTP réelle de la page, des métadonnées, du
 snapshot ainsi que des commandes pause, pas-à-pas et reprise sur
 `127.0.0.1:9016`.
 
+## Extension livrée — thème Interwoven et bordures harmonisées
+
+- le nouvel atlas `interwoven` mesure 1248 × 1248, forme une grille 8 × 8 de
+  sprites strictement carrés de 156 × 156 et couvre les 42 clés standard ;
+- son manifeste active explicitement `edge_blending.mode = interlaced`, avec
+  profondeur et opacité bornées ;
+- le Canvas mélange seulement les terrains différents sur leurs bordures haute
+  et gauche, selon un profil spatial déterministe sans `Math.random` ;
+- les couches rivière, route, site et entité restent dessinées après la
+  transition afin de conserver leur lisibilité ;
+- le thème classique reçoit le mode neutre `none` par défaut et ne régresse pas ;
+- le nom du nouveau thème est localisé dans les catalogues fr/en/es.
+
 ## Plan d'implémentation TDD
 
 ### Lot 16.0 — Caractérisation et budgets

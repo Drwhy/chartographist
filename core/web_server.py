@@ -106,7 +106,11 @@ def create_web_app(
         tileset_summaries = [
             {
                 "id": manifest["id"],
-                "name": manifest["name"],
+                "name": (
+                    Translator.translate(manifest["name_key"])
+                    if manifest.get("name_key")
+                    else manifest["name"]
+                ),
                 "manifest_url": f"/api/v1/tilesets/{manifest['id']}",
                 "license": manifest["license"],
             }

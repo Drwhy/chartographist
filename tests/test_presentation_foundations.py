@@ -370,6 +370,26 @@ class SimulationHostTests(unittest.TestCase):
         self.assertEqual(host.snapshot()["revision"], 2)
         self.assertEqual(projections, [1, 2])
 
+    def test_snapshot_consumer_records_even_when_web_projection_is_deferred(self):
+        projections = []
+        recorded = []
+        host = SimulationHost(
+            FakeEngine(),
+            snapshot_factory=lambda engine, revision: projections.append(
+                revision
+            ) or {
+                "revision": revision,
+                "cycle": engine.world["cycle"],
+            },
+            snapshot_consumers=[lambda snapshot: recorded.append(snapshot)],
+        )
+
+        self.assertIsNone(host.tick(publish_snapshot=False))
+        self.assertEqual(projections, [1])
+        self.assertEqual(recorded, [{"revision": 1, "cycle": 1}])
+        self.assertEqual(host.snapshot(), {"revision": 1, "cycle": 1})
+        self.assertEqual(len(recorded), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
