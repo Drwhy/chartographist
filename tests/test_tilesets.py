@@ -97,6 +97,40 @@ class TilesetContractTests(unittest.TestCase):
                         expected_id="classic",
                     )
 
+    def test_interwoven_separates_full_tiles_from_transparent_entity_sprites(self):
+        manifest = load_tileset_manifest(INTERWOVEN_MANIFEST)
+
+        self.assertEqual(manifest["sheets"]["terrain"]["image"], "atlas.png")
+        self.assertEqual(
+            manifest["sheets"]["entities"]["image"],
+            "entities.png",
+        )
+        self.assertTrue(manifest["sheets"]["entities"]["alpha"])
+        terrain = manifest["sprites"]["terrain.grassland"]
+        fisherman = manifest["sprites"]["entity.human.fisherman"]
+        boat = manifest["sprites"]["entity.vehicle.boat"]
+        self.assertEqual((terrain["sheet"], terrain["scale"]), ("terrain", 1.0))
+        self.assertEqual(fisherman["sheet"], "entities")
+        self.assertLess(fisherman["scale"], 1.0)
+        self.assertEqual(
+            (fisherman["anchor_x"], fisherman["anchor_y"]),
+            (0.5, 1.0),
+        )
+        self.assertEqual(boat["sheet"], "entities")
+
+        invalid = copy.deepcopy(manifest)
+        invalid["sprites"]["entity.human.fisherman"]["sheet"] = "missing"
+        with self.assertRaises(TilesetValidationError):
+            validate_tileset_manifest(
+                invalid,
+                image_size=(1248, 1248),
+                sheet_image_info={
+                    "terrain": (1248, 1248, True),
+                    "entities": (1536, 1024, True),
+                },
+                expected_id="interwoven",
+            )
+
     def test_manifest_and_png_dimensions_must_agree(self):
         manifest = load_tileset_manifest(MANIFEST)
         changed = copy.deepcopy(manifest)

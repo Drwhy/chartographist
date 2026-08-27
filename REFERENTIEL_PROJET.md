@@ -4,9 +4,9 @@ Ce document est la carte de travail du dépôt. Il sert à retrouver rapidement 
 
 Les règles impératives de contribution sont définies dans [`AGENTS.md`](AGENTS.md) : prévention des régressions, i18n systématique et TDD strict test-first pour chaque modification fonctionnelle.
 
-La stratégie d'évolution centrée sur l'émergence et les plans d'implémentation des phases 8 à 15 sont détaillés dans [ROADMAP_EMERGENCE.md](ROADMAP_EMERGENCE.md).
+La stratégie d'évolution centrée sur l'émergence et les plans d'implémentation des phases 8 à 18 sont détaillés dans [ROADMAP_EMERGENCE.md](ROADMAP_EMERGENCE.md).
 
-> État analysé : branche `evolution`, le 26 août 2026. Le projet propose les adaptateurs terminal et serveur web local sur un même moteur. Une suite de 437 tests `unittest` de non-régression est disponible sous [`tests/`](tests/).
+> État analysé : branche `evolution`, le 27 août 2026. Le projet propose les adaptateurs terminal, serveur web direct et API locale d'archives. Une suite de 477 tests `unittest` de non-régression est disponible sous [`tests/`](tests/).
 
 ## Vue d'ensemble
 
@@ -177,6 +177,7 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 |---|---|---|
 | [`ETUDE_PHASE_16_RENDU_WEB.md`](ETUDE_PHASE_16_RENDU_WEB.md) | Faisabilité, risques, architecture cible, protocole, spritesheets, optimisations et bilan de la phase 16 terminée. | À consulter avant toute évolution des rendus web ou sprites. |
 | [`ETUDE_PHASE_17_ARCHIVES_RELECTURE.md`](ETUDE_PHASE_17_ARCHIVES_RELECTURE.md) | Décision d'architecture, frontière de confiance, budgets et plan TDD des archives consultables. | À consulter avant toute persistance de présentation ou navigation temporelle. |
+| [`ETUDE_PHASE_18_SPRITES_ENTITES.md`](ETUDE_PHASE_18_SPRITES_ENTITES.md) | Contrat multicouche, transparence, ancrage, variantes et lots futurs des sprites d'entités. | À consulter avant toute évolution des feuilles terrain/entités ou des animations. |
 | [`AGENTS.md`](AGENTS.md) | Directives obligatoires pour toute intervention : compatibilité, i18n et stratégie de tests. | À mettre à jour lorsque la politique de contribution évolue. |
 | [`tests/`](tests/) | Suite `unittest` de non-régression et tests d'architecture. | À étendre avec toute modification fonctionnelle, de configuration ou d'i18n. |
 | [`tools/observatory.py`](tools/observatory.py) | Banc headless multi-graines, profils court/long/reprise, statistiques d’activation et export CSV. | `SimulationEngine.run_observed()` et `core/simulation_metrics.py`. |
@@ -185,14 +186,15 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 | [`requirements.txt`](requirements.txt) | Dépendances communes : `noise`, `colorama`, `numpy`. | L'environnement d'installation et le README. |
 | [`requirements-web.txt`](requirements-web.txt) | Dépendance optionnelle `aiohttp` du seul mode navigateur. | `core/web_server.py`, tests web et README. |
 | [`web/index.html`](web/index.html) | Structure accessible du client navigateur sans chaîne de compilation. | `web/app.js`, `web/styles.css`, métadonnées i18n et protocole v1. |
-| [`web/app.js`](web/app.js) | Client Canvas : deltas, viewport, zoom, déplacement, sélection, commandes, reconnexion, panneaux et bordures de terrain interlacées déterministes. | `core/presentation.py`, `core/web_server.py`, manifestes et clés de sprites. |
+| [`web/app.js`](web/app.js) | Client Canvas : deltas, viewport, zoom, déplacement, sélection, commandes, reconnexion, bordures interlacées et sprites RGBA réduits/ancrés. | `core/presentation.py`, `core/web_server.py`, manifestes, feuilles et clés de sprites. |
 | [`web/styles.css`](web/styles.css) | Présentation sombre responsive, focus clavier et préférence de réduction des animations. | Structure de `web/index.html`. |
 | [`web/assets/tilesets/classic/tileset.json`](web/assets/tilesets/classic/tileset.json) | Manifeste v1 du thème classique : grille, coordonnées, couverture, fallback et licence. | `core/tilesets.py` et `atlas.png`. |
 | [`web/assets/tilesets/classic/atlas.png`](web/assets/tilesets/classic/atlas.png) | Atlas pixel-art 8 × 8 généré pour le projet, recadré sans rééchantillonnage. | Manifeste classique et client Canvas. |
-| [`web/assets/tilesets/interwoven/tileset.json`](web/assets/tilesets/interwoven/tileset.json) | Manifeste du thème Interwoven : grille carrée 8 × 8, couverture standard, licence et mélange de bordure opt-in. | `core/tilesets.py`, `atlas.png`, client Canvas et locales. |
+| [`web/assets/tilesets/interwoven/tileset.json`](web/assets/tilesets/interwoven/tileset.json) | Manifeste Interwoven multicouche : terrain 8 × 8, entités 6 × 4, échelles, ancres, couverture et bordures. | `core/tilesets.py`, PNG déclarés et client Canvas. |
 | [`web/assets/tilesets/interwoven/atlas.png`](web/assets/tilesets/interwoven/atlas.png) | Atlas pixel-art carré 1248 × 1248 généré avec OpenAI ImageGen et normalisé en 64 sprites de 156 × 156. | Manifeste Interwoven et client Canvas. |
+| [`web/assets/tilesets/interwoven/entities.png`](web/assets/tilesets/interwoven/entities.png) | Feuille RGBA 1536 × 1024 de structures, métiers, bateau, animaux et entités spéciales en 24 cellules de 256 × 256. | Manifeste Interwoven, variantes sémantiques et client Canvas. |
 | [`README.md`](README.md) | Présentation utilisateur, installation et aperçu historique de l'arborescence. | À synchroniser après un changement fonctionnel visible. Sa liste de fichiers animaux séparés est obsolète. |
-| [`CLAUDE.md`](CLAUDE.md) | Notes d'architecture et conventions locales pour assistants. | À synchroniser avec le présent référentiel si les invariants changent. Fichier actuellement non suivi par Git. |
+| [`CLAUDE.md`](CLAUDE.md) | Notes d'architecture et conventions locales pour assistants. | À synchroniser avec le présent référentiel si les invariants changent. |
 | [`.gitignore`](.gitignore) | Exclusions Git génériques Python et outils. | Nouveaux artefacts générés. |
 | [`LICENSE`](LICENSE) | Licence Apache 2.0. | Rarement modifié. |
 | [`.claude/settings.local.json`](.claude/settings.local.json) | Préférences locales d'outillage Claude. | Ne porte pas de logique applicative. |
@@ -207,10 +209,10 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 | [`core/simulation_engine.py`](core/simulation_engine.py) | Moteur headless : initialise et possède `world`/`stats`, exécute `step()`/`run()`, isole les erreurs et expose sauvegarde, chroniques et chaînes causales, inspection, climat par monde/tuile, agrégats et instantané des systèmes. |
 | [`core/climate.py`](core/climate.py) | Service headless du cycle saisonnier, température, humidité, biomes, anomalies, productivité agricole/écologique et compatibilité de rendu historique. |
 | [`core/presentation.py`](core/presentation.py) | Résolution visuelle sémantique commune, snapshot JSON v1 en liste blanche, panneaux structurés, copies défensives et deltas bornés. |
-| [`core/history_archive.py`](core/history_archive.py) | Format `.chartarchive` v1 et enregistreur borné : manifeste canonique, staging disque, images clés/deltas, SHA-256, limites anti-abus, validation intégrale et écriture atomique sans `pickle`. |
+| [`core/history_archive.py`](core/history_archive.py) | Format `.chartarchive` v1, enregistreur borné et lecteur headless : validation, index temporel, reconstruction, chronologie et comparaison défensive sans `pickle` ni PRNG. |
 | [`core/simulation_host.py`](core/simulation_host.py) | Propriétaire du cycle : file de commandes bornée et thread-safe, pause/pas-à-pas/vitesse/arrêt, publication versionnée différable, consommateurs optionnels de snapshots et sauvegarde sur chemin autorisé. |
-| [`core/web_server.py`](core/web_server.py) | API HTTP v1 locale, page statique, inspection, commandes filtrées, WebSocket, deltas, projection suspendue sans client, contrôle d'origine/taille et import paresseux d'`aiohttp`. |
-| [`core/tilesets.py`](core/tilesets.py) | Catalogue standard et validation stricte des manifestes/PNG, découverte défensive et configuration optionnelle bornée du mélange interlacé. |
+| [`core/web_server.py`](core/web_server.py) | API HTTP v1 locale : mode direct avec page, inspection, commandes, WebSocket et deltas ; mode archive read-only avec métadonnées, révisions, chronologie et comparaison ; contrôles d'origine/taille, bind loopback et import paresseux d'`aiohttp`. |
+| [`core/tilesets.py`](core/tilesets.py) | Catalogue standard et validation stricte des manifestes/PNG, feuilles multiples, alpha, échelle/ancrage, découverte défensive et bordures interlacées. |
 | [`core/resources.py`](core/resources.py) | Stocks spatiaux renouvelables, capacités, régénération, extraction conservatrice, perturbations persistantes, propagation du feu, migration et résumés défensifs. |
 | [`core/materials.py`](core/materials.py) | Catalogue défensif data-driven des ressources, objets, recettes, cibles, réserves, sources spatiales, infrastructures et chaîne alimentaire ; validation des IDs/références et cache runtime borné par configuration immuable. |
 | [`core/stockpiles.py`](core/stockpiles.py) | Stockage colonial versionné : migration paresseuse, capacité de base et bonus d'infrastructure, dépôts/retraits, transfert conservateur et détérioration par cycle. |
@@ -349,7 +351,7 @@ Commande canonique :
 python3 -m unittest discover -s tests -v
 ```
 
-La suite contient 437 tests et s'organise ainsi :
+La suite contient 477 tests et s'organise ainsi :
 
 | Fichier | Couverture |
 |---|---|
@@ -385,9 +387,9 @@ La suite contient 437 tests et s'organise ainsi :
 | [`tests/test_persistence.py`](tests/test_persistence.py) | IDs monotones/restaurables, continuité des transformations et relations, format invalide, états globaux, reprise déterministe, `--load`/`--save` et erreurs i18n. |
 | [`tests/__init__.py`](tests/__init__.py) | Marque le répertoire comme package de tests. |
 | [`tests/test_presentation_foundations.py`](tests/test_presentation_foundations.py) | Clés visuelles, priorité des couches, parité terminal, JSON défensif sans PRNG, panneaux structurés, deltas, bornes, hôte mono-propriétaire, projection différée et consommateurs optionnels. |
-| [`tests/test_history_archive.py`](tests/test_history_archive.py) | Seize contrats TDD sur manifeste v1, reproductibilité, sécurité, atomicité, staging, segmentation, défensive, déterminisme, interruption et abandon. |
-| [`tests/test_web_server.py`](tests/test_web_server.py) | API v1, ressources statiques filtrées, client Canvas exécutable, accessibilité, inspection, origines, tailles, commandes, WebSocket, deltas indexés, absence de projection sans client, reconnexion, bind loopback, imports optionnels, CLI et dispatch sans terminal. |
-| [`tests/test_tilesets.py`](tests/test_tilesets.py) | Version, licence, dimensions PNG, grilles carrées, bornes, couverture, chemins sûrs, fallback et mélange optionnel des thèmes Classic et Interwoven. |
+| [`tests/test_history_archive.py`](tests/test_history_archive.py) | Vingt-et-un contrats TDD sur format, sécurité, enregistrement, index temporel, reconstruction, comparaison, limites spatiales, défensive et PRNG. |
+| [`tests/test_web_server.py`](tests/test_web_server.py) | API directe et archive, intégration du lecteur réel, ressources statiques, client Canvas, accessibilité, inspection, origines, tailles, refus de mutation, WebSocket, deltas, reconnexion, bind loopback, imports optionnels, CLI et dispatch sans terminal. |
+| [`tests/test_tilesets.py`](tests/test_tilesets.py) | Version, licence, PNG, feuilles multiples, alpha, échelles, ancres, couverture, chemins sûrs, fallback et mélange Classic/Interwoven. |
 
 Contrats désormais protégés :
 
@@ -439,7 +441,7 @@ Tout nouveau test qui les modifie doit les initialiser ou les isoler pour rester
 | 7 | Climat et écologie avancée | Terminée — phase 6 |
 | 8 | Scénarios et modding | Terminée — phase 7 |
 
-### Suite centrée sur l'émergence — phases 8 à 17
+### Suite centrée sur l'émergence — phases 8 à 18
 
 Le plan détaillé, les dépendances, les contrats, les étapes TDD et les critères de sortie sont maintenus dans [`ROADMAP_EMERGENCE.md`](ROADMAP_EMERGENCE.md).
 
@@ -454,7 +456,8 @@ Le plan détaillé, les dépendances, les contrats, les étapes TDD et les crit�
 | 14 | Territoires, logistique, migrations et guerre causale | Terminée en mode opt-in — phase 14 |
 | 15 | Histoire profonde, sites, objets et légendes | Terminée en mode opt-in — phase 15 |
 | 16 | Rendu web, navigation navigateur et spritesheets | Terminée — deux thèmes et rendu interlacé |
-| 17 | Archives portables, chronologie et relecture | En cours — lots 17.0 et 17.1 terminés |
+| 17 | Archives portables, chronologie et relecture | En cours — lots 17.0 à 17.4 terminés |
+| 18 | Tuiles de terrain et sprites d'entités transparents | En cours — socle 18.0 à 18.3 livré |
 
 ### Information locale, exploration et rumeurs — phase 12 (24 août 2026)
 

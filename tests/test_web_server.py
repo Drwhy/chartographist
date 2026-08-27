@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import shutil
 import subprocess
+import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -12,7 +13,13 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from core.translator import Translator
 from core.system import load_launch_options
-from core.web_server import _publish_cycles, create_web_app, validate_web_bind
+from core.web_server import (
+    _publish_cycles,
+    create_archive_web_app,
+    run_archive_web_server,
+    create_web_app,
+    validate_web_bind,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -69,6 +76,7 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 200)
         meta = await response.json()
         self.assertEqual(meta["api_version"], 1)
+        self.assertEqual(meta["mode"], "live")
         self.assertEqual(meta["presentation_schema_version"], 1)
         self.assertEqual(meta["world"]["name"], "Web Test")
         self.assertEqual(meta["language"], "fr")
@@ -269,8 +277,17 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(interwoven["id"], "interwoven")
         self.assertEqual(interwoven["tile_width"], interwoven["tile_height"])
         self.assertEqual(interwoven["edge_blending"]["mode"], "interlaced")
+        self.assertEqual(
+            interwoven["sheet_urls"]["entities"],
+            "/assets/tilesets/interwoven/entities.png",
+        )
         response = await self.client.get(
             "/assets/tilesets/interwoven/atlas.png"
+        )
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.content_type, "image/png")
+        response = await self.client.get(
+            "/assets/tilesets/interwoven/entities.png"
         )
         self.assertEqual(response.status, 200)
         self.assertEqual(response.content_type, "image/png")
@@ -366,10 +383,14 @@ const manifest = {{
   tile_width: 16,
   tile_height: 16,
   fallback: "fallback.unknown",
+  sheets: {{
+    terrain: {{tile_width: 16, tile_height: 16}},
+    entities: {{tile_width: 32, tile_height: 32}}
+  }},
   sprites: {{
-    "terrain.grassland": {{x: 1, y: 0}},
+    "terrain.grassland": {{x: 1, y: 0, sheet: "terrain", scale: 1, anchor_x: 0.5, anchor_y: 0.5}},
     "site.ruins": {{x: 2, y: 0}},
-    "entity.animal.wolf": {{x: 3, y: 0}},
+    "entity.animal.wolf": {{x: 3, y: 0, sheet: "entities", scale: 0.7, anchor_x: 0.5, anchor_y: 1}},
     "fallback.unknown": {{x: 0, y: 0}}
   }}
 }};
@@ -387,6 +408,15 @@ const siteSprite = client.resolveSprite(manifest, "site.ruins.ancient");
 const fallbackSprite = client.resolveSprite(manifest, "mod.unknown");
 if (siteSprite.x !== 2 || fallbackSprite.x !== 0) {{
   throw new Error("sprite fallback contract");
+}}
+const destination = client.spriteDestination(
+  manifest.sprites["entity.animal.wolf"], 10, 20, 100
+);
+if (
+  destination.left !== 25 || destination.top !== 50
+  || destination.width !== 70 || destination.height !== 70
+) {{
+  throw new Error("scaled transparent entity destination");
 }}
 const blendA = client.edgeBlendProfile(4, 7, "top", 0.18, 8);
 const blendB = client.edgeBlendProfile(4, 7, "top", 0.18, 8);
@@ -434,6 +464,230 @@ if (blendA.some((value) => value <= 0 || value > 0.18)) {{
         )
         self.assertNotIn("aiohttp", eager)
         self.assertNotIn("render", eager)
+
+
+class FakeArchiveReader:
+    def __init__(self):
+        self.manifest = {
+            "format": "chartographist-archive",
+            "version": 1,
+            "presentation_schema_version": 1,
+            "world": {
+                "name": "Archived World",
+                "seed": 42,
+                "width": 2,
+                "height": 1,
+            },
+            "revisions": {
+                "first": 2,
+                "last": 5,
+                "keyframe_interval": 60,
+            },
+            "capabilities": ["deltas", "snapshots"],
+            "members": [],
+        }
+        self.snapshot_revisions = []
+        self.timeline_queries = []
+        self.comparisons = []
+
+    def bounds(self):
+        return {
+            "first_revision": 2,
+            "last_revision": 5,
+            "first_cycle": 7,
+            "last_cycle": 10,
+        }
+
+    def snapshot_at_revision(self, revision):
+        if revision < 2 or revision > 5:
+            from core.history_archive import ArchiveFormatError
+            raise ArchiveFormatError("revision_out_of_bounds")
+        self.snapshot_revisions.append(revision)
+        return {
+            "schema_version": 1,
+            "revision": revision,
+            "cycle": revision + 5,
+            "world": self.manifest["world"],
+            "cells": [],
+            "panels": {},
+        }
+
+    def timeline_events(self, **query):
+        self.timeline_queries.append(query)
+        return [{"chronicle_id": "event-8", "cycle": 8}]
+
+    def compare(self, from_revision, to_revision):
+        self.comparisons.append((from_revision, to_revision))
+        return {
+            "from_revision": from_revision,
+            "to_revision": to_revision,
+            "changed_cells": [],
+        }
+
+
+class ArchiveWebServerContractTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        Translator.load("fr")
+        self.reader = FakeArchiveReader()
+        self.client = TestClient(
+            TestServer(create_archive_web_app(self.reader))
+        )
+        await self.client.start_server()
+
+    async def asyncTearDown(self):
+        await self.client.close()
+
+    async def test_archive_meta_snapshot_timeline_and_comparison(self):
+        response = await self.client.get("/api/v1/meta")
+        meta = await response.json()
+        self.assertEqual(response.status, 200)
+        self.assertEqual(meta["mode"], "archive")
+        self.assertTrue(meta["archive"]["read_only"])
+        self.assertEqual(meta["archive"]["last_revision"], 5)
+        self.assertNotIn("commands", meta["capabilities"])
+
+        response = await self.client.get("/api/v1/snapshot")
+        self.assertEqual((await response.json())["revision"], 5)
+        response = await self.client.get("/api/v1/snapshot?revision=3")
+        self.assertEqual((await response.json())["revision"], 3)
+
+        response = await self.client.get(
+            "/api/v1/timeline?start_cycle=8&end_cycle=10&limit=12"
+        )
+        self.assertEqual((await response.json())["events"][0]["cycle"], 8)
+        self.assertEqual(
+            self.reader.timeline_queries[-1],
+            {"start_cycle": 8, "end_cycle": 10, "limit": 12},
+        )
+
+        response = await self.client.get(
+            "/api/v1/compare?from_revision=2&to_revision=5"
+        )
+        self.assertEqual((await response.json())["to_revision"], 5)
+        self.assertEqual(self.reader.comparisons, [(2, 5)])
+
+    async def test_archive_api_rejects_invalid_or_mutating_requests(self):
+        for path, status in (
+            ("/api/v1/snapshot?revision=99", 404),
+            ("/api/v1/timeline?limit=invalid", 400),
+            ("/api/v1/compare?from_revision=2", 400),
+            ("/api/v1/snapshot?revision=3&unexpected=true", 400),
+        ):
+            response = await self.client.get(path)
+            self.assertEqual(response.status, status, path)
+
+        response = await self.client.post(
+            "/api/v1/commands", json={"command": "pause"}
+        )
+        self.assertEqual(response.status, 403)
+        self.assertEqual((await response.json())["error"], "archive_read_only")
+
+        response = await self.client.get(
+            "/api/v1/snapshot", headers={"Origin": "https://hostile.example"}
+        )
+        self.assertEqual(response.status, 403)
+
+        response = await self.client.post(
+            "/api/v1/commands",
+            data=b"x" * (65 * 1024),
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(response.status, 413)
+
+    async def test_archive_api_integrates_with_the_real_headless_reader(self):
+        from core.history_archive import (
+            HistoryArchiveReader,
+            HistoryArchiveRecorder,
+        )
+
+        def snapshot(revision, cycle, terrain, chronicles):
+            return {
+                "schema_version": 1,
+                "revision": revision,
+                "cycle": cycle,
+                "clock": {"year": 1, "month": cycle},
+                "world": {
+                    "name": "Integration",
+                    "seed": 81,
+                    "width": 2,
+                    "height": 1,
+                },
+                "cells": [
+                    {"x": 0, "y": 0, "terrain_key": terrain},
+                    {"x": 1, "y": 0, "terrain_key": "sand"},
+                ],
+                "logs": [],
+                "panels": {"chronicles": chronicles},
+            }
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "integration.chartarchive"
+            recorder = HistoryArchiveRecorder(path)
+            recorder.record(snapshot(
+                1,
+                7,
+                "grassland",
+                [{"chronicle_id": "origin", "cycle": 7}],
+            ))
+            recorder.record(snapshot(
+                2,
+                8,
+                "forest",
+                [
+                    {"chronicle_id": "origin", "cycle": 7},
+                    {"chronicle_id": "forest", "cycle": 8},
+                ],
+            ))
+            recorder.finalize()
+
+            client = TestClient(TestServer(
+                create_archive_web_app(HistoryArchiveReader(path))
+            ))
+            await client.start_server()
+            try:
+                response = await client.get("/api/v1/snapshot?revision=2")
+                state = await response.json()
+                self.assertEqual(state["cells"][0]["terrain_key"], "forest")
+
+                response = await client.get(
+                    "/api/v1/compare?from_revision=1&to_revision=2"
+                )
+                self.assertEqual(
+                    (await response.json())["changed_cell_count"],
+                    1,
+                )
+
+                response = await client.get(
+                    "/api/v1/timeline?start_cycle=8&end_cycle=8"
+                )
+                events = (await response.json())["events"]
+                self.assertEqual(
+                    [event["chronicle_id"] for event in events],
+                    ["forest"],
+                )
+            finally:
+                await client.close()
+
+    def test_archive_runner_loads_one_file_and_enforces_loopback(self):
+        with (
+            mock.patch(
+                "core.history_archive.HistoryArchiveReader"
+            ) as reader_type,
+            mock.patch("aiohttp.web.run_app") as run_app,
+        ):
+            run_archive_web_server(
+                "history.chartarchive",
+                address="localhost",
+                port=9017,
+            )
+        reader_type.assert_called_once_with("history.chartarchive")
+        self.assertEqual(run_app.call_args.kwargs["host"], "localhost")
+        self.assertEqual(run_app.call_args.kwargs["port"], 9017)
+
+        with self.assertRaises(ValueError):
+            run_archive_web_server(
+                "history.chartarchive", address="0.0.0.0"
+            )
 
 
 class WebLaunchOptionTests(unittest.TestCase):

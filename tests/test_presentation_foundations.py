@@ -13,11 +13,14 @@ from core.entities import Entity, EntityManager
 from core.presentation import (
     PresentationProjector,
     VisualCellResolver,
+    entity_render_key,
     snapshot_delta,
     _json_value,
 )
 from core.random_service import RandomService
 from core.simulation_host import SimulationHost
+from entities.species.human.fisherman import Fisherman
+from entities.species.human.settler import Settler
 from render.ui_map import get_char_at
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -228,8 +231,40 @@ class PresentationFoundationTests(unittest.TestCase):
         cell = PresentationProjector(engine).snapshot()["cells"][0]
         self.assertEqual(cell["entity"]["render_key"], entity.render_key)
         self.assertEqual(cell["visible_key"], entity.render_key)
-
         self.assertEqual(cell["glyph"], "old")
+
+    def test_mobile_entity_can_expose_a_semantic_boat_variant(self):
+        entity = SimpleNamespace(
+            render_key=None,
+            render_variant="boat",
+        )
+
+        self.assertEqual(entity_render_key(entity), "entity.vehicle.boat")
+
+    def test_water_capable_humans_switch_between_person_and_boat_sprites(self):
+        world = {
+            "elev": np.array([[-0.2]]),
+        }
+        fisherman = object.__new__(Fisherman)
+        fisherman.pos = (0, 0)
+        fisherman.land_char = "F"
+        fisherman.boat_char = "B"
+        settler = object.__new__(Settler)
+        settler.pos = (0, 0)
+        settler.land_char = "S"
+        settler.boat_char = "B"
+
+        fisherman._update_status(world)
+        settler._update_terrain_status(world)
+        self.assertEqual(entity_render_key(fisherman), "entity.vehicle.boat")
+        self.assertEqual(entity_render_key(settler), "entity.vehicle.boat")
+
+        world["elev"][0][0] = 0.2
+        fisherman._update_status(world)
+        settler._update_terrain_status(world)
+        self.assertEqual(entity_render_key(fisherman), "entity.human.fisherman")
+        self.assertEqual(entity_render_key(settler), "entity.human.settler")
+
     def test_engine_exposes_the_versioned_presentation_contract(self):
         engine = SimpleNamespace(
             world=self.world,

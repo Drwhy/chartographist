@@ -181,19 +181,19 @@ Bornes de sécurité initiales à figer par les tests du lot 17.1 : fichier de
 3. Images clés, rotation à 60 cycles, finalisation atomique, `Ctrl+C` et abandon sont couverts.
 4. Sur 60 × 30 × 120, l'état final reste strictement identique et l'archive mesure 0,745 Mio.
 
-### Lot 17.3 — Lecture headless
+### Lot 17.3 — Lecture headless — terminé
 
-1. Reconstruire une révision, un cycle et les bornes temporelles.
-2. Retourner des copies défensives sans PRNG ni mutation globale.
-3. Indexer images clés, segments et événements importants.
-4. Fournir une comparaison structurée entre deux révisions.
+1. Révisions, cycles et bornes temporelles sont reconstruits depuis l'image clé précédente.
+2. Les résultats sont défensifs et n'accèdent ni au moteur, ni au PRNG.
+3. Images clés, segments, cycles et chroniques sont indexés avec continuité et limites spatiales validées.
+4. La comparaison expose cellules, horloges et panneaux modifiés entre deux révisions.
 
-### Lot 17.4 — API locale de consultation
+### Lot 17.4 — API locale de consultation — terminé
 
-1. Ajouter métadonnées, état par révision et événements de chronologie.
-2. Garder les mêmes contrôles d'origine, de taille et de boucle locale.
-3. Refuser toutes les commandes qui muteraient une archive.
-4. Fermer proprement fichiers, tâches et connexions.
+1. `/api/v1/meta` distingue le mode archive et publie ses bornes read-only.
+2. Snapshot par révision, chronologie filtrée et comparaison sont disponibles sans moteur.
+3. Les contrôles d'origine, de taille et de boucle locale sont identiques au direct.
+4. Les commandes sont refusées et le serveur d'archive ne crée ni ticker ni WebSocket.
 
 ### Lot 17.5 — Frise navigateur
 

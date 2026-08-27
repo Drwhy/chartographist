@@ -90,6 +90,24 @@ export function resolveSprite(manifest, visualKey) {
   return manifest.sprites[manifest.fallback];
 }
 
+export function spriteDestination(sprite, left, top, size) {
+  const scale = Math.max(0.1, Math.min(1, Number(sprite?.scale) || 1));
+  const anchorX = Math.max(
+    0, Math.min(1, Number(sprite?.anchor_x ?? 0.5)),
+  );
+  const anchorY = Math.max(
+    0, Math.min(1, Number(sprite?.anchor_y ?? 0.5)),
+  );
+  const width = size * scale;
+  const height = size * scale;
+  return {
+    left: left + (size - width) * anchorX,
+    top: top + (size - height) * anchorY,
+    width,
+    height,
+  };
+}
+
 export function edgeBlendProfile(x, y, direction, depth = 0.18, steps = 8) {
   const count = Math.max(2, Math.min(16, Math.trunc(Number(steps)) || 8));
   const maximum = Math.max(0.01, Math.min(0.5, Number(depth) || 0.18));
@@ -259,16 +277,20 @@ function startClient() {
 
   function drawSprite(sprite, left, top, size) {
     const manifest = state.tileset.manifest;
+    const sheetId = sprite.sheet || manifest.default_sheet || "default";
+    const sheet = manifest.sheets?.[sheetId] || manifest;
+    const image = state.tileset.images?.[sheetId] || state.tileset.image;
+    const destination = spriteDestination(sprite, left, top, size);
     context.drawImage(
-      state.tileset.image,
-      sprite.x * manifest.tile_width,
-      sprite.y * manifest.tile_height,
-      manifest.tile_width,
-      manifest.tile_height,
-      left,
-      top,
-      Math.ceil(size),
-      Math.ceil(size),
+      image,
+      sprite.x * sheet.tile_width,
+      sprite.y * sheet.tile_height,
+      sheet.tile_width,
+      sheet.tile_height,
+      destination.left,
+      destination.top,
+      Math.ceil(destination.width),
+      Math.ceil(destination.height),
     );
   }
 
@@ -410,11 +432,20 @@ function startClient() {
     const response = await fetch(summary.manifest_url, {cache: "no-store"});
     if (!response.ok) throw new Error("tileset manifest");
     const manifest = await response.json();
-    const image = new Image();
-    image.decoding = "async";
-    image.src = manifest.image_url;
-    await image.decode();
-    state.tileset = {manifest, image};
+    const urls = manifest.sheet_urls || {
+      [manifest.default_sheet || "default"]: manifest.image_url,
+    };
+    const images = {};
+    await Promise.all(Object.entries(urls).map(async ([sheetId, url]) => {
+      const image = new Image();
+      image.decoding = "async";
+      image.src = url;
+      await image.decode();
+      images[sheetId] = image;
+    }));
+    const defaultSheet = manifest.default_sheet || Object.keys(images)[0];
+    const image = images[defaultSheet];
+    state.tileset = {manifest, image, images};
     state.renderMode = manifest.id;
     scheduleDraw();
   }

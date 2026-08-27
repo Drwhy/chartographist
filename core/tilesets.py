@@ -54,6 +54,7 @@ STANDARD_VISUAL_KEYS = frozenset({
     "entity.animal",
     "entity.special.ufo",
     "entity.special",
+    "entity.vehicle.boat",
     "fallback.unknown",
 })
 
@@ -79,15 +80,39 @@ def load_tileset_manifest(path):
     image = manifest.get("image")
     if not isinstance(image, str) or not _SAFE_IMAGE.fullmatch(image):
         raise TilesetValidationError("image_path")
-    size = _read_png_size(manifest_path.parent / image)
+    image_info = _read_png_info(manifest_path.parent / image)
+    sheet_image_info = {}
+    sheets = manifest.get("sheets")
+    if sheets is not None:
+        if not isinstance(sheets, dict):
+            raise TilesetValidationError("sheets")
+        for identifier, definition in sheets.items():
+            if (
+                not isinstance(identifier, str)
+                or not _SAFE_IDENTIFIER.fullmatch(identifier)
+                or not isinstance(definition, dict)
+            ):
+                raise TilesetValidationError("sheets")
+            sheet_image = definition.get("image")
+            if (
+                not isinstance(sheet_image, str)
+                or not _SAFE_IMAGE.fullmatch(sheet_image)
+            ):
+                raise TilesetValidationError("image_path")
+            sheet_image_info[identifier] = _read_png_info(
+                manifest_path.parent / sheet_image
+            )
     return validate_tileset_manifest(
         manifest,
-        image_size=size,
+        image_size=image_info[:2],
+        sheet_image_info=sheet_image_info,
         expected_id=manifest_path.parent.name,
     )
 
 
-def validate_tileset_manifest(manifest, *, image_size, expected_id=None):
+def validate_tileset_manifest(
+    manifest, *, image_size, sheet_image_info=None, expected_id=None
+):
     """Retourne une copie normalisée après validation complète du contrat."""
     if not isinstance(manifest, dict):
         raise TilesetValidationError("manifest_type")
@@ -135,15 +160,49 @@ def validate_tileset_manifest(manifest, *, image_size, expected_id=None):
     sprites = manifest.get("sprites")
     if not isinstance(sprites, dict) or not sprites:
         raise TilesetValidationError("sprites")
+    sheets, default_sheet = _sprite_sheets(
+        manifest, image_size, sheet_image_info
+    )
     normalized_sprites = {}
     for key, coordinates in sprites.items():
         if not isinstance(key, str) or not key or len(key) > 96:
             raise TilesetValidationError("sprite_key")
-        if not isinstance(coordinates, dict) or set(coordinates) != {"x", "y"}:
+        if not isinstance(coordinates, dict) or not {"x", "y"}.issubset(
+            coordinates
+        ):
             raise TilesetValidationError(f"sprite_coordinates:{key}")
-        x = _coordinate(coordinates.get("x"), columns, key)
-        y = _coordinate(coordinates.get("y"), rows, key)
-        normalized_sprites[key] = {"x": x, "y": y}
+        if set(coordinates) - {
+            "x", "y", "sheet", "scale", "anchor_x", "anchor_y"
+        }:
+            raise TilesetValidationError(f"sprite_coordinates:{key}")
+        sheet_id = coordinates.get("sheet", default_sheet)
+        if not isinstance(sheet_id, str) or sheet_id not in sheets:
+            raise TilesetValidationError(f"sprite_sheet:{key}")
+        sheet = sheets[sheet_id]
+        x = _coordinate(coordinates.get("x"), sheet["columns"], key)
+        y = _coordinate(coordinates.get("y"), sheet["rows"], key)
+        scale = _ratio(
+            coordinates.get("scale", sheet["scale"]),
+            "sprite_scale",
+        )
+        anchor_x = _anchor(
+            coordinates.get("anchor_x", sheet["anchor_x"]),
+            "sprite_anchor",
+        )
+        anchor_y = _anchor(
+            coordinates.get("anchor_y", sheet["anchor_y"]),
+            "sprite_anchor",
+        )
+        if key.startswith("entity.") and scale < 1 and not sheet["alpha"]:
+            raise TilesetValidationError(f"sprite_alpha:{key}")
+        normalized_sprites[key] = {
+            "x": x,
+            "y": y,
+            "sheet": sheet_id,
+            "scale": scale,
+            "anchor_x": anchor_x,
+            "anchor_y": anchor_y,
+        }
 
     fallback = manifest.get("fallback")
     if not isinstance(fallback, str) or fallback not in normalized_sprites:
@@ -169,6 +228,8 @@ def validate_tileset_manifest(manifest, *, image_size, expected_id=None):
             "source": license_data["source"].strip(),
         },
         "sprites": normalized_sprites,
+        "sheets": sheets,
+        "default_sheet": default_sheet,
         "edge_blending": edge_blending,
     }
 
@@ -189,15 +250,103 @@ def discover_tilesets(root):
     return manifests
 
 
-def _read_png_size(path):
+def _sprite_sheets(manifest, image_size, sheet_image_info):
+    definitions = manifest.get("sheets")
+    if definitions is None:
+        width, height = image_size
+        return {
+            "default": {
+                "image": manifest["image"],
+                "tile_width": manifest["tile_width"],
+                "tile_height": manifest["tile_height"],
+                "columns": width // manifest["tile_width"],
+                "rows": height // manifest["tile_height"],
+                "alpha": True,
+                "scale": 1.0,
+                "anchor_x": 0.5,
+                "anchor_y": 0.5,
+            },
+        }, "default"
+    if not isinstance(definitions, dict) or not definitions:
+        raise TilesetValidationError("sheets")
+    image_info = sheet_image_info or {}
+    sheets = {}
+    for identifier, definition in definitions.items():
+        if (
+            not isinstance(identifier, str)
+            or not _SAFE_IDENTIFIER.fullmatch(identifier)
+            or not isinstance(definition, dict)
+        ):
+            raise TilesetValidationError("sheets")
+        image = definition.get("image")
+        if not isinstance(image, str) or not _SAFE_IMAGE.fullmatch(image):
+            raise TilesetValidationError("image_path")
+        tile_width = _positive_int(
+            definition.get("tile_width"), "sheet_tile_width"
+        )
+        tile_height = _positive_int(
+            definition.get("tile_height"), "sheet_tile_height"
+        )
+        info = image_info.get(identifier)
+        if info is None and image == manifest["image"]:
+            info = (*image_size, bool(definition.get("alpha", True)))
+        if not isinstance(info, (tuple, list)) or len(info) != 3:
+            raise TilesetValidationError("sheet_image")
+        width, height, has_alpha = info
+        if (
+            type(width) is not int
+            or type(height) is not int
+            or width <= 0
+            or height <= 0
+            or width % tile_width
+            or height % tile_height
+        ):
+            raise TilesetValidationError("image_dimensions")
+        columns = width // tile_width
+        rows = height // tile_height
+        if (
+            definition.get("columns") != columns
+            or definition.get("rows") != rows
+        ):
+            raise TilesetValidationError("grid_dimensions")
+        alpha = definition.get("alpha", False)
+        if not isinstance(alpha, bool) or (alpha and not has_alpha):
+            raise TilesetValidationError("sheet_alpha")
+        sheets[identifier] = {
+            "image": image,
+            "tile_width": tile_width,
+            "tile_height": tile_height,
+            "columns": columns,
+            "rows": rows,
+            "alpha": alpha,
+            "scale": _ratio(definition.get("scale", 1.0), "sheet_scale"),
+            "anchor_x": _anchor(
+                definition.get("anchor_x", 0.5), "sheet_anchor"
+            ),
+            "anchor_y": _anchor(
+                definition.get("anchor_y", 0.5), "sheet_anchor"
+            ),
+        }
+    default_sheet = manifest.get("default_sheet", next(iter(sheets)))
+    if not isinstance(default_sheet, str) or default_sheet not in sheets:
+        raise TilesetValidationError("default_sheet")
+    return sheets, default_sheet
+
+
+def _read_png_info(path):
     try:
         with Path(path).open("rb") as stream:
-            header = stream.read(24)
+            header = stream.read(26)
     except OSError as error:
         raise TilesetValidationError("image_unreadable") from error
-    if len(header) != 24 or header[:8] != _PNG_SIGNATURE or header[12:16] != b"IHDR":
+    if len(header) != 26 or header[:8] != _PNG_SIGNATURE or header[12:16] != b"IHDR":
         raise TilesetValidationError("image_format")
-    return struct.unpack(">II", header[16:24])
+    width, height = struct.unpack(">II", header[16:24])
+    return width, height, header[25] in {4, 6}
+
+
+def _read_png_size(path):
+    return _read_png_info(path)[:2]
 
 
 def _unique_object(pairs):
@@ -213,6 +362,26 @@ def _positive_int(value, field):
     if type(value) is not int or value <= 0 or value > 4096:
         raise TilesetValidationError(field)
     return value
+
+
+def _ratio(value, field):
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not 0.1 <= float(value) <= 1
+    ):
+        raise TilesetValidationError(field)
+    return float(value)
+
+
+def _anchor(value, field):
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not 0 <= float(value) <= 1
+    ):
+        raise TilesetValidationError(field)
+    return float(value)
 
 
 def _coordinate(value, maximum, key):

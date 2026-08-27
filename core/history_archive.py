@@ -360,6 +360,305 @@ def load_archive_manifest(path):
     return deepcopy(manifest)
 
 
+class HistoryArchiveReader:
+    """Lecteur headless défensif d'une chronologie de présentation."""
+
+    def __init__(self, path):
+        self.source = Path(path)
+        self.manifest = load_archive_manifest(self.source)
+        self._records = {}
+        self._keyframes = []
+        self._cycles = {}
+        self._cycle_revisions = {}
+        self._events = {}
+        self._build_index()
+
+    def bounds(self):
+        """Retourne les bornes temporelles sans exposer l'index interne."""
+        revisions = self.manifest["revisions"]
+        cycles = tuple(self._cycle_revisions)
+        return {
+            "first_revision": revisions["first"],
+            "last_revision": revisions["last"],
+            "first_cycle": min(cycles),
+            "last_cycle": max(cycles),
+        }
+
+    def snapshot_at_revision(self, revision):
+        """Reconstruit une révision depuis l'image clé précédente."""
+        target = self._validated_revision(revision)
+        keyframe = max(
+            value for value in self._keyframes if value <= target
+        )
+        snapshot = self._load_keyframe(self._records[keyframe][0], keyframe)
+        segment_cache = {}
+        for current in range(keyframe + 1, target + 1):
+            name, line_index, kind = self._records[current]
+            if kind == "keyframe":
+                snapshot = self._load_keyframe(name, current)
+                continue
+            lines = segment_cache.get(name)
+            if lines is None:
+                lines = self._read_member(name).splitlines()
+                segment_cache[name] = lines
+            if not 0 <= line_index < len(lines):
+                raise ArchiveFormatError("timeline_incomplete")
+            delta = _decode_json(
+                lines[line_index],
+                code="member_invalid_json",
+                duplicate_code="member_duplicate_key",
+            )
+            snapshot = self._apply_delta(snapshot, delta)
+        return deepcopy(snapshot)
+
+    def snapshot_at_cycle(self, cycle):
+        """Reconstruit le dernier état publié pour un cycle exact."""
+        value = _non_negative_integer(cycle)
+        if value is None or value not in self._cycle_revisions:
+            raise ArchiveFormatError("revision_out_of_bounds")
+        return self.snapshot_at_revision(self._cycle_revisions[value])
+
+    def timeline_events(self, *, start_cycle=None, end_cycle=None, limit=256):
+        """Retourne les chroniques structurées uniques de la période."""
+        bounds = self.bounds()
+        start = (
+            bounds["first_cycle"]
+            if start_cycle is None else _non_negative_integer(start_cycle)
+        )
+        end = (
+            bounds["last_cycle"]
+            if end_cycle is None else _non_negative_integer(end_cycle)
+        )
+        maximum = _positive_integer(limit)
+        if (
+            start is None
+            or end is None
+            or start > end
+            or maximum is None
+            or maximum > MAX_REVISIONS
+        ):
+            raise ArchiveFormatError("timeline_query")
+        events = [
+            deepcopy(event)
+            for event in self._events.values()
+            if start <= _event_cycle(event) <= end
+        ]
+        events.sort(key=lambda event: (
+            _event_cycle(event),
+            str(event.get("chronicle_id", "")),
+        ))
+        return events[-maximum:]
+
+    def compare(self, from_revision, to_revision):
+        """Compare deux états publics sans interpréter le monde Python."""
+        first_value = self._validated_revision(from_revision)
+        second_value = self._validated_revision(to_revision)
+        if first_value > second_value:
+            raise ArchiveFormatError("revision_out_of_bounds")
+        before = self.snapshot_at_revision(first_value)
+        after = self.snapshot_at_revision(second_value)
+        before_cells = {
+            (cell["x"], cell["y"]): cell for cell in before["cells"]
+        }
+        after_cells = {
+            (cell["x"], cell["y"]): cell for cell in after["cells"]
+        }
+        changed_cells = []
+        for position in sorted(set(before_cells) | set(after_cells)):
+            old = before_cells.get(position)
+            new = after_cells.get(position)
+            if old != new:
+                changed_cells.append({
+                    "x": position[0],
+                    "y": position[1],
+                    "before": deepcopy(old),
+                    "after": deepcopy(new),
+                })
+        before_panels = before.get("panels", {})
+        after_panels = after.get("panels", {})
+        changed_panels = sorted(
+            key
+            for key in set(before_panels) | set(after_panels)
+            if before_panels.get(key) != after_panels.get(key)
+        )
+        return {
+            "from_revision": first_value,
+            "to_revision": second_value,
+            "from_cycle": before["cycle"],
+            "to_cycle": after["cycle"],
+            "from_clock": deepcopy(before.get("clock", {})),
+            "to_clock": deepcopy(after.get("clock", {})),
+            "changed_cell_count": len(changed_cells),
+            "changed_cells": changed_cells,
+            "changed_panels": changed_panels,
+        }
+
+    def _build_index(self):
+        revisions = self.manifest["revisions"]
+        first = revisions["first"]
+        last = revisions["last"]
+        member_names = [
+            descriptor["name"] for descriptor in self.manifest["members"]
+        ]
+        for name in member_names:
+            keyframe_match = _KEYFRAME_PATTERN.fullmatch(name)
+            if keyframe_match:
+                revision = int(PurePosixPath(name).stem)
+                snapshot = self._load_keyframe(name, revision)
+                self._add_record(revision, (name, None, "keyframe"))
+                self._keyframes.append(revision)
+                self._index_public_state(snapshot)
+                continue
+            segment_match = _SEGMENT_PATTERN.fullmatch(name)
+            if segment_match is None:
+                raise ArchiveFormatError("timeline_incomplete")
+            stem = PurePosixPath(name).stem
+            start_text, end_text = stem.split("-", 1)
+            start = int(start_text)
+            end = int(end_text)
+            lines = self._read_member(name).splitlines()
+            if end <= start or len(lines) != end - start:
+                raise ArchiveFormatError("timeline_incomplete")
+            for line_index, line in enumerate(lines):
+                delta = _decode_json(
+                    line,
+                    code="member_invalid_json",
+                    duplicate_code="member_duplicate_key",
+                )
+                expected_from = start + line_index
+                expected_to = expected_from + 1
+                self._validate_delta(delta, expected_from, expected_to)
+                self._add_record(
+                    expected_to,
+                    (name, line_index, "delta"),
+                )
+                self._index_public_state(delta)
+
+        expected = set(range(first, last + 1))
+        if (
+            set(self._records) != expected
+            or not self._keyframes
+            or first not in self._keyframes
+        ):
+            raise ArchiveFormatError("timeline_incomplete")
+        self._keyframes.sort()
+
+    def _add_record(self, revision, record):
+        if revision in self._records:
+            raise ArchiveFormatError("timeline_duplicate_revision")
+        self._records[revision] = record
+
+    def _index_public_state(self, value):
+        revision = _positive_integer(value.get("revision"))
+        if revision is None:
+            revision = _positive_integer(value.get("to_revision"))
+        cycle = _non_negative_integer(value.get("cycle"))
+        if revision is None or cycle is None:
+            raise ArchiveFormatError("timeline_invalid")
+        self._cycles[revision] = cycle
+        self._cycle_revisions[cycle] = max(
+            revision,
+            self._cycle_revisions.get(cycle, revision),
+        )
+        panels = value.get("panels", {})
+        chronicles = (
+            panels.get("chronicles", ())
+            if isinstance(panels, dict) else ()
+        )
+        if not isinstance(chronicles, (list, tuple)):
+            raise ArchiveFormatError("timeline_invalid")
+        for event in chronicles:
+            if not isinstance(event, dict):
+                raise ArchiveFormatError("timeline_invalid")
+            identifier = event.get("chronicle_id")
+            if isinstance(identifier, (str, int)) and not isinstance(
+                identifier, bool
+            ):
+                self._events[str(identifier)] = deepcopy(event)
+
+    def _load_keyframe(self, name, expected_revision):
+        snapshot = _decode_json(
+            self._read_member(name),
+            code="member_invalid_json",
+            duplicate_code="member_duplicate_key",
+        )
+        _validate_presentation_snapshot(snapshot)
+        if snapshot["revision"] != expected_revision:
+            raise ArchiveFormatError("timeline_invalid")
+        if snapshot["world"] != self.manifest["world"]:
+            raise ArchiveFormatError("world_changed")
+        return snapshot
+
+    def _apply_delta(self, snapshot, delta):
+        self._validate_delta(
+            delta,
+            snapshot["revision"],
+            snapshot["revision"] + 1,
+        )
+        cells = {
+            (cell["x"], cell["y"]): deepcopy(cell)
+            for cell in snapshot["cells"]
+        }
+        width = snapshot["world"]["width"]
+        height = snapshot["world"]["height"]
+        for cell in delta["cells"]:
+            _validate_cell(cell, width, height)
+            cells[(cell["x"], cell["y"])] = deepcopy(cell)
+        result = deepcopy(snapshot)
+        result.update({
+            "revision": delta["to_revision"],
+            "cycle": delta["cycle"],
+            "clock": deepcopy(delta.get("clock", result.get("clock", {}))),
+            "logs": deepcopy(delta.get("logs", result.get("logs", []))),
+            "panels": deepcopy(delta.get("panels", result.get("panels", {}))),
+            "cells": [
+                cells[(x, y)]
+                for y in range(height)
+                for x in range(width)
+            ],
+        })
+        _validate_presentation_snapshot(result)
+        return result
+
+    def _validate_delta(self, delta, expected_from, expected_to):
+        if (
+            not isinstance(delta, dict)
+            or delta.get("schema_version") != PRESENTATION_SCHEMA_VERSION
+            or delta.get("resync") is not False
+            or delta.get("from_revision") != expected_from
+            or delta.get("to_revision") != expected_to
+            or _non_negative_integer(delta.get("cycle")) is None
+            or not isinstance(delta.get("cells"), list)
+        ):
+            raise ArchiveFormatError("timeline_invalid")
+        world = self.manifest["world"]
+        positions = set()
+        for cell in delta["cells"]:
+            _validate_cell(cell, world["width"], world["height"])
+            position = (cell["x"], cell["y"])
+            if position in positions:
+                raise ArchiveFormatError("timeline_invalid")
+            positions.add(position)
+
+    def _validated_revision(self, revision):
+        value = _positive_integer(revision)
+        revisions = self.manifest["revisions"]
+        if (
+            value is None
+            or value < revisions["first"]
+            or value > revisions["last"]
+        ):
+            raise ArchiveFormatError("revision_out_of_bounds")
+        return value
+
+    def _read_member(self, name):
+        try:
+            with zipfile.ZipFile(self.source, mode="r") as archive:
+                return archive.read(name)
+        except (KeyError, OSError, zipfile.BadZipFile) as error:
+            raise ArchiveFormatError("invalid_archive") from error
+
+
 def _normalize_members(members):
     if not isinstance(members, dict) or not members:
         raise ArchiveFormatError("member_mismatch")
@@ -610,6 +909,69 @@ def _write_member_from_path(archive, name, source):
             if not chunk:
                 break
             output_stream.write(chunk)
+
+
+def _validate_presentation_snapshot(snapshot):
+    if (
+        not isinstance(snapshot, dict)
+        or snapshot.get("schema_version") != PRESENTATION_SCHEMA_VERSION
+        or _positive_integer(snapshot.get("revision")) is None
+        or _non_negative_integer(snapshot.get("cycle")) is None
+        or not isinstance(snapshot.get("world"), dict)
+        or not isinstance(snapshot.get("cells"), list)
+        or not isinstance(snapshot.get("clock"), dict)
+        or not isinstance(snapshot.get("logs"), list)
+        or not isinstance(snapshot.get("panels"), dict)
+    ):
+        raise ArchiveFormatError("timeline_invalid")
+    world = snapshot["world"]
+    width = _positive_integer(world.get("width"))
+    height = _positive_integer(world.get("height"))
+    if (
+        width is None
+        or height is None
+        or width * height > MAX_CELLS
+        or len(snapshot["cells"]) != width * height
+    ):
+        raise ArchiveFormatError("timeline_invalid")
+    positions = set()
+    for cell in snapshot["cells"]:
+        _validate_cell(cell, width, height)
+        position = (cell["x"], cell["y"])
+        if position in positions:
+            raise ArchiveFormatError("timeline_invalid")
+        positions.add(position)
+    try:
+        _canonical_json(snapshot)
+    except ArchiveFormatError as error:
+        raise ArchiveFormatError("timeline_invalid") from error
+
+
+def _validate_cell(cell, width, height):
+    if not isinstance(cell, dict):
+        raise ArchiveFormatError("timeline_invalid")
+    x = cell.get("x")
+    y = cell.get("y")
+    if (
+        isinstance(x, bool)
+        or not isinstance(x, int)
+        or isinstance(y, bool)
+        or not isinstance(y, int)
+        or not 0 <= x < width
+        or not 0 <= y < height
+    ):
+        raise ArchiveFormatError("timeline_invalid")
+
+
+def _event_cycle(event):
+    value = _non_negative_integer(event.get("cycle"))
+    return 0 if value is None else value
+
+
+def _non_negative_integer(value):
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
 
 
 def _positive_integer(value):

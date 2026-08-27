@@ -237,6 +237,10 @@ snapshot ainsi que des commandes pause, pas-à-pas et reprise sur
 - le thème classique reçoit le mode neutre `none` par défaut et ne régresse pas ;
 - le nom du nouveau thème est localisé dans les catalogues fr/en/es.
 
+La séparation entre tuiles de fond et sprites transparents d'entités est portée
+par la phase 18 et [`ETUDE_PHASE_18_SPRITES_ENTITES.md`](ETUDE_PHASE_18_SPRITES_ENTITES.md).
+Elle étend les manifestes sans modifier les contrats sémantiques livrés ici.
+
 ## Plan d'implémentation TDD
 
 ### Lot 16.0 — Caractérisation et budgets

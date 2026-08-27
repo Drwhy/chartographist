@@ -17,6 +17,7 @@ class Settler(Human):
         self.land_char = culture.get("settler_emoji", "🚶")
         self.boat_char = culture.get("boat_emoji", "🛶")
         self.char = self.land_char
+        self.render_variant = None
         self.home_city = home_city
         self.group_size = home_city.settler_cost
         self.distance_traveled = 0
@@ -48,9 +49,11 @@ class Settler(Human):
         h = world['elev'][self.y][self.x]
         if h < 0:
             self.char = self.boat_char
+            self.render_variant = "boat"
             self.speed = 0.6  # Slower at sea
         else:
             self.char = self.land_char
+            self.render_variant = None
             self.speed = 1.0
 
     def think(self, world):

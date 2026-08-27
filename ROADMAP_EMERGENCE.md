@@ -1,6 +1,6 @@
 # Roadmap d’émergence de Chartographist
 
-Ce document transforme l’analyse approfondie du projet en plan d’implémentation. Il prolonge les phases 0 à 7 déjà réalisées et devient la feuille de route des phases 8 à 17.
+Ce document transforme l’analyse approfondie du projet en plan d’implémentation. Il prolonge les phases 0 à 7 déjà réalisées et devient la feuille de route des phases 8 à 18.
 
 Les règles de [`AGENTS.md`](AGENTS.md) restent impératives : prévention des régressions, TDD strict test-first, déterminisme via `RandomService`, i18n fr/en/es et mise à jour de [`REFERENTIEL_PROJET.md`](REFERENTIEL_PROJET.md) après toute évolution structurante.
 
@@ -86,6 +86,7 @@ flowchart LR
     P14 --> P15["Phase 15 — Histoire profonde et légendes"]
     P15 --> P16["Phase 16 — Rendu web et sprites"]
     P16 --> P17["Phase 17 — Archives et relecture"]
+    P16 --> P18["Phase 18 — Tuiles et sprites d'entités"]
     P10 --> P15
 ```
 
@@ -719,8 +720,9 @@ exposer le checkpoint Python et sans transformer la consultation en mutation de
 la simulation. L'étude complète est dans
 [`ETUDE_PHASE_17_ARCHIVES_RELECTURE.md`](ETUDE_PHASE_17_ARCHIVES_RELECTURE.md).
 
-> État au 26 août 2026 : lots 17.0 à 17.2 terminés. Le format portable v1 et
-> l'enregistreur borné sont implémentés ; aucune option CLI ne les active encore.
+> État au 27 août 2026 : lots 17.0 à 17.4 terminés. Format, enregistreur,
+> lecteur headless et API locale read-only sont implémentés ; la CLI et la
+> frise navigateur ne les activent pas encore.
 
 ## Lots
 
@@ -741,10 +743,16 @@ consommateur optionnel de snapshots. Un smoke test 60 × 30 × 120 reproduit
 exactement l'état sans enregistrement et produit une archive de 0,745 Mio.
 
 ### Lot 17.3 — Lecture headless
-Reconstruire une révision et comparer deux dates sans PRNG ni état global.
+Terminé : index borné des images clés, segments, cycles et chroniques,
+reconstruction défensive par révision ou cycle, validation spatiale avant
+lecture et comparaison structurée des cellules/panneaux, sans moteur ni
+consommation du PRNG.
 
 ### Lot 17.4 — API locale de consultation
-Servir une archive choisie au lancement, en lecture seule et sur boucle locale.
+Terminé : une archive choisie au lancement est validée puis servie sans moteur
+sur boucle locale. Métadonnées, snapshots par révision, chronologie et
+comparaison sont exposés avec requêtes bornées ; origines étrangères, corps
+surdimensionnés et toute commande de mutation sont refusés.
 
 ### Lot 17.5 — Frise navigateur
 Naviguer dans le temps, rejoindre les faits marquants et visualiser les écarts.
@@ -766,8 +774,56 @@ Valider sécurité, déterminisme, campagnes longues et absence de régression.
 
 ---
 
-# Prochaine étape : lot 17.3 — lecture headless
+# Phase 18 — Tuiles de terrain et sprites d'entités transparents
 
-Le prochain incrément reconstruira une révision ou un cycle depuis l'image clé
-précédente, sans PRNG ni mutation globale, puis exposera une comparaison
-structurée entre deux dates.
+## Intention
+
+Séparer les fonds carrés qui tapissent la carte des silhouettes mobiles afin
+que le joueur voie simultanément le terrain et l'entité. L'étude détaillée est
+dans [`ETUDE_PHASE_18_SPRITES_ENTITES.md`](ETUDE_PHASE_18_SPRITES_ENTITES.md).
+
+> État au 27 août 2026 : phase en cours. Le socle des lots 18.0 à 18.3 est
+> livré et validé dans la suite de 477 tests ; orientations, animations, modding
+> et stabilisation restent à réaliser.
+
+## Lots
+
+### Lot 18.0 — Compatibilité des contrats
+Terminé : les manifestes historiques à atlas unique restent acceptés et
+normalisés sans changer leurs priorités visuelles.
+
+### Lot 18.1 — Feuilles terrain et entités
+Terminé : Interwoven déclare une feuille terrain carrée et une feuille RGBA
+d'entités distincte ; seules les images déclarées sont servies localement.
+
+### Lot 18.2 — Échelle, transparence et ancrage
+Terminé : les tuiles couvrent la case, tandis que les entités sont réduites,
+bornées et ancrées en bas au centre.
+
+### Lot 18.3 — Variantes sémantiques
+Socle terminé : les pêcheurs et colons utilisent `entity.vehicle.boat` sur
+l'eau sans changer d'identité. Les autres professions, structures et animaux
+possèdent leurs sprites transparents dédiés.
+
+### Lot 18.4 — Orientations et animations
+Ajouter directions, frames optionnelles et états visuels en respectant la
+réduction des animations.
+
+### Lot 18.5 — Modding et stabilisation
+Documenter les thèmes multicouches, mesurer le coût Canvas et valider thèmes
+partiels, grandes cartes et fallback.
+
+## Critères de sortie
+
+- le terrain reste visible sous les entités mobiles ;
+- terre et eau choisissent une variante sémantique explicite ;
+- les anciens thèmes continuent de fonctionner ;
+- les PNG et paramètres de rendu sont strictement validés ;
+- les animations n'affectent ni moteur, ni PRNG, ni mode terminal.
+
+---
+
+# Prochaines étapes
+
+- Lot 17.5 : ajouter la frise navigateur et la navigation temporelle.
+- Lot 18.4 : cadrer orientations et animations optionnelles sans coût moteur.

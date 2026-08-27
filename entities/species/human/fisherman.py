@@ -17,6 +17,7 @@ class Fisherman(Human):
         self.land_char = culture.get("fisherman_emoji", "🎣")
         self.boat_char = culture.get("boat_emoji", "🛶")
         self.char = self.land_char
+        self.render_variant = None
         # Business logic
         self.target = None
         self.fishing_cooldown = 0
@@ -157,8 +158,10 @@ class Fisherman(Human):
         h = world['elev'][self.y][self.x]
         if h < 0:
             self.char = self.boat_char
+            self.render_variant = "boat"
         else:
             self.char = self.land_char
+            self.render_variant = None
 
     @property
     def danger_level(self):

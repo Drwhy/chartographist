@@ -118,6 +118,7 @@ def create_web_app(
         ]
         return web.json_response({
             "api_version": API_VERSION,
+            "mode": "live",
             "language": Translator.current_language(),
             "labels": {
                 key: Translator.translate(f"web.{key}") for key in _WEB_LABEL_KEYS
@@ -225,13 +226,22 @@ def create_web_app(
             "image_url": (
                 f"/assets/tilesets/{identifier}/{manifest['image']}"
             ),
+            "sheet_urls": {
+                sheet_id: f"/assets/tilesets/{identifier}/{sheet['image']}"
+                for sheet_id, sheet in manifest["sheets"].items()
+            },
         })
 
     async def tileset_image(request):
         identifier = request.match_info["tileset_id"]
         name = request.match_info["name"]
         manifest = tilesets.get(identifier)
-        if manifest is None or name != manifest["image"]:
+        allowed_images = (
+            set()
+            if manifest is None
+            else {sheet["image"] for sheet in manifest["sheets"].values()}
+        )
+        if manifest is None or name not in allowed_images:
             raise web.HTTPNotFound()
         path = root / "assets" / "tilesets" / identifier / name
         if not path.is_file():
@@ -277,12 +287,163 @@ def create_web_app(
     return app
 
 
+def create_archive_web_app(
+    reader,
+    *,
+    client_max_size=_DEFAULT_CLIENT_MAX_SIZE,
+):
+    """Construit l'API locale read-only d'un lecteur d'archive validé."""
+    from aiohttp import web
+    from core.history_archive import ArchiveFormatError
+
+    @web.middleware
+    async def archive_safety(request, handler):
+        origin = request.headers.get("Origin")
+        if origin and not _is_local_origin(origin):
+            return web.json_response({"error": "origin_not_allowed"}, status=403)
+        try:
+            return await handler(request)
+        except ArchiveFormatError as error:
+            status = 404 if error.code == "revision_out_of_bounds" else 400
+            return web.json_response({"error": error.code}, status=status)
+
+    app = web.Application(
+        client_max_size=int(client_max_size),
+        middlewares=[archive_safety],
+    )
+
+    def query_integer(request, name, *, required=False, minimum=0):
+        values = request.query.getall(name, [])
+        if not values:
+            if required:
+                raise web.HTTPBadRequest()
+            return None
+        if len(values) != 1:
+            raise web.HTTPBadRequest()
+        try:
+            value = int(values[0])
+        except (TypeError, ValueError):
+            raise web.HTTPBadRequest()
+        if str(value) != values[0].strip() or value < minimum:
+            raise web.HTTPBadRequest()
+        return value
+
+    def validate_query_keys(request, allowed):
+        if set(request.query) - set(allowed):
+            raise web.HTTPBadRequest()
+
+    async def meta(request):
+        validate_query_keys(request, ())
+        bounds = reader.bounds()
+        manifest = reader.manifest
+        return web.json_response({
+            "api_version": API_VERSION,
+            "mode": "archive",
+            "presentation_schema_version": manifest[
+                "presentation_schema_version"
+            ],
+            "world": _json_value(manifest["world"]),
+            "archive": {
+                "format": manifest["format"],
+                "version": manifest["version"],
+                "read_only": True,
+                "capabilities": list(manifest["capabilities"]),
+                **bounds,
+            },
+            "capabilities": [
+                "archive_snapshot",
+                "archive_timeline",
+                "archive_compare",
+            ],
+        })
+
+    async def snapshot(request):
+        validate_query_keys(request, {"revision"})
+        revision = query_integer(request, "revision", minimum=1)
+        if revision is None:
+            revision = reader.bounds()["last_revision"]
+        return web.json_response(reader.snapshot_at_revision(revision))
+
+    async def timeline(request):
+        validate_query_keys(
+            request,
+            {"start_cycle", "end_cycle", "limit"},
+        )
+        query = {}
+        for name, minimum in (
+            ("start_cycle", 0),
+            ("end_cycle", 0),
+            ("limit", 1),
+        ):
+            value = query_integer(request, name, minimum=minimum)
+            if value is not None:
+                query[name] = value
+        return web.json_response({
+            "events": reader.timeline_events(**query),
+        })
+
+    async def compare(request):
+        validate_query_keys(
+            request,
+            {"from_revision", "to_revision"},
+        )
+        first = query_integer(
+            request,
+            "from_revision",
+            required=True,
+            minimum=1,
+        )
+        second = query_integer(
+            request,
+            "to_revision",
+            required=True,
+            minimum=1,
+        )
+        return web.json_response(reader.compare(first, second))
+
+    async def reject_command(request):
+        await request.read()
+        return web.json_response(
+            {"error": "archive_read_only"},
+            status=403,
+        )
+
+    app.router.add_get("/api/v1/meta", meta)
+    app.router.add_get("/api/v1/snapshot", snapshot)
+    app.router.add_get("/api/v1/timeline", timeline)
+    app.router.add_get("/api/v1/compare", compare)
+    app.router.add_post("/api/v1/commands", reject_command)
+    return app
+
+
 def run_web_server(host, *, address="127.0.0.1", port=8765):
     """Lance le serveur et la cadence sur le thread propriétaire du moteur."""
     from aiohttp import web
 
     validated = validate_web_bind(address)
     app = create_web_app(host, drive_simulation=True)
+    web.run_app(
+        app,
+        host=validated,
+        port=int(port),
+        print=None,
+        handle_signals=True,
+    )
+
+
+def run_archive_web_server(
+    archive_path,
+    *,
+    address="127.0.0.1",
+    port=8765,
+):
+    """Valide puis sert une archive sur une boucle locale sans moteur."""
+    from aiohttp import web
+    from core.history_archive import HistoryArchiveReader
+
+    validated = validate_web_bind(address)
+    reader = HistoryArchiveReader(archive_path)
+    app = create_archive_web_app(reader)
     web.run_app(
         app,
         host=validated,

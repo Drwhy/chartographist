@@ -173,6 +173,9 @@ def entity_render_key(entity):
     explicit = getattr(entity, "render_key", None)
     if isinstance(explicit, str) and explicit.strip():
         return explicit.strip()
+    variant = getattr(entity, "render_variant", None)
+    if variant == "boat":
+        return "entity.vehicle.boat"
     module = type(entity).__module__.lower()
     class_name = _snake_case(type(entity).__name__)
     if ".constructs." in module:

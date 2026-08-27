@@ -400,5 +400,169 @@ class HistoryArchiveRecorderTests(unittest.TestCase):
             self.assertEqual(loaded["revisions"]["last"], 2)
 
 
+class HistoryArchiveReaderTests(unittest.TestCase):
+    def _record_history(self, destination):
+        from core.history_archive import HistoryArchiveRecorder
+
+        recorder = HistoryArchiveRecorder(destination, keyframe_interval=3)
+        for revision in range(1, 7):
+            snapshot = presentation_snapshot(
+                revision,
+                "tundra" if revision >= 4 else "grassland",
+            )
+            if revision == 4:
+                snapshot["panels"]["chronicles"] = [{
+                    "chronicle_id": 7,
+                    "cycle": 4,
+                    "category": "climate",
+                    "message": "A cold front arrived.",
+                }]
+            recorder.record(snapshot)
+        recorder.finalize()
+
+    def test_reader_reconstructs_revision_cycle_and_temporal_bounds(self):
+        from core.history_archive import HistoryArchiveReader
+
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "history.chartarchive"
+            self._record_history(destination)
+            reader = HistoryArchiveReader(destination)
+
+            self.assertEqual(reader.bounds(), {
+                "first_revision": 1,
+                "last_revision": 6,
+                "first_cycle": 1,
+                "last_cycle": 6,
+            })
+            self.assertEqual(reader.snapshot_at_revision(2)["revision"], 2)
+            self.assertEqual(
+                reader.snapshot_at_cycle(5)["cells"][0]["terrain_key"],
+                "tundra",
+            )
+
+    def test_reader_returns_defensive_snapshots_without_consuming_randomness(self):
+        from core.history_archive import HistoryArchiveReader
+        from core.random_service import RandomService
+
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "history.chartarchive"
+            self._record_history(destination)
+            reader = HistoryArchiveReader(destination)
+            RandomService.initialize(1713)
+            before = RandomService.get_state()
+
+            first = reader.snapshot_at_revision(4)
+            first["cells"][0]["terrain_key"] = "tampered"
+            second = reader.snapshot_at_revision(4)
+
+            self.assertEqual(RandomService.get_state(), before)
+            self.assertEqual(second["cells"][0]["terrain_key"], "tundra")
+
+    def test_reader_indexes_timeline_events_and_compares_revisions(self):
+        from core.history_archive import HistoryArchiveReader
+
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "history.chartarchive"
+            self._record_history(destination)
+            reader = HistoryArchiveReader(destination)
+
+            events = reader.timeline_events(start_cycle=4, end_cycle=4)
+            comparison = reader.compare(2, 5)
+
+            self.assertEqual([event["chronicle_id"] for event in events], [7])
+            self.assertEqual(comparison["from_revision"], 2)
+            self.assertEqual(comparison["to_revision"], 5)
+            self.assertEqual(comparison["changed_cell_count"], 1)
+            self.assertEqual(
+                comparison["changed_cells"][0]["before"]["terrain_key"],
+                "grassland",
+            )
+            self.assertEqual(
+                comparison["changed_cells"][0]["after"]["terrain_key"],
+                "tundra",
+            )
+
+    def test_reader_rejects_incomplete_timelines_and_out_of_bounds_queries(self):
+        from core.history_archive import (
+            ArchiveFormatError,
+            HistoryArchiveReader,
+            write_archive,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "incomplete.chartarchive"
+            write_archive(
+                destination,
+                manifest(
+                    world=presentation_snapshot(1)["world"],
+                    revisions={
+                    "first": 1,
+                    "last": 2,
+                    "keyframe_interval": 60,
+                }),
+                {"keyframes/000000000001.json": json.dumps(
+                    presentation_snapshot(1)
+                ).encode("utf-8")},
+            )
+            with self.assertRaises(ArchiveFormatError) as raised:
+                HistoryArchiveReader(destination)
+            self.assertEqual(raised.exception.code, "timeline_incomplete")
+
+            valid = Path(directory) / "valid.chartarchive"
+            self._record_history(valid)
+            reader = HistoryArchiveReader(valid)
+            for query in (
+                lambda: reader.snapshot_at_revision(0),
+                lambda: reader.snapshot_at_cycle(99),
+                lambda: reader.compare(5, 2),
+            ):
+                with self.subTest(query=query):
+                    with self.assertRaises(ArchiveFormatError) as raised:
+                        query()
+                    self.assertEqual(raised.exception.code, "revision_out_of_bounds")
+
+    def test_reader_rejects_out_of_bounds_delta_cells_during_indexing(self):
+        from core.history_archive import (
+            ArchiveFormatError,
+            HistoryArchiveReader,
+            write_archive,
+        )
+
+        first = presentation_snapshot(1)
+        delta = {
+            "schema_version": 1,
+            "from_revision": 1,
+            "to_revision": 2,
+            "cycle": 2,
+            "resync": False,
+            "cells": [{"x": 99, "y": 0, "terrain_key": "tundra"}],
+            "clock": {"year": 0, "month": 2},
+            "logs": [],
+            "panels": {},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "unsafe.chartarchive"
+            write_archive(
+                destination,
+                manifest(
+                    world=first["world"],
+                    revisions={
+                        "first": 1,
+                        "last": 2,
+                        "keyframe_interval": 60,
+                    },
+                ),
+                {
+                    "keyframes/000000000001.json": json.dumps(first).encode(),
+                    "segments/000000000001-000000000002.ndjson": (
+                        json.dumps(delta).encode() + b"\n"
+                    ),
+                },
+            )
+            with self.assertRaises(ArchiveFormatError) as raised:
+                HistoryArchiveReader(destination)
+            self.assertEqual(raised.exception.code, "timeline_invalid")
+
+
 if __name__ == "__main__":
     unittest.main()

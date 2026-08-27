@@ -54,6 +54,7 @@
     "entity.animal.rabbit": {"x": 6, "y": 4},
     "entity.animal": {"x": 7, "y": 4},
     "entity.special.ufo": {"x": 0, "y": 5},
-    "entity.special": {"x": 1, "y": 5}
+    "entity.special": {"x": 1, "y": 5},
+    "entity.vehicle.boat": {"x": 1, "y": 3}
   }
 }
