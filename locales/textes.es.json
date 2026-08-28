@@ -368,7 +368,17 @@
     "warfare": "Guerra",
     "peace": "Paz",
     "economy": "Economía",
-    "climate": "Clima"
+    "climate": "Clima",
+    "archive_mode": "Archivo",
+    "archive_navigation": "Navegación del archivo",
+    "archive_previous": "Revisión anterior",
+    "archive_next": "Revisión siguiente",
+    "archive_events": "Eventos destacados",
+    "archive_revision": "Revisión",
+    "archive_changed_cells": "Celdas modificadas",
+    "archive_loading": "Cargando archivo…",
+    "archive_ready": "Archivo listo",
+    "archive_error": "Error de lectura del archivo"
   },
   "cli": {
     "scenario_help": "Archivo JSON de escenario que se aplicará",
@@ -379,6 +389,10 @@
     "lang_help": "Idioma de la simulación (fr, en, es)",
     "load_help": "Reanudar una partida local de confianza",
     "save_help": "Guardar automáticamente el mundo al salir",
+    "archive_help": "Abrir un archivo de consulta en modo de solo lectura",
+    "record_archive_help": "Grabar la sesión web en un archivo de consulta",
+    "archive_conflict_error": "abrir un archivo es incompatible con las opciones de generación, carga, guardado o grabación",
+    "archive_renderer_error": "los archivos requieren el renderizado web",
     "renderer_help": "Modo de renderizado: terminal o navegador web local",
     "host_help": "Dirección local del servidor web",
     "port_help": "Puerto del servidor web local",
@@ -401,7 +415,12 @@
     "load_error": "⚠️ No se pudo cargar la partida {file_path}: {error}",
     "save_error": "⚠️ No se pudo guardar la partida {file_path}: {error}",
     "web_start": "🌐 Interfaz web disponible en http://{host}:{port}",
-    "web_dependency_error": "⚠️ El modo web requiere las dependencias de requirements-web.txt."
+    "web_dependency_error": "⚠️ El modo web requiere las dependencias de requirements-web.txt.",
+    "archive_opening": "🕰️ Abriendo el archivo {file_path} en http://{host}:{port}",
+    "archive_open_error": "⚠️ No se pudo abrir el archivo {file_path}: {error}",
+    "archive_recording": "🕰️ Grabando el archivo {file_path}",
+    "archive_record_success": "🕰️ Archivo guardado: {file_path}",
+    "archive_record_error": "⚠️ No se pudo guardar el archivo {file_path}: {error}"
   },
   "domains": {
     "war":       { "name": "Guerra", "t1": "el Conquistador", "t2": "el Furioso", "t3": "de la Hoja Ardiente", "t4": "el Inquebrantable", "t5": "de Voluntad de Hierro" },

@@ -241,6 +241,11 @@ La séparation entre tuiles de fond et sprites transparents d'entités est port�
 par la phase 18 et [`ETUDE_PHASE_18_SPRITES_ENTITES.md`](ETUDE_PHASE_18_SPRITES_ENTITES.md).
 Elle étend les manifestes sans modifier les contrats sémantiques livrés ici.
 
+Évolution du 27 août 2026 : le choix glyphes a été retiré du navigateur. Le
+client charge désormais automatiquement le premier thème de sprites disponible
+et le sélecteur ne contient que les thèmes graphiques. Les glyphes historiques
+restent conservés pour le terminal et dans le contrat de présentation.
+
 ## Plan d'implémentation TDD
 
 ### Lot 16.0 — Caractérisation et budgets

@@ -22,7 +22,6 @@ _WEB_LABEL_KEYS = (
     "simulation_controls",
     "observatory",
     "render_mode",
-    "glyph_theme",
     "sprite_theme",
     "connection_connecting",
     "connection_connected",
@@ -54,6 +53,16 @@ _WEB_LABEL_KEYS = (
     "peace",
     "economy",
     "climate",
+    "archive_mode",
+    "archive_navigation",
+    "archive_previous",
+    "archive_next",
+    "archive_events",
+    "archive_revision",
+    "archive_changed_cells",
+    "archive_loading",
+    "archive_ready",
+    "archive_error",
 )
 
 
@@ -290,11 +299,18 @@ def create_web_app(
 def create_archive_web_app(
     reader,
     *,
+    static_root=None,
     client_max_size=_DEFAULT_CLIENT_MAX_SIZE,
 ):
     """Construit l'API locale read-only d'un lecteur d'archive validé."""
     from aiohttp import web
     from core.history_archive import ArchiveFormatError
+
+    root = Path(static_root) if static_root is not None else _DEFAULT_STATIC_ROOT
+    tilesets = {
+        manifest["id"]: manifest
+        for manifest in discover_tilesets(root / "assets" / "tilesets")
+    }
 
     @web.middleware
     async def archive_safety(request, handler):
@@ -336,9 +352,26 @@ def create_archive_web_app(
         validate_query_keys(request, ())
         bounds = reader.bounds()
         manifest = reader.manifest
+        tileset_summaries = [
+            {
+                "id": tileset["id"],
+                "name": (
+                    Translator.translate(tileset["name_key"])
+                    if tileset.get("name_key")
+                    else tileset["name"]
+                ),
+                "manifest_url": f"/api/v1/tilesets/{tileset['id']}",
+                "license": tileset["license"],
+            }
+            for tileset in tilesets.values()
+        ]
         return web.json_response({
             "api_version": API_VERSION,
             "mode": "archive",
+            "language": Translator.current_language(),
+            "labels": {
+                key: Translator.translate(f"web.{key}") for key in _WEB_LABEL_KEYS
+            },
             "presentation_schema_version": manifest[
                 "presentation_schema_version"
             ],
@@ -350,16 +383,23 @@ def create_archive_web_app(
                 "capabilities": list(manifest["capabilities"]),
                 **bounds,
             },
+            "tilesets": tileset_summaries,
             "capabilities": [
                 "archive_snapshot",
                 "archive_timeline",
                 "archive_compare",
+                "spritesheets",
             ],
         })
 
     async def snapshot(request):
-        validate_query_keys(request, {"revision"})
+        validate_query_keys(request, {"revision", "cycle"})
         revision = query_integer(request, "revision", minimum=1)
+        cycle = query_integer(request, "cycle", minimum=0)
+        if revision is not None and cycle is not None:
+            raise web.HTTPBadRequest()
+        if cycle is not None:
+            return web.json_response(reader.snapshot_at_cycle(cycle))
         if revision is None:
             revision = reader.bounds()["last_revision"]
         return web.json_response(reader.snapshot_at_revision(revision))
@@ -408,6 +448,63 @@ def create_archive_web_app(
             status=403,
         )
 
+    async def index(request):
+        path = root / "index.html"
+        if not path.is_file():
+            raise web.HTTPNotFound()
+        return web.FileResponse(path)
+
+    async def static_asset(request):
+        name = request.match_info["name"]
+        content_type = _STATIC_ASSETS.get(name)
+        path = root / name
+        if content_type is None or not path.is_file():
+            raise web.HTTPNotFound()
+        response = web.FileResponse(path)
+        response.content_type = content_type
+        return response
+
+    async def tileset_manifest(request):
+        identifier = request.match_info["tileset_id"]
+        manifest = tilesets.get(identifier)
+        if manifest is None:
+            raise web.HTTPNotFound()
+        return web.json_response({
+            **manifest,
+            "image_url": (
+                f"/assets/tilesets/{identifier}/{manifest['image']}"
+            ),
+            "sheet_urls": {
+                sheet_id: f"/assets/tilesets/{identifier}/{sheet['image']}"
+                for sheet_id, sheet in manifest["sheets"].items()
+            },
+        })
+
+    async def tileset_image(request):
+        identifier = request.match_info["tileset_id"]
+        name = request.match_info["name"]
+        manifest = tilesets.get(identifier)
+        allowed_images = (
+            set()
+            if manifest is None
+            else {sheet["image"] for sheet in manifest["sheets"].values()}
+        )
+        if manifest is None or name not in allowed_images:
+            raise web.HTTPNotFound()
+        path = root / "assets" / "tilesets" / identifier / name
+        if not path.is_file():
+            raise web.HTTPNotFound()
+        response = web.FileResponse(path)
+        response.content_type = "image/png"
+        return response
+
+    app.router.add_get("/", index)
+    app.router.add_get("/assets/{name}", static_asset)
+    app.router.add_get("/api/v1/tilesets/{tileset_id}", tileset_manifest)
+    app.router.add_get(
+        "/assets/tilesets/{tileset_id}/{name}",
+        tileset_image,
+    )
     app.router.add_get("/api/v1/meta", meta)
     app.router.add_get("/api/v1/snapshot", snapshot)
     app.router.add_get("/api/v1/timeline", timeline)

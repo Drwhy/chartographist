@@ -368,7 +368,17 @@
     "warfare": "Warfare",
     "peace": "Peace",
     "economy": "Economy",
-    "climate": "Climate"
+    "climate": "Climate",
+    "archive_mode": "Archive",
+    "archive_navigation": "Archive navigation",
+    "archive_previous": "Previous revision",
+    "archive_next": "Next revision",
+    "archive_events": "Major events",
+    "archive_revision": "Revision",
+    "archive_changed_cells": "Changed cells",
+    "archive_loading": "Loading archive…",
+    "archive_ready": "Archive ready",
+    "archive_error": "Archive reading error"
   },
   "cli": {
     "scenario_help": "JSON scenario file to apply",
@@ -379,6 +389,10 @@
     "lang_help": "Simulation language (fr, en, es)",
     "load_help": "Resume a trusted local save",
     "save_help": "Automatically save the world on exit",
+    "archive_help": "Open a consultation archive in read-only mode",
+    "record_archive_help": "Record the web session into a consultation archive",
+    "archive_conflict_error": "opening an archive is incompatible with generation, load, save, or recording options",
+    "archive_renderer_error": "archives require web rendering",
     "renderer_help": "Rendering mode: terminal or local web browser",
     "host_help": "Local web server address",
     "port_help": "Local web server port",
@@ -401,7 +415,12 @@
     "load_error": "⚠️ Unable to load save {file_path}: {error}",
     "save_error": "⚠️ Unable to write save {file_path}: {error}",
     "web_start": "🌐 Web interface available at http://{host}:{port}",
-    "web_dependency_error": "⚠️ Web mode requires the dependencies from requirements-web.txt."
+    "web_dependency_error": "⚠️ Web mode requires the dependencies from requirements-web.txt.",
+    "archive_opening": "🕰️ Opening archive {file_path} at http://{host}:{port}",
+    "archive_open_error": "⚠️ Unable to open archive {file_path}: {error}",
+    "archive_recording": "🕰️ Recording archive {file_path}",
+    "archive_record_success": "🕰️ Archive written: {file_path}",
+    "archive_record_error": "⚠️ Unable to write archive {file_path}: {error}"
   },
   "domains": {
     "war":       { "name": "War", "t1": "the Conqueror", "t2": "the Wrathful", "t3": "of the Burning Blade", "t4": "the Unbroken", "t5": "of Iron Will" },

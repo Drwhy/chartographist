@@ -68,6 +68,9 @@ def main():
     seed = None
 
     options = core.load_launch_options()
+    if getattr(options, "archive_path", None):
+        _run_archive_mode(options)
+        return
     if getattr(options, "renderer", "terminal") == "web":
         _run_web_mode(options)
         return
@@ -151,9 +154,39 @@ def main():
             _print_final_summary(engine.config, engine.world, engine.stats, seed)
 
 
+def _run_archive_mode(options):
+    """Ouvre une archive portable en lecture seule, sans créer de moteur."""
+    print(Translator.translate(
+        "system.archive_opening",
+        file_path=options.archive_path,
+        host=options.web_host,
+        port=options.web_port,
+    ))
+    try:
+        from core.history_archive import ArchiveFormatError
+        from core.web_server import run_archive_web_server
+        run_archive_web_server(
+            options.archive_path,
+            address=options.web_host,
+            port=options.web_port,
+        )
+    except ModuleNotFoundError as error:
+        if error.name != "aiohttp":
+            raise
+        print(Translator.translate("system.web_dependency_error"))
+    except (OSError, ArchiveFormatError) as error:
+        print(Translator.translate(
+            "system.archive_open_error",
+            file_path=options.archive_path,
+            error=error,
+        ))
+
+
 def _run_web_mode(options):
     """Lance l'adaptateur web sans initialiser le terminal ANSI."""
     engine = None
+    recorder = None
+    recording_completed = False
     try:
         if options.load_path:
             try:
@@ -179,6 +212,26 @@ def _run_web_mode(options):
                 HEIGHT,
             )
 
+        archive_record_path = getattr(options, "archive_record_path", None)
+        if archive_record_path:
+            from core.history_archive import (
+                ArchiveFormatError,
+                HistoryArchiveRecorder,
+            )
+            try:
+                recorder = HistoryArchiveRecorder(archive_record_path)
+            except (OSError, ArchiveFormatError) as error:
+                print(Translator.translate(
+                    "system.archive_record_error",
+                    file_path=archive_record_path,
+                    error=error,
+                ))
+                return
+            print(Translator.translate(
+                "system.archive_recording",
+                file_path=archive_record_path,
+            ))
+
         presentation = engine.config.get("presentation", {})
         maximum = (
             presentation.get("max_commands", 64)
@@ -189,6 +242,9 @@ def _run_web_mode(options):
             tick_interval=options.tick_speed,
             max_commands=maximum,
             save_path=options.save_path,
+            snapshot_consumers=(
+                () if recorder is None else (recorder.record,)
+            ),
         )
         print(Translator.translate(
             "system.web_start",
@@ -202,11 +258,31 @@ def _run_web_mode(options):
                 address=options.web_host,
                 port=options.web_port,
             )
+            recording_completed = True
+        except KeyboardInterrupt:
+            recording_completed = True
+            raise
         except ModuleNotFoundError as error:
             if error.name != "aiohttp":
                 raise
             print(Translator.translate("system.web_dependency_error"))
     finally:
+        if recorder is not None:
+            if recording_completed:
+                try:
+                    recorder.finalize()
+                    print(Translator.translate(
+                        "system.archive_record_success",
+                        file_path=options.archive_record_path,
+                    ))
+                except (OSError, ArchiveFormatError) as error:
+                    print(Translator.translate(
+                        "system.archive_record_error",
+                        file_path=options.archive_record_path,
+                        error=error,
+                    ))
+            else:
+                recorder.abort()
         if engine is not None and options.save_path:
             try:
                 engine.save(options.save_path)

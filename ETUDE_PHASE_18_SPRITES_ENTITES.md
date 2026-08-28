@@ -33,6 +33,10 @@ Le serveur ne sert que les PNG effectivement déclarés.
 
 - `atlas.png` reste la feuille de tuiles carrées 156 × 156 ;
 - `entities.png` est une feuille RGBA 1536 × 1024, en 6 × 4 cellules de
+- `ocean.png` est une tuile carrée RGB 1254 × 1254 dédiée à
+  `terrain.ocean`, sans côte ni entité ;
+- `beach.png` est une tuile carrée RGB 1254 × 1254 de sable côtier,
+  utilisée par `terrain.shore` et l'alias `terrain.beach` ;
   256 × 256 ;
 - humains et animaux occupent 70 % de la case et sont ancrés en bas au centre ;
 - structures et véhicule peuvent surcharger leur échelle ;
@@ -47,14 +51,14 @@ arrière-plan réellement transparent et marge autour de chaque silhouette.
 
 ### Lot 18.0 — Caractérisation et compatibilité — socle terminé
 
-1. Préserver le manifeste v1 historique et le thème Classic.
+1. Préserver le contrat de manifeste v1 et ses thèmes à atlas unique.
 2. Conserver les clés sémantiques et l'ordre terrain → eau → route → site →
    entité.
 3. Tester le contrat JavaScript sans navigateur complet.
 
 ### Lot 18.1 — Feuilles séparées — terminé
 
-1. Valider plusieurs PNG par thème et leurs grilles.
+1. Valider plusieurs PNG par thème, dont les feuilles océan et plage, et leurs grilles.
 2. Charger les feuilles en parallèle côté navigateur.
 3. Filtrer strictement leurs routes HTTP.
 
@@ -90,6 +94,6 @@ arrière-plan réellement transparent et marge autour de chaque silhouette.
 - une transition terre/eau change de sprite sans changer l'identité ;
 - un ancien thème à atlas unique reste fonctionnel ;
 - aucun PNG non déclaré n'est servi ;
-- glyphes, thèmes Classic et Interwoven conservent les mêmes priorités ;
+- le terminal conserve ses glyphes tandis que le web utilise uniquement les thèmes de sprites ;
 - animations désactivées ne consomment aucun coût par cycle de simulation.
 

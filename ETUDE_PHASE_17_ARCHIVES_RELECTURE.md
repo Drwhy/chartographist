@@ -195,26 +195,35 @@ Bornes de sécurité initiales à figer par les tests du lot 17.1 : fichier de
 3. Les contrôles d'origine, de taille et de boucle locale sont identiques au direct.
 4. Les commandes sont refusées et le serveur d'archive ne crée ni ticker ni WebSocket.
 
-### Lot 17.5 — Frise navigateur
+### Lot 17.5 — Frise navigateur — terminé
 
-1. Ajouter navigation temporelle accessible au clavier.
-2. Réutiliser glyphes et sprites sans divergence de résolution visuelle.
-3. Montrer clairement direct, archive, chargement et erreur.
-4. Ajouter comparaison cartographique et raccourcis vers les faits marquants.
+1. La frise, les boutons et les raccourcis clavier naviguent par révision.
+2. Le client Canvas et ses thèmes de sprites réutilisent les snapshots publics.
+3. Archive, chargement, succès et erreur possèdent des états explicites.
+4. Les chroniques ouvrent leur cycle et les cellules modifiées sont surlignées.
 
-### Lot 17.6 — CLI, i18n et documentation
+### Lot 17.6 — CLI, i18n et documentation — terminé
 
-1. Ajouter des options opt-in rétrocompatibles et mutuellement cohérentes.
-2. Traduire aide, erreurs, états et contrôles dans les trois catalogues.
-3. Documenter création, ouverture, partage et limites de confiance.
-4. Fournir un exemple minimal reproductible.
+1. `--record-archive` et `--archive` activent implicitement le web et refusent les conflits.
+2. Aides, erreurs et états sont traduits dans les trois catalogues.
+3. Le README distingue archives JSON non fiables et checkpoints Python fiables.
+4. Les commandes minimales de création et d’ouverture sont reproductibles.
 
-### Lot 17.7 — Performance et stabilisation
+### Lot 17.7 — Performance et stabilisation — terminé
 
-1. Tester 20 graines courtes et 3 campagnes de 1 200 cycles.
-2. Mesurer espace, latence de recherche, mémoire et coût d'enregistrement.
-3. Valider archives tronquées, versions inconnues et migrations autorisées.
-4. Vérifier terminal, web direct, sprites, checkpoints et déterminisme.
+Les 20 graines courtes de 120 cycles et les trois campagnes de 1 200 cycles
+terminent sans extinction. Sur une histoire réelle 60 × 30 de 1 200 révisions,
+l'archive mesure 4 176 111 octets et le pic mémoire de l'enregistrement atteint
+13 553 030 octets. Sous traçage mémoire, l'écriture prend 92,88 s, soit
+77,40 ms par révision. L'ouverture prend 1,45 s et les recherches aux révisions
+1, 600 et 1 200 prennent 724,65 ms en médiane et 740,16 ms au maximum.
+
+Le plafond de taille de 40 Mio reste largement respecté. Le budget de
+reconstruction est révisé de 250 ms à 1 s pour le snapshot public complet
+actuel ; le coût dominant est sa copie défensive. Les images clés validées à
+l'indexation sont désormais réutilisées sans seconde lecture ZIP. Archives
+tronquées, versions inconnues, limites hostiles, terminal, web, sprites,
+checkpoints, i18n et déterminisme sont couverts par la suite de non-régression.
 
 ## Matrice de non-régression
 

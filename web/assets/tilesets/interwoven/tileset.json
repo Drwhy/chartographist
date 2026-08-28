@@ -31,6 +31,28 @@
       "scale": 0.7,
       "anchor_x": 0.5,
       "anchor_y": 1.0
+    },
+    "ocean": {
+      "image": "ocean.png",
+      "tile_width": 1254,
+      "tile_height": 1254,
+      "columns": 1,
+      "rows": 1,
+      "alpha": false,
+      "scale": 1.0,
+      "anchor_x": 0.5,
+      "anchor_y": 0.5
+    },
+    "beach": {
+      "image": "beach.png",
+      "tile_width": 1254,
+      "tile_height": 1254,
+      "columns": 1,
+      "rows": 1,
+      "alpha": false,
+      "scale": 1.0,
+      "anchor_x": 0.5,
+      "anchor_y": 0.5
     }
   },
   "fallback": "fallback.unknown",
@@ -41,7 +63,7 @@
   },
   "license": {
     "name": "Apache-2.0",
-    "source": "Generated for Chartographist with OpenAI ImageGen on 2026-08-26"
+    "source": "Atlas, ocean and beach tiles generated for Chartographist with OpenAI ImageGen on 2026-08-26, 2026-08-27 and 2026-08-28"
   },
   "sprites": {
     "terrain.volcano": {"x": 0, "y": 0},
@@ -58,6 +80,9 @@
     "terrain.tundra": {"x": 3, "y": 1},
     "terrain.desert": {"x": 4, "y": 1},
     "terrain.cactus": {"x": 5, "y": 1},
+    "terrain.ocean": {"x": 0, "y": 0, "sheet": "ocean"},
+    "terrain.shore": {"x": 0, "y": 0, "sheet": "beach"},
+    "terrain.beach": {"x": 0, "y": 0, "sheet": "beach"},
     "hydrology.river": {"x": 6, "y": 1},
     "infrastructure.road": {"x": 7, "y": 1},
     "site.battlefield": {"x": 0, "y": 2},

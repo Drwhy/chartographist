@@ -720,9 +720,9 @@ exposer le checkpoint Python et sans transformer la consultation en mutation de
 la simulation. L'étude complète est dans
 [`ETUDE_PHASE_17_ARCHIVES_RELECTURE.md`](ETUDE_PHASE_17_ARCHIVES_RELECTURE.md).
 
-> État au 27 août 2026 : lots 17.0 à 17.4 terminés. Format, enregistreur,
-> lecteur headless et API locale read-only sont implémentés ; la CLI et la
-> frise navigateur ne les activent pas encore.
+> État au 28 août 2026 : phase 17 terminée. Création, ouverture read-only,
+> frise navigateur, CLI, sécurité, campagnes longues et budgets mesurés sont
+> validés.
 
 ## Lots
 
@@ -755,13 +755,24 @@ comparaison sont exposés avec requêtes bornées ; origines étrangères, corps
 surdimensionnés et toute commande de mutation sont refusés.
 
 ### Lot 17.5 — Frise navigateur
-Naviguer dans le temps, rejoindre les faits marquants et visualiser les écarts.
+Terminé : le même client Canvas distingue direct et archive, navigue au clavier
+ou par frise entre les révisions, rejoint les chroniques par cycle et compare
+chaque déplacement. Les cases modifiées sont surlignées sans moteur, WebSocket
+ni commande de simulation.
 
 ### Lot 17.6 — CLI, i18n et documentation
-Ajouter les options opt-in, les libellés fr/en/es et le parcours utilisateur.
+Terminé : `--record-archive` crée une archive pendant une session web et
+`--archive` l’ouvre sans moteur. Les conflits d’options sont refusés, les
+messages sont traduits en français, anglais et espagnol, et le README documente
+création, partage, ouverture et frontière de confiance.
 
-### Lot 17.7 — Performance et stabilisation
-Valider sécurité, déterminisme, campagnes longues et absence de régression.
+### Lot 17.7 — Performance et stabilisation — terminé
+Validation sur 20 × 120 cycles et 3 × 1 200 cycles sans extinction. Une archive
+réelle 60 × 30 × 1 200 mesure 4,18 Mo avec 13,6 Mo de pic mémoire
+d'enregistrement ; ouverture 1,45 s et recherche médiane 725 ms. Le budget de
+reconstruction est révisé à 1 s pour le snapshot public complet. Le lecteur
+réutilise les images clés déjà validées et les cas tronqués, versions inconnues,
+limites hostiles et modes historiques sont couverts.
 
 ## Critères de sortie
 
@@ -783,7 +794,7 @@ que le joueur voie simultanément le terrain et l'entité. L'étude détaillée 
 dans [`ETUDE_PHASE_18_SPRITES_ENTITES.md`](ETUDE_PHASE_18_SPRITES_ENTITES.md).
 
 > État au 27 août 2026 : phase en cours. Le socle des lots 18.0 à 18.3 est
-> livré et validé dans la suite de 477 tests ; orientations, animations, modding
+> livré et couvert dans la suite de 480 tests ; orientations, animations, modding
 > et stabilisation restent à réaliser.
 
 ## Lots
@@ -793,8 +804,9 @@ Terminé : les manifestes historiques à atlas unique restent acceptés et
 normalisés sans changer leurs priorités visuelles.
 
 ### Lot 18.1 — Feuilles terrain et entités
-Terminé : Interwoven déclare une feuille terrain carrée et une feuille RGBA
-d'entités distincte ; seules les images déclarées sont servies localement.
+Terminé : Interwoven déclare une feuille terrain carrée, des tuiles autonomes
+pour l'océan et la plage et une feuille RGBA d'entités ; seules les images déclarées
+sont servies localement. Le mode glyphes a été retiré du client web.
 
 ### Lot 18.2 — Échelle, transparence et ancrage
 Terminé : les tuiles couvrent la case, tandis que les entités sont réduites,
@@ -825,5 +837,4 @@ partiels, grandes cartes et fallback.
 
 # Prochaines étapes
 
-- Lot 17.5 : ajouter la frise navigateur et la navigation temporelle.
 - Lot 18.4 : cadrer orientations et animations optionnelles sans coût moteur.

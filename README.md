@@ -199,6 +199,30 @@ python main.py --renderer web --seed atlas --host 127.0.0.1 --port 8765 --tick-s
 The server accepts only loopback addresses. Its versioned API exposes metadata,
 snapshots, entity inspection, bounded commands, and snapshot deltas over WebSocket.
 
+Record a portable history while running the web simulation:
+
+```bash
+python main.py --seed atlas --lang en --record-archive world-history.chartarchive
+```
+
+Stop the server with `Ctrl+C` to finalize the archive. The resulting
+`.chartarchive` can be copied or shared like a regular file. It contains only
+validated JSON presentation snapshots and does not contain a Python checkpoint.
+
+Open a shared archive in the read-only browser:
+
+```bash
+python main.py --lang en --archive world-history.chartarchive
+```
+
+Then open `http://127.0.0.1:8765`. The archive view can navigate revisions,
+jump to major events, and highlight changed cells. It never starts the
+simulation engine and cannot resume or mutate the archived world.
+
+Archives are designed as untrusted input and are validated before reading.
+Checkpoints ending in `.chart` remain trusted Python binary files and must
+never be confused with shareable `.chartarchive` files.
+
 Save automatically when the simulation exits, then resume that trusted local checkpoint:
 
 ```bash

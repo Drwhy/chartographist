@@ -440,6 +440,22 @@ class HistoryArchiveReaderTests(unittest.TestCase):
                 "tundra",
             )
 
+    def test_reader_reuses_keyframes_validated_during_indexing(self):
+        from core.history_archive import HistoryArchiveReader
+
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "history.chartarchive"
+            self._record_history(destination)
+            reader = HistoryArchiveReader(destination)
+
+            with mock.patch.object(
+                reader, "_read_member", wraps=reader._read_member
+            ) as read_member:
+                snapshot = reader.snapshot_at_revision(4)
+
+            self.assertEqual(snapshot["revision"], 4)
+            read_member.assert_not_called()
+
     def test_reader_returns_defensive_snapshots_without_consuming_randomness(self):
         from core.history_archive import HistoryArchiveReader
         from core.random_service import RandomService

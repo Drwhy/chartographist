@@ -11,25 +11,26 @@ from core.tilesets import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / "web/assets/tilesets/classic/tileset.json"
 INTERWOVEN_MANIFEST = ROOT / "web/assets/tilesets/interwoven/tileset.json"
+INTERWOVEN_SHEET_INFO = {
+    "terrain": (1248, 1248, True),
+    "entities": (1536, 1024, True),
+    "ocean": (1254, 1254, False),
+    "beach": (1254, 1254, False),
+}
 
 
 class TilesetContractTests(unittest.TestCase):
-    def test_classic_tileset_is_versioned_licensed_and_covers_standard_keys(self):
-        manifest = load_tileset_manifest(MANIFEST)
-        self.assertEqual(manifest["schema_version"], 1)
-        self.assertEqual(manifest["id"], "classic")
-        self.assertEqual(manifest["image"], "atlas.png")
-        self.assertEqual((manifest["tile_width"], manifest["tile_height"]), (156, 156))
-        self.assertEqual((manifest["columns"], manifest["rows"]), (8, 8))
-        self.assertTrue(manifest["license"]["name"])
-        self.assertTrue(manifest["license"]["source"])
-        self.assertEqual(manifest["fallback"], "fallback.unknown")
-        self.assertTrue(STANDARD_VISUAL_KEYS.issubset(manifest["sprites"]))
+    def validate_interwoven(self, manifest):
+        return validate_tileset_manifest(
+            manifest,
+            image_size=(1248, 1248),
+            sheet_image_info=INTERWOVEN_SHEET_INFO,
+            expected_id="interwoven",
+        )
 
     def test_manifest_rejects_paths_bounds_missing_coverage_and_license(self):
-        manifest = load_tileset_manifest(MANIFEST)
+        manifest = load_tileset_manifest(INTERWOVEN_MANIFEST)
         invalid_manifests = []
         unsafe = copy.deepcopy(manifest)
         unsafe["image"] = "../atlas.png"
@@ -49,11 +50,7 @@ class TilesetContractTests(unittest.TestCase):
         for candidate in invalid_manifests:
             with self.subTest(candidate=candidate):
                 with self.assertRaises(TilesetValidationError):
-                    validate_tileset_manifest(
-                        candidate,
-                        image_size=(1248, 1248),
-                    expected_id="classic",
-                )
+                    self.validate_interwoven(candidate)
 
     def test_interwoven_tileset_has_square_tiles_and_opt_in_edge_blending(self):
         manifest = load_tileset_manifest(INTERWOVEN_MANIFEST)
@@ -67,12 +64,36 @@ class TilesetContractTests(unittest.TestCase):
             {"mode": "interlaced", "depth": 0.18, "opacity": 0.72},
         )
         self.assertTrue(STANDARD_VISUAL_KEYS.issubset(manifest["sprites"]))
+        self.assertEqual(
+            manifest["sheets"]["ocean"]["image"],
+            "ocean.png",
+        )
+        self.assertFalse(manifest["sheets"]["ocean"]["alpha"])
+        ocean = manifest["sprites"]["terrain.ocean"]
+        self.assertEqual(
+            (ocean["x"], ocean["y"], ocean["sheet"], ocean["scale"]),
+            (0, 0, "ocean", 1.0),
+        )
+        self.assertEqual(
+            manifest["sheets"]["beach"]["image"],
+            "beach.png",
+        )
+        self.assertFalse(manifest["sheets"]["beach"]["alpha"])
+        for key in ("terrain.shore", "terrain.beach"):
+            beach = manifest["sprites"][key]
+            self.assertEqual(
+                (beach["x"], beach["y"], beach["sheet"], beach["scale"]),
+                (0, 0, "beach", 1.0),
+            )
+
 
     def test_edge_blending_is_optional_and_strictly_validated(self):
-        classic = load_tileset_manifest(MANIFEST)
-        self.assertEqual(classic["edge_blending"], {"mode": "none"})
-
-        valid = copy.deepcopy(classic)
+        manifest = load_tileset_manifest(INTERWOVEN_MANIFEST)
+        without_blending = copy.deepcopy(manifest)
+        del without_blending["edge_blending"]
+        normalized = self.validate_interwoven(without_blending)
+        self.assertEqual(normalized["edge_blending"], {"mode": "none"})
+        valid = copy.deepcopy(manifest)
         valid["edge_blending"] = {
             "mode": "interlaced",
             "depth": 0.2,
@@ -91,11 +112,7 @@ class TilesetContractTests(unittest.TestCase):
                 candidate = copy.deepcopy(valid)
                 candidate["edge_blending"] = edge_blending
                 with self.assertRaises(TilesetValidationError):
-                    validate_tileset_manifest(
-                        candidate,
-                        image_size=(1248, 1248),
-                        expected_id="classic",
-                    )
+                    self.validate_interwoven(candidate)
 
     def test_interwoven_separates_full_tiles_from_transparent_entity_sprites(self):
         manifest = load_tileset_manifest(INTERWOVEN_MANIFEST)
@@ -132,15 +149,11 @@ class TilesetContractTests(unittest.TestCase):
             )
 
     def test_manifest_and_png_dimensions_must_agree(self):
-        manifest = load_tileset_manifest(MANIFEST)
+        manifest = load_tileset_manifest(INTERWOVEN_MANIFEST)
         changed = copy.deepcopy(manifest)
         changed["tile_width"] = 155
         with self.assertRaises(TilesetValidationError):
-            validate_tileset_manifest(
-                changed,
-                image_size=(1248, 1248),
-                expected_id="classic",
-            )
+            self.validate_interwoven(changed)
 
 
 if __name__ == "__main__":

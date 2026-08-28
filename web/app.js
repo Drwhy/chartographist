@@ -18,6 +18,14 @@ const TERRAIN_COLORS = Object.freeze({
   snow: "#d7dfdc",
 });
 
+export function archiveRevisionStep(value, minimum, maximum, delta) {
+  const lower = Math.trunc(Number(minimum));
+  const upper = Math.max(lower, Math.trunc(Number(maximum)));
+  const current = Math.trunc(Number(value));
+  const step = Math.trunc(Number(delta));
+  return Math.max(lower, Math.min(upper, current + step));
+}
+
 export function boundedZoom(value) {
   const numeric = Number(value);
   return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number.isFinite(numeric) ? numeric : 1));
@@ -147,6 +155,13 @@ function startClient() {
     cycle: document.getElementById("cycle"),
     speed: document.getElementById("speed"),
     renderMode: document.getElementById("render-mode"),
+    archiveControls: document.getElementById("archive-controls"),
+    archivePrevious: document.getElementById("archive-previous"),
+    archiveTimeline: document.getElementById("archive-timeline"),
+    archiveNext: document.getElementById("archive-next"),
+    archiveEvents: document.getElementById("archive-events"),
+    archivePosition: document.getElementById("archive-position"),
+    archiveStatus: document.getElementById("archive-status"),
   };
   const camera = {offsetX: 12, offsetY: 12, zoom: 1, tileSize: TILE_SIZE};
   const state = {
@@ -162,9 +177,13 @@ function startClient() {
     moved: false,
     pointerX: 0,
     pointerY: 0,
-    renderMode: "glyphs",
+    renderMode: null,
     tileset: null,
     tilesets: [],
+    mode: "live",
+    archive: null,
+    archiveRequest: 0,
+    changedCells: new Set(),
   };
 
   function label(key) {
@@ -234,7 +253,7 @@ function startClient() {
         const top = camera.offsetY + y * size;
         context.fillStyle = terrainColor(cell);
         context.fillRect(left, top, Math.ceil(size), Math.ceil(size));
-        if (state.tileset && state.renderMode !== "glyphs") {
+        if (state.tileset) {
           const manifest = state.tileset.manifest;
           const layers = resolveSpriteLayers(cell);
           const terrainSprite = resolveSprite(manifest, layers[0]);
@@ -262,9 +281,11 @@ function startClient() {
             if (!sprite) continue;
             drawSprite(sprite, left, top, size);
           }
-        } else if (cell.entity || cell.site_key || cell.hydrology_key || cell.infrastructure_key) {
-          context.fillStyle = "#f2ead3";
-          context.fillText(String(cell.glyph || "?").trim().slice(0, 2), left + size / 2, top + size / 2);
+        }
+        if (state.changedCells.has(`${x},${y}`)) {
+          context.strokeStyle = "#66d9ef";
+          context.lineWidth = 2;
+          context.strokeRect(left + 2, top + 2, Math.max(1, size - 4), Math.max(1, size - 4));
         }
         if (state.selected?.x === x && state.selected?.y === y) {
           context.strokeStyle = "#f5cf62";
@@ -409,6 +430,86 @@ function startClient() {
     scheduleDraw();
   }
 
+  function updateArchivePosition() {
+    if (!state.archive || !state.snapshot) return;
+    const revision = Number(state.snapshot.revision);
+    elements.archiveTimeline.value = String(revision);
+    elements.archivePosition.textContent =
+      `${label("archive_revision")} ${revision} · ${label("cycle")} ${state.snapshot.cycle}`;
+    elements.archivePrevious.disabled = revision <= state.archive.first_revision;
+    elements.archiveNext.disabled = revision >= state.archive.last_revision;
+  }
+
+  async function loadArchiveSnapshot(query, center = false) {
+    const requestId = state.archiveRequest + 1;
+    state.archiveRequest = requestId;
+    elements.archiveStatus.dataset.state = "loading";
+    elements.archiveStatus.textContent = label("archive_loading");
+    const previousRevision = Number(state.snapshot?.revision);
+    const parameters = new URLSearchParams(query);
+    try {
+      const response = await fetch(
+        `/api/v1/snapshot?${parameters}`,
+        {cache: "no-store"},
+      );
+      if (!response.ok) throw new Error(`archive snapshot ${response.status}`);
+      const snapshot = await response.json();
+      if (requestId !== state.archiveRequest) return;
+      state.changedCells = new Set();
+      if (
+        Number.isFinite(previousRevision)
+        && previousRevision !== Number(snapshot.revision)
+      ) {
+        const fromRevision = Math.min(previousRevision, Number(snapshot.revision));
+        const toRevision = Math.max(previousRevision, Number(snapshot.revision));
+        const comparisonResponse = await fetch(`/api/v1/compare?from_revision=${fromRevision}&to_revision=${toRevision}`, {
+          cache: "no-store",
+        });
+        if (!comparisonResponse.ok) {
+          throw new Error(`archive compare ${comparisonResponse.status}`);
+        }
+        const comparison = await comparisonResponse.json();
+        if (requestId !== state.archiveRequest) return;
+        state.changedCells = new Set(
+          (comparison.changed_cells || []).map((cell) => `${cell.x},${cell.y}`),
+        );
+      }
+      consumeSnapshot(snapshot, center);
+      updateArchivePosition();
+      elements.archiveStatus.dataset.state = "ready";
+      elements.archiveStatus.textContent =
+        `${label("archive_ready")} · ${label("archive_changed_cells")}: ${state.changedCells.size}`;
+    } catch {
+      if (requestId !== state.archiveRequest) return;
+      elements.archiveStatus.dataset.state = "error";
+      elements.archiveStatus.textContent = label("archive_error");
+    }
+  }
+
+  async function initializeArchive(meta) {
+    state.mode = "archive";
+    state.archive = meta.archive;
+    elements.archiveControls.hidden = false;
+    for (const identifier of ["pause", "resume", "step", "speed"]) {
+      document.getElementById(identifier).disabled = true;
+    }
+    elements.archiveTimeline.min = String(meta.archive.first_revision);
+    elements.archiveTimeline.max = String(meta.archive.last_revision);
+    elements.archiveTimeline.value = String(meta.archive.last_revision);
+    const response = await fetch("/api/v1/timeline", {cache: "no-store"});
+    if (!response.ok) throw new Error(`archive timeline ${response.status}`);
+    const timeline = await response.json();
+    elements.archiveEvents.replaceChildren();
+    for (const event of timeline.events || []) {
+      const option = document.createElement("option");
+      option.value = String(event.cycle);
+      option.textContent = `${event.cycle} · ${event.title || event.name || event.chronicle_id}`;
+      elements.archiveEvents.append(option);
+    }
+    elements.archiveEvents.disabled = elements.archiveEvents.options.length === 0;
+    await loadArchiveSnapshot({revision: meta.archive.last_revision}, true);
+  }
+
   async function refreshSnapshot(center = false) {
     const response = await fetch("/api/v1/snapshot", {cache: "no-store"});
     if (!response.ok) throw new Error(`snapshot ${response.status}`);
@@ -416,6 +517,7 @@ function startClient() {
   }
 
   function sendCommand(command, value) {
+    if (state.mode === "archive") return;
     const payload = value === undefined ? {command} : {command, value};
     if (state.socket?.readyState === WebSocket.OPEN) {
       state.socket.send(JSON.stringify(payload));
@@ -453,17 +555,15 @@ function startClient() {
   function configureRenderModes(meta) {
     state.tilesets = meta.tilesets || [];
     elements.renderMode.replaceChildren();
-    const glyphs = document.createElement("option");
-    glyphs.value = "glyphs";
-    glyphs.textContent = label("glyph_theme");
-    elements.renderMode.append(glyphs);
     for (const summary of state.tilesets) {
       const option = document.createElement("option");
       option.value = summary.id;
       option.textContent = label("sprite_theme") + " · " + summary.name;
       elements.renderMode.append(option);
     }
-    elements.renderMode.value = "glyphs";
+    const initialTileset = state.tilesets[0] || null;
+    elements.renderMode.value = initialTileset?.id || "";
+    return initialTileset;
   }
 
   function connect() {
@@ -574,6 +674,15 @@ function startClient() {
       event.preventDefault();
       const bounds = canvas.getBoundingClientRect();
       zoomAt(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2, 1 / 1.15);
+    } else if (state.mode === "archive" && (event.key === "[" || event.key === "]")) {
+      event.preventDefault();
+      const revision = archiveRevisionStep(
+        state.snapshot?.revision,
+        state.archive.first_revision,
+        state.archive.last_revision,
+        event.key === "[" ? -1 : 1,
+      );
+      loadArchiveSnapshot({revision});
     } else if (event.key === " ") {
       event.preventDefault();
       sendCommand("pause");
@@ -587,25 +696,35 @@ function startClient() {
   document.getElementById("resume").addEventListener("click", () => sendCommand("resume"));
   document.getElementById("step").addEventListener("click", () => sendCommand("step"));
   elements.speed.addEventListener("change", () => sendCommand("speed", Number(elements.speed.value)));
+  elements.archivePrevious.addEventListener("click", () => {
+    const revision = archiveRevisionStep(
+      state.snapshot.revision, state.archive.first_revision, state.archive.last_revision, -1,
+    );
+    loadArchiveSnapshot({revision});
+  });
+  elements.archiveNext.addEventListener("click", () => {
+    const revision = archiveRevisionStep(
+      state.snapshot.revision, state.archive.first_revision, state.archive.last_revision, 1,
+    );
+    loadArchiveSnapshot({revision});
+  });
+  elements.archiveTimeline.addEventListener("change", () => {
+    loadArchiveSnapshot({revision: elements.archiveTimeline.value});
+  });
+  elements.archiveEvents.addEventListener("change", () => {
+    loadArchiveSnapshot({cycle: elements.archiveEvents.value});
+  });
   elements.renderMode.addEventListener("change", async () => {
     const identifier = elements.renderMode.value;
-    if (identifier === "glyphs") {
-      state.renderMode = "glyphs";
-      state.tileset = null;
-      scheduleDraw();
-      return;
-    }
     const summary = state.tilesets.find((item) => item.id === identifier);
     if (!summary) {
-      elements.renderMode.value = "glyphs";
+      elements.renderMode.value = state.renderMode || "";
       return;
     }
     try {
       await loadTileset(summary);
     } catch {
-      state.renderMode = "glyphs";
-      state.tileset = null;
-      elements.renderMode.value = "glyphs";
+      elements.renderMode.value = state.renderMode || "";
       scheduleDraw();
     }
   });
@@ -619,13 +738,27 @@ function startClient() {
   new ResizeObserver(resizeCanvas).observe(canvas);
   fetch("/api/v1/meta", {cache: "no-store"})
     .then((response) => response.ok ? response.json() : Promise.reject(new Error("meta")))
-    .then((meta) => {
+    .then(async (meta) => {
+      state.mode = meta.mode === "archive" ? "archive" : "live";
       state.labels = meta.labels || {};
       document.documentElement.lang = meta.language || "fr";
       elements.speed.value = String(meta.runtime?.tick_interval ?? 0.15);
       localize();
-      configureRenderModes(meta);
-      connect();
+      const initialTileset = configureRenderModes(meta);
+      if (initialTileset) {
+        try {
+          await loadTileset(initialTileset);
+        } catch {
+          state.renderMode = null;
+          state.tileset = null;
+          elements.renderMode.value = "";
+        }
+      }
+      if (meta.mode === "archive") {
+        await initializeArchive(meta);
+      } else {
+        connect();
+      }
     })
     .catch(() => setConnection("disconnected"));
   resizeCanvas();

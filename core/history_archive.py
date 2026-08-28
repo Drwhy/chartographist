@@ -368,6 +368,7 @@ class HistoryArchiveReader:
         self.manifest = load_archive_manifest(self.source)
         self._records = {}
         self._keyframes = []
+        self._keyframe_snapshots = {}
         self._cycles = {}
         self._cycle_revisions = {}
         self._events = {}
@@ -505,6 +506,7 @@ class HistoryArchiveReader:
             if keyframe_match:
                 revision = int(PurePosixPath(name).stem)
                 snapshot = self._load_keyframe(name, revision)
+                self._keyframe_snapshots[revision] = snapshot
                 self._add_record(revision, (name, None, "keyframe"))
                 self._keyframes.append(revision)
                 self._index_public_state(snapshot)
@@ -577,6 +579,9 @@ class HistoryArchiveReader:
                 self._events[str(identifier)] = deepcopy(event)
 
     def _load_keyframe(self, name, expected_revision):
+        cached = self._keyframe_snapshots.get(expected_revision)
+        if cached is not None:
+            return cached
         snapshot = _decode_json(
             self._read_member(name),
             code="member_invalid_json",

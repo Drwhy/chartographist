@@ -26,16 +26,33 @@
       <label for="speed" data-i18n="speed"></label>
       <input id="speed" type="range" min="0.05" max="2" step="0.05" value="0.15">
       <label for="render-mode" data-i18n="render_mode"></label>
-      <select id="render-mode">
-        <option value="glyphs" data-i18n="glyph_theme"></option>
-        <option value="classic" data-i18n="sprite_theme"></option>
-      </select>
+      <select id="render-mode"></select>
     </nav>
   </header>
+  <section
+    id="archive-controls"
+    class="archive-controls"
+    data-i18n-aria="archive_navigation"
+    hidden
+  >
+    <strong class="archive-badge" data-i18n="archive_mode"></strong>
+    <button id="archive-previous" type="button" data-i18n="archive_previous"></button>
+    <label for="archive-timeline" data-i18n="archive_revision"></label>
+    <input id="archive-timeline" type="range" min="1" max="1" step="1" value="1">
+    <output id="archive-position" for="archive-timeline"></output>
+    <button id="archive-next" type="button" data-i18n="archive_next"></button>
+    <label for="archive-events" data-i18n="archive_events"></label>
+    <select id="archive-events"></select>
+    <output
+      id="archive-status"
+      class="archive-status"
+      aria-live="polite"
+    ></output>
+  </section>
   <main id="app" data-api-version="1">
     <section class="map-shell">
       <canvas id="world-map" tabindex="0" data-i18n-aria="map"></canvas>
-      <div class="map-hint" aria-hidden="true">← ↑ ↓ → · + −</div>
+      <div class="map-hint" aria-hidden="true">← ↑ ↓ → · + − · [ ]</div>
     </section>
     <aside class="sidebar">
       <section class="card">

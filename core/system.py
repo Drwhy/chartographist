@@ -82,6 +82,8 @@ class LaunchOptions:
     web_host: str = "127.0.0.1"
     web_port: int = 8765
     tick_speed: float = 0.15
+    archive_path: str | None = None
+    archive_record_path: str | None = None
 
 
 def load_launch_options():
@@ -128,9 +130,19 @@ def load_launch_options():
         help=Translator.translate("cli.save_help"),
     )
     parser.add_argument(
+        "--archive",
+        dest="archive_path",
+        help=Translator.translate("cli.archive_help"),
+    )
+    parser.add_argument(
+        "--record-archive",
+        dest="archive_record_path",
+        help=Translator.translate("cli.record_archive_help"),
+    )
+    parser.add_argument(
         "--renderer",
         choices=("terminal", "web"),
-        default="terminal",
+        default=None,
         help=Translator.translate("cli.renderer_help"),
     )
     parser.add_argument(
@@ -154,8 +166,29 @@ def load_launch_options():
     )
     args = parser.parse_args()
 
-    seed = stable_seed(args.seed) if args.seed else random.randint(0, 99999)
-    if args.load_path:
+    archive_requested = bool(args.archive_path or args.archive_record_path)
+    if args.archive_path and (
+        args.archive_record_path
+        or args.load_path
+        or args.save_path
+        or args.scenario_path
+        or args.mod_paths
+        or args.seed is not None
+        or args.template != "template.json"
+    ):
+        parser.error(Translator.translate("cli.archive_conflict_error"))
+    if archive_requested and args.renderer == "terminal":
+        parser.error(Translator.translate("cli.archive_renderer_error"))
+    renderer = args.renderer or ("web" if archive_requested else "terminal")
+
+    seed = (
+        0
+        if args.archive_path
+        else stable_seed(args.seed) if args.seed else random.randint(0, 99999)
+    )
+    if args.archive_path:
+        config = {}
+    elif args.load_path:
         config = {}
     elif args.scenario_path or args.mod_paths:
         try:
@@ -176,10 +209,12 @@ def load_launch_options():
         args.save_path,
         args.scenario_path,
         tuple(args.mod_paths),
-        renderer=args.renderer,
+        renderer=renderer,
         web_host=args.web_host,
         web_port=args.web_port,
         tick_speed=args.tick_speed,
+        archive_path=args.archive_path,
+        archive_record_path=args.archive_record_path,
     )
 
 

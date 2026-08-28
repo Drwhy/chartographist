@@ -127,6 +127,9 @@ celerybeat.pid
 .env
 .venv
 env/
+
+# Assistant-specific local permissions and settings
+.claude/
 venv/
 ENV/
 env.bak/

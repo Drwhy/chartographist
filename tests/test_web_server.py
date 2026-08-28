@@ -85,14 +85,15 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
             meta["labels"]["simulation_controls"], "Contrôles de simulation"
         )
         self.assertEqual(meta["labels"]["render_mode"], "Rendu")
-        self.assertEqual(meta["tilesets"][0]["id"], "classic")
+        self.assertEqual(
+            [item["id"] for item in meta["tilesets"]],
+            ["interwoven"],
+        )
         self.assertEqual(
             meta["tilesets"][0]["manifest_url"],
-            "/api/v1/tilesets/classic",
+            "/api/v1/tilesets/interwoven",
         )
-        interwoven = next(
-            item for item in meta["tilesets"] if item["id"] == "interwoven"
-        )
+        interwoven = meta["tilesets"][0]
         self.assertEqual(interwoven["name"], "Chartographist Entrelacé")
         self.assertIn("websocket", meta["capabilities"])
         self.assertIn("spritesheets", meta["capabilities"])
@@ -104,6 +105,12 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 200)
         self.assertTrue(response.content_type.startswith("text/html"))
         self.assertIn("Chartographist", await response.text())
+
+    async def test_web_meta_does_not_expose_the_removed_glyph_mode(self):
+        response = await self.client.get("/api/v1/meta")
+        self.assertEqual(response.status, 200)
+        self.assertNotIn("glyph_theme", (await response.json())["labels"])
+
 
     async def test_inspection_is_defensive_and_unknown_entity_is_404(self):
         response = await self.client.get("/api/v1/entities/7")
@@ -263,14 +270,6 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(response.content_type.startswith(content_type))
         response = await self.client.get("/assets/unknown.js")
         self.assertEqual(response.status, 404)
-        response = await self.client.get("/api/v1/tilesets/classic")
-        self.assertEqual(response.status, 200)
-        self.assertEqual((await response.json())["id"], "classic")
-        response = await self.client.get(
-            "/assets/tilesets/classic/atlas.png"
-        )
-        self.assertEqual(response.status, 200)
-        self.assertEqual(response.content_type, "image/png")
         response = await self.client.get("/api/v1/tilesets/interwoven")
         self.assertEqual(response.status, 200)
         interwoven = await response.json()
@@ -294,9 +293,26 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.get("/api/v1/tilesets/unknown")
         self.assertEqual(response.status, 404)
         response = await self.client.get(
-            "/assets/tilesets/classic/unknown.png"
+            "/assets/tilesets/interwoven/unknown.png"
         )
         self.assertEqual(response.status, 404)
+
+    async def test_interwoven_water_terrain_sheets_are_served(self):
+        response = await self.client.get("/api/v1/tilesets/interwoven")
+        self.assertEqual(response.status, 200)
+        manifest = await response.json()
+        for identifier in ("ocean", "beach"):
+            with self.subTest(identifier=identifier):
+                self.assertEqual(
+                    manifest["sheet_urls"][identifier],
+                    f"/assets/tilesets/interwoven/{identifier}.png",
+                )
+                response = await self.client.get(
+                    f"/assets/tilesets/interwoven/{identifier}.png"
+                )
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.content_type, "image/png")
+
 
     def test_browser_client_has_canvas_controls_panels_and_accessibility(self):
         markup = (ROOT / "web/index.html").read_text(encoding="utf-8")
@@ -315,10 +331,22 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
             'aria-live="polite"',
             'data-i18n-aria="simulation_controls"',
             'data-i18n-aria="observatory"',
+            'id="archive-controls"',
+            'id="archive-previous"',
+            'id="archive-timeline"',
+            'id="archive-next"',
+            'id="archive-events"',
+            'id="archive-status"',
+            'data-i18n-aria="archive_navigation"',
         ):
             self.assertIn(fragment, markup)
         self.assertNotIn('aria-label="Simulation"', markup)
         self.assertNotIn('aria-label="Observatory"', markup)
+        self.assertNotIn('value="glyphs"', markup)
+        self.assertNotIn('data-i18n="glyph_theme"', markup)
+        self.assertNotIn('"glyphs"', script)
+        self.assertIn("await loadTileset(initialTileset)", script)
+
         for fragment in (
             "new WebSocket",
             "applyDeltaToSnapshot",
@@ -330,6 +358,12 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
             "resolveSpriteLayers",
             "edgeBlendProfile",
             "drawImage",
+            "initializeArchive",
+            'meta.mode === "archive"',
+            'fetch("/api/v1/timeline"',
+            'fetch(`/api/v1/compare?',
+            "archiveRevisionStep",
+            "changedCells",
         ):
             self.assertIn(fragment, script)
         self.assertIn("@media", styles)
@@ -374,6 +408,13 @@ if (indexedCells.get("1,0").visible_key !== "hydrology.river") {{
 }}
 if (client.boundedZoom(99) !== 4 || client.boundedZoom(0) !== 0.5) {{
   throw new Error("zoom bounds");
+}}
+if (
+  client.archiveRevisionStep(2, 2, 5, -1) !== 2
+  || client.archiveRevisionStep(3, 2, 5, 1) !== 4
+  || client.archiveRevisionStep(5, 2, 5, 1) !== 5
+) {{
+  throw new Error("archive revision bounds");
 }}
 const cell = client.cellAtCanvasPoint(37, 19, {{
   offsetX: 1, offsetY: 1, zoom: 1, tileSize: 18
@@ -512,6 +553,12 @@ class FakeArchiveReader:
             "panels": {},
         }
 
+    def snapshot_at_cycle(self, cycle):
+        if cycle < 7 or cycle > 10:
+            from core.history_archive import ArchiveFormatError
+            raise ArchiveFormatError("cycle_out_of_bounds")
+        return self.snapshot_at_revision(cycle - 5)
+
     def timeline_events(self, **query):
         self.timeline_queries.append(query)
         return [{"chronicle_id": "event-8", "cycle": 8}]
@@ -542,6 +589,11 @@ class ArchiveWebServerContractTests(unittest.IsolatedAsyncioTestCase):
         meta = await response.json()
         self.assertEqual(response.status, 200)
         self.assertEqual(meta["mode"], "archive")
+        self.assertEqual(meta["language"], "fr")
+        self.assertEqual(meta["labels"]["archive_mode"], "Archive")
+        self.assertTrue(any(
+            item["id"] == "interwoven" for item in meta["tilesets"]
+        ))
         self.assertTrue(meta["archive"]["read_only"])
         self.assertEqual(meta["archive"]["last_revision"], 5)
         self.assertNotIn("commands", meta["capabilities"])
@@ -550,6 +602,8 @@ class ArchiveWebServerContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await response.json())["revision"], 5)
         response = await self.client.get("/api/v1/snapshot?revision=3")
         self.assertEqual((await response.json())["revision"], 3)
+        response = await self.client.get("/api/v1/snapshot?cycle=8")
+        self.assertEqual((await response.json())["cycle"], 8)
 
         response = await self.client.get(
             "/api/v1/timeline?start_cycle=8&end_cycle=10&limit=12"
@@ -566,12 +620,29 @@ class ArchiveWebServerContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await response.json())["to_revision"], 5)
         self.assertEqual(self.reader.comparisons, [(2, 5)])
 
+    async def test_archive_serves_browser_and_tileset_assets(self):
+        response = await self.client.get("/")
+        self.assertEqual(response.status, 200)
+        self.assertIn('id="archive-controls"', await response.text())
+
+        response = await self.client.get("/assets/app.js")
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.content_type, "application/javascript")
+
+        response = await self.client.get("/api/v1/tilesets/interwoven")
+        self.assertEqual(response.status, 200)
+        manifest = await response.json()
+        response = await self.client.get(manifest["sheet_urls"]["ocean"])
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.content_type, "image/png")
+
     async def test_archive_api_rejects_invalid_or_mutating_requests(self):
         for path, status in (
             ("/api/v1/snapshot?revision=99", 404),
             ("/api/v1/timeline?limit=invalid", 400),
             ("/api/v1/compare?from_revision=2", 400),
             ("/api/v1/snapshot?revision=3&unexpected=true", 400),
+            ("/api/v1/snapshot?revision=3&cycle=8", 400),
         ):
             response = await self.client.get(path)
             self.assertEqual(response.status, status, path)
@@ -707,6 +778,75 @@ class WebLaunchOptionTests(unittest.TestCase):
         self.assertEqual(options.web_port, 9016)
         self.assertEqual(options.tick_speed, 0.4)
 
+    def test_cli_opens_archive_without_loading_world_configuration(self):
+        argv = [
+            "chartographist", "--archive", "history.chartarchive",
+            "--host", "localhost", "--port", "9017",
+        ]
+        with (
+            mock.patch.object(sys, "argv", argv),
+            mock.patch("core.system.Translator.load"),
+            mock.patch("core.system.culture.load_config") as load_config,
+            mock.patch("core.system.random.randint") as random_seed,
+        ):
+            options = load_launch_options()
+        self.assertEqual(options.archive_path, "history.chartarchive")
+        self.assertIsNone(options.archive_record_path)
+        self.assertEqual(options.seed, 0)
+        self.assertEqual(options.renderer, "web")
+        self.assertEqual(options.config, {})
+        load_config.assert_not_called()
+        random_seed.assert_not_called()
+
+    def test_cli_records_archive_and_rejects_incoherent_archive_options(self):
+        with (
+            mock.patch.object(
+                sys,
+                "argv",
+                ["chartographist", "--seed", "7", "--record-archive", "run.chartarchive"],
+            ),
+            mock.patch("core.system.Translator.load"),
+            mock.patch("core.system.culture.load_config", return_value={}),
+        ):
+            options = load_launch_options()
+        self.assertEqual(options.archive_record_path, "run.chartarchive")
+        self.assertEqual(options.renderer, "web")
+
+        invalid_arguments = (
+            ("--archive", "read.chartarchive", "--record-archive", "write.chartarchive"),
+            ("--archive", "read.chartarchive", "--load", "world.chart"),
+            ("--archive", "read.chartarchive", "--save", "world.chart"),
+            ("--archive", "read.chartarchive", "--scenario", "scenario.json"),
+            ("--archive", "read.chartarchive", "--mod", "mod.json"),
+            ("--archive", "read.chartarchive", "--renderer", "terminal"),
+            ("--record-archive", "write.chartarchive", "--renderer", "terminal"),
+        )
+        for arguments in invalid_arguments:
+            with (
+                self.subTest(arguments=arguments),
+                mock.patch.object(sys, "argv", ["chartographist", *arguments]),
+                mock.patch("core.system.Translator.load"),
+                mock.patch("core.system.culture.load_config", return_value={}),
+                mock.patch("sys.stderr"),
+                self.assertRaises(SystemExit),
+            ):
+                load_launch_options()
+
+    def test_main_dispatches_archive_without_initializing_simulation(self):
+        import main as application
+
+        options = SimpleNamespace(archive_path="history.chartarchive", renderer="web")
+        with (
+            mock.patch.object(application.core, "load_launch_options", return_value=options),
+            mock.patch.object(application.core, "init_terminal") as terminal,
+            mock.patch.object(application, "_run_archive_mode") as archive_mode,
+            mock.patch.object(application, "_run_web_mode") as web_mode,
+        ):
+            application.main()
+        terminal.assert_not_called()
+        web_mode.assert_not_called()
+        archive_mode.assert_called_once_with(options)
+
 
     def test_cli_rejects_invalid_web_port_and_tick_speed(self):
         invalid_arguments = (
@@ -743,6 +883,54 @@ class WebLaunchOptionTests(unittest.TestCase):
             application.main()
         terminal.assert_not_called()
         web_mode.assert_called_once_with(options)
+
+    def test_web_mode_records_and_finalizes_archive(self):
+        import main as application
+
+        engine = mock.Mock(config={}, stats={"logs": []})
+        options = SimpleNamespace(
+            archive_record_path="run.chartarchive",
+            config={},
+            load_path=None,
+            save_path=None,
+            seed=7,
+            tick_speed=0.15,
+            web_host="localhost",
+            web_port=9016,
+        )
+        recorder = mock.Mock()
+        with (
+            mock.patch.object(
+                application.SimulationEngine,
+                "create",
+                return_value=engine,
+            ),
+            mock.patch.object(application, "SimulationHost") as host_type,
+            mock.patch(
+                "core.history_archive.HistoryArchiveRecorder",
+                return_value=recorder,
+            ),
+            mock.patch("core.web_server.run_web_server"),
+            mock.patch("builtins.print"),
+        ):
+            application._run_web_mode(options)
+        consumers = host_type.call_args.kwargs["snapshot_consumers"]
+        self.assertEqual(len(consumers), 1)
+        self.assertEqual(consumers[0], recorder.record)
+        recorder.finalize.assert_called_once_with()
+        recorder.abort.assert_not_called()
+
+    def test_readme_documents_archive_creation_opening_and_trust_boundary(self):
+        documentation = (ROOT / "README.md").read_bytes().decode("utf-8", errors="replace")
+        for fragment in (
+            "--record-archive world-history.chartarchive",
+            "--archive world-history.chartarchive",
+            "read-only",
+            "untrusted",
+            "Ctrl+C",
+        ):
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, documentation)
 
 
 if __name__ == "__main__":

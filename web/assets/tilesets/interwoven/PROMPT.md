@@ -15,3 +15,33 @@ Constraints: EXACTLY 8 columns and 8 rows; EXACTLY 64 equal square cells; no mer
 La sortie 1254 × 1254 a été recadrée symétriquement de trois pixels par bord,
 sans rééchantillonnage, pour obtenir l'atlas final 1248 × 1248 et ses cellules
 de 156 × 156.
+
+## Tuile océan autonome
+
+Générée avec l'outil intégré OpenAI ImageGen le 27 août 2026 et enregistrée
+sous `ocean.png` (1254 × 1254, RGB).
+
+```text
+Use case: stylized-concept
+Asset type: final production game terrain tile for Chartographist Interwoven
+Primary request: create exactly one square seamless deep-ocean terrain tile that can repeat edge-to-edge as the full background of map cells.
+Input image: use the displayed Interwoven atlas preview as the style reference only; match its crisp handcrafted retro pixel art, pixel density, lighting, cohesive earthy-fantasy palette, and top-down/front-facing flat game-tile treatment.
+Subject: open ocean water only, rich deep blue and teal wave patterns with subtle foam highlights and natural pixel-cluster variation.
+Composition/framing: one single square tile filling the entire canvas edge-to-edge; visually seamless on all four edges; no grid and no margins.
+Constraints: terrain background only; no coast, no beach, no land, no islands, no riverbanks, no boats, no fish, no animals, no people, no structures, no border, no rounded corners, no transparency, no text, no logo, no watermark.
+```
+
+## Tuile de plage autonome
+
+Générée avec l'outil intégré OpenAI ImageGen le 28 août 2026 et enregistrée
+sous `beach.png` (1254 × 1254, RGB).
+
+```text
+Use case: stylized-concept
+Asset type: final production game terrain tile for Chartographist Interwoven
+Primary request: create exactly one square seamless beach-sand terrain tile that can repeat edge-to-edge as the full background of coastal map cells.
+Input images: use the displayed Interwoven atlas and deep-ocean tile only as style and palette references; match their crisp handcrafted retro pixel art, pixel density, lighting, cohesive earthy-fantasy palette, and top-down/front-facing flat game-tile treatment.
+Subject: warm golden coastal sand with subtle wet-sand tonal variation, sparse tiny shells and smooth pebbles rendered as restrained pixel clusters.
+Composition/framing: one single square tile filling the entire canvas edge-to-edge; visually seamless on all four edges; evenly distributed detail without a focal object, grid, margin, or directional shoreline.
+Constraints: beach terrain background only; no ocean water, no waves, no coast line, no dunes, no vegetation, no palm trees, no driftwood, no animals, no people, no structures, no border, no rounded corners, no transparency, no text, no logo, no watermark.
+```
