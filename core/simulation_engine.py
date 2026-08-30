@@ -376,6 +376,12 @@ class SimulationEngine:
             self.world, self.config
         ).overview(category=category)
 
+    def get_bestiary_snapshot(self):
+        """Expose le bestiaire vivant sans dépendance envers un rendu."""
+        from core.bestiary import bestiary_snapshot
+
+        return bestiary_snapshot(self.world, self.config)
+
 
     def export_history_json(self, *, indent=2):
         """Exporte l'histoire structurée sans modifier le monde."""

@@ -204,7 +204,8 @@ class Settler(Human):
                 self.home_city.pos,
                 self.pos,
                 world['width'],
-                world['height']
+                world['height'],
+                elevations=world.get('elev'),
             )
             GameLogger.log(Translator.translate("events.settler_found_village",
                                               new_village_char=new_village.char,

@@ -215,7 +215,47 @@ def biome_key_at(x, y, elevation, world, config):
     climate = ClimateSystem(world, config)
     temperature = climate.temperature_at(x, y)
     moisture = climate.moisture_at(x, y)
-    h = elevation
+    return _classify_biome(elevation, temperature, moisture)
+
+
+def visual_biome_key_at(x, y, elevation, world, config):
+    """Identite de fond stable, sans oscillation saisonniere ni anomalie."""
+    if not climate_enabled(config):
+        return biome_key_at(x, y, elevation, world, config)
+
+    climate = ClimateSystem(world, config)
+    height = max(1, int(world["height"]))
+    middle = height / 2.0
+    latitude = abs(int(y) - middle) / max(middle, 1.0)
+    equatorial_warmth = 1.0 - min(1.0, latitude)
+    lapse = float(climate.settings.get("altitude_lapse_rate", 0.6))
+    temperature = equatorial_warmth - float(elevation) * lapse
+    moisture = float(climate.settings.get("base_humidity", 0.5))
+    if float(world["riv"][y][x]) > 0:
+        moisture += float(climate.settings.get("river_humidity_bonus", 0.25))
+    return _classify_biome(elevation, temperature, _clamp(moisture, 0.0, 1.0))
+
+
+def climate_visual_variant(world, config):
+    """Variante visuelle prioritaire, sans modifier le biome de simulation."""
+    if not climate_enabled(config):
+        return "base"
+    state = ClimateSystem(world, config).state
+    if float(state.get("flood_severity", 0.0)) >= 0.15:
+        return "flood"
+    if float(state.get("drought_severity", 0.0)) >= 0.15:
+        return "drought"
+    anomaly = float(state.get("temperature_anomaly", 0.0))
+    if anomaly <= -0.1:
+        return "cold_snap"
+    if anomaly >= 0.1:
+        return "heatwave"
+    season = str(state.get("season", "winter"))
+    return season if season in SEASONS else "winter"
+
+
+def _classify_biome(elevation, temperature, moisture):
+    h = float(elevation)
 
     if h > 0.90:
         return "volcano"

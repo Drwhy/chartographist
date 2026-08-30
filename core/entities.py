@@ -1,5 +1,22 @@
 from core.entity_ids import EntityIdService
 
+
+_HORIZONTAL_DIRECTIONS = {-1: "west", 1: "east"}
+_VERTICAL_DIRECTIONS = {-1: "north", 1: "south"}
+
+
+def movement_direction(origin, destination):
+    """Déduit une des huit directions sans consulter le PRNG."""
+    old_x, old_y = origin
+    new_x, new_y = destination
+    dx = (new_x > old_x) - (new_x < old_x)
+    dy = (new_y > old_y) - (new_y < old_y)
+    if not dx and not dy:
+        return None
+    vertical = _VERTICAL_DIRECTIONS.get(dy, "")
+    horizontal = _HORIZONTAL_DIRECTIONS.get(dx, "")
+    return vertical + horizontal
+
 # Display Priority Scale (Z-Index)
 # Higher values render "on top" of others.
 Z_FLOOR = 0      # Biomes, Water (Handled by the rendering engine)
@@ -21,6 +38,7 @@ class Entity:
         self.char = char
         self.is_expired = False
         self.render_key = None
+        self.render_direction = "south"
         self.z_index = z_index
         self.speed = speed
         self.action_meter = 0.0
@@ -28,6 +46,7 @@ class Entity:
     def preserve_identity_from(self, entity):
         """Conserve l'identifiant d'une entité remplacée ou transformée."""
         self.entity_id = entity.entity_id
+        self.render_direction = getattr(entity, "render_direction", "south")
         return self
 
     @property
@@ -43,7 +62,14 @@ class Entity:
     @pos.setter
     def pos(self, value):
         """Updates internal position coordinates."""
-        self._pos = list(value)
+        new_position = tuple(value)
+        old_position = tuple(getattr(self, "_pos", new_position))
+        direction = movement_direction(old_position, new_position)
+        self._pos = list(new_position)
+        if direction is not None:
+            self.render_direction = direction
+        elif not hasattr(self, "render_direction"):
+            self.render_direction = "south"
 
     @property
     def x(self): return self._pos[0]

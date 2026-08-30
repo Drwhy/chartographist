@@ -360,6 +360,12 @@
     "entity": "Entidad",
     "map": "Mapa del mundo",
     "overview": "Resumen",
+    "bestiary": "Bestiario",
+    "bestiary_fauna": "Fauna",
+    "bestiary_species": "Especies humanoides",
+    "bestiary_religions": "Religiones",
+    "bestiary_settlements": "Ciudades y aldeas",
+    "empty": "No hay datos disponibles",
     "sites": "Lugares",
     "artifacts": "Artefactos",
     "politics": "Política",
@@ -397,8 +403,12 @@
     "host_help": "Dirección local del servidor web",
     "port_help": "Puerto del servidor web local",
     "tick_speed_help": "Intervalo entre ciclos de simulación, en segundos",
+    "width_help": "Anchura del nuevo mundo, de 1 a 240 celdas",
+    "height_help": "Altura del nuevo mundo, de 1 a 120 celdas",
     "port_error": "el puerto debe estar entre 1 y 65535",
-    "tick_speed_error": "el intervalo debe estar entre 0,01 y 10 segundos"
+    "tick_speed_error": "el intervalo debe estar entre 0,01 y 10 segundos",
+    "width_error": "la anchura debe estar entre 1 y 240 celdas",
+    "height_error": "la altura debe estar entre 1 y 120 celdas"
   },
   "religion": {
     "syncretic_name": "{god} el Doble"

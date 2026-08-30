@@ -327,7 +327,8 @@ class Trader(Human):
                 home.pos,
                 target.pos,
                 world['width'],
-                world['height']
+                world['height'],
+                elevations=world.get('elev'),
             )
 
             GameLogger.log(Translator.translate(

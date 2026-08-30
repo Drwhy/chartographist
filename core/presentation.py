@@ -3,7 +3,12 @@
 from copy import deepcopy
 import json
 
-from core.climate import biome_glyph, biome_key_at
+from core.climate import (
+    biome_glyph,
+    biome_key_at,
+    climate_visual_variant,
+    visual_biome_key_at,
+)
 
 
 PRESENTATION_SCHEMA_VERSION = 1
@@ -40,13 +45,20 @@ class VisualCellResolver:
         terrain_key = biome_key_at(
             x, y, elevation, self.world, self.config
         )
+        terrain_base_key = visual_biome_key_at(
+            x, y, elevation, self.world, self.config
+        )
         terrain_glyph = biome_glyph(terrain_key, self.config)
         cell = {
             "x": x,
             "y": y,
             "terrain_key": terrain_key,
+            "terrain_base_key": terrain_base_key,
+            "climate_variant": climate_visual_variant(self.world, self.config),
             "infrastructure_key": None,
+            "infrastructure_variant": None,
             "hydrology_key": None,
+            "hydrology_variant": None,
             "site_key": None,
             "entity": None,
             "visible_key": f"terrain.{terrain_key}",
@@ -56,12 +68,14 @@ class VisualCellResolver:
         river = self.world["riv"][y][x]
         if river > 0 and elevation >= 0:
             cell["hydrology_key"] = "river"
+            cell["hydrology_variant"] = _river_variant(self.world, x, y)
             cell["visible_key"] = "hydrology.river"
             cell["glyph"] = self.config.get("water", {}).get("river", "~~")
 
         road = self.world["road"][y][x]
         if road and road != "  " and elevation >= 0:
             cell["infrastructure_key"] = "road"
+            cell["infrastructure_variant"] = _road_variant(self.world, x, y)
             cell["visible_key"] = "infrastructure.road"
             cell["glyph"] = str(road)
 
@@ -86,6 +100,7 @@ class VisualCellResolver:
             cell["entity"] = {
                 "entity_id": int(getattr(entity, "entity_id")),
                 "render_key": render_key,
+                "direction": _entity_direction(entity),
                 "z_index": int(getattr(entity, "z_index", 0)),
                 "category": render_key.split(".", 2)[1],
                 "name": _public_text(getattr(entity, "name", None)),
@@ -93,6 +108,77 @@ class VisualCellResolver:
             cell["visible_key"] = render_key
             cell["glyph"] = str(getattr(entity, "char", "?"))
         return cell
+
+
+def _entity_direction(entity):
+    value = str(getattr(entity, "render_direction", "south")).lower()
+    if value in {
+        "north", "northeast", "east", "southeast",
+        "south", "southwest", "west", "northwest",
+    }:
+        return value
+    return "south"
+
+
+def _river_variant(world, x, y):
+    return _connection_variant(
+        world,
+        x,
+        y,
+        lambda nx, ny: (
+            float(world["riv"][ny][nx]) > 0
+            and float(world["elev"][ny][nx]) >= 0
+        ),
+    )
+
+
+def _road_variant(world, x, y):
+    return _connection_variant(
+        world,
+        x,
+        y,
+        lambda nx, ny: (
+            bool(world["road"][ny][nx])
+            and world["road"][ny][nx] != "  "
+            and float(world["elev"][ny][nx]) >= 0
+        ),
+    )
+
+
+def _connection_variant(world, x, y, connected_at):
+    width = int(world["width"])
+    height = int(world["height"])
+
+    def connected(nx, ny):
+        if not (0 <= nx < width and 0 <= ny < height):
+            return False
+        return connected_at(nx, ny)
+
+    directions = {
+        "n": connected(x, y - 1),
+        "e": connected(x + 1, y),
+        "s": connected(x, y + 1),
+        "w": connected(x - 1, y),
+    }
+    active = frozenset(key for key, value in directions.items() if value)
+    variants = {
+        frozenset(("n", "s")): "vertical",
+        frozenset(("e", "w")): "horizontal",
+        frozenset(("n", "e")): "corner_ne",
+        frozenset(("n", "w")): "corner_nw",
+        frozenset(("s", "e")): "corner_se",
+        frozenset(("s", "w")): "corner_sw",
+        frozenset(("n", "e", "w")): "fork_north",
+        frozenset(("n", "e", "s")): "fork_east",
+        frozenset(("e", "s", "w")): "fork_south",
+        frozenset(("n", "s", "w")): "fork_west",
+        frozenset(("n", "e", "s", "w")): "cross",
+    }
+    if active in variants:
+        return variants[active]
+    if active and active.issubset({"e", "w"}):
+        return "horizontal"
+    return "vertical"
 
 
 class PresentationProjector:
@@ -139,6 +225,12 @@ class PresentationProjector:
             "warfare": self._call("get_warfare_summary", {}),
             "peace": self._call("get_peace_summary", {}),
             "why": self._call("get_explanations_overview", []),
+            "bestiary": self._call("get_bestiary_snapshot", {
+                "fauna": [],
+                "species": [],
+                "religions": [],
+                "settlements": [],
+            }),
         }
         return _json_value({
             "schema_version": PRESENTATION_SCHEMA_VERSION,
@@ -191,7 +283,14 @@ def entity_render_key(entity):
         category = "special"
     else:
         category = module.split(".", 1)[0] or "generic"
-    return f"entity.{category}.{class_name}"
+    key = f"entity.{category}.{class_name}"
+    if category == "structure" and class_name in {"city", "village"}:
+        culture = getattr(entity, "culture", None)
+        if isinstance(culture, dict):
+            culture_key = _safe_key(culture.get("name"), "")
+            if culture_key:
+                return f"{key}.{culture_key}"
+    return key
 
 
 def snapshot_delta(previous, current, *, max_changes=2048):

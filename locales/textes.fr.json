@@ -360,6 +360,12 @@
     "entity": "Entité",
     "map": "Carte du monde",
     "overview": "Vue d’ensemble",
+    "bestiary": "Bestiaire",
+    "bestiary_fauna": "Faune",
+    "bestiary_species": "Espèces humanoïdes",
+    "bestiary_religions": "Religions",
+    "bestiary_settlements": "Cités et villages",
+    "empty": "Aucune donnée disponible",
     "sites": "Sites",
     "artifacts": "Artefacts",
     "politics": "Politique",
@@ -397,8 +403,12 @@
     "host_help": "Adresse locale du serveur web",
     "port_help": "Port du serveur web local",
     "tick_speed_help": "Intervalle entre deux cycles, en secondes",
+    "width_help": "Largeur du nouveau monde, de 1 à 240 cases",
+    "height_help": "Hauteur du nouveau monde, de 1 à 120 cases",
     "port_error": "le port doit être compris entre 1 et 65535",
-    "tick_speed_error": "l'intervalle doit être compris entre 0,01 et 10 secondes"
+    "tick_speed_error": "l'intervalle doit être compris entre 0,01 et 10 secondes",
+    "width_error": "la largeur doit être comprise entre 1 et 240 cases",
+    "height_error": "la hauteur doit être comprise entre 1 et 120 cases"
   },
   "religion": {
     "syncretic_name": "{god} le Double"

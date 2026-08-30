@@ -688,6 +688,20 @@ delta après reconnexion et contrats de révision couverts. Validation complète
 446 tests, routes HTTP et commandes réelles sur `127.0.0.1`, puis trois campagnes
 60 × 30 × 1 200 cycles (graines 1661, 1667 et 1673) sans extinction.
 
+### Évolution 16.8 — Bestiaire et observatoire lisible
+Terminé le 28 août 2026 : le bestiaire historique du terminal est projeté dans
+le contrat headless puis rendu dans le navigateur par cartes (faune, espèces,
+religions, cités et villages). Les autres panneaux de l'observatoire utilisent
+désormais une présentation structurée et n'affichent plus de JSON brut. Le
+raccourci terminal `[B]` et les archives restent compatibles.
+Correction complémentaire : la Vue d'ensemble est limitée aux métriques utiles,
+sans état de configuration. Les routes des colons et marchands empruntent un
+plus court chemin cardinal terrestre ; elles ne disparaissent plus sous l'eau
+et leurs détours produisent les coudes attendus par les sprites.
+La corrélation visuelle des coudes est normalisée sur un sprite source NE
+vérifié, tourné par quarts de tour dans Canvas ; chaque sortie graphique rejoint
+ainsi le voisin cardinal qui a déterminé `infrastructure_variant`.
+
 ## Critères de sortie
 
 - Sans nouvelle option, le mode terminal est inchangé.
@@ -793,9 +807,9 @@ Séparer les fonds carrés qui tapissent la carte des silhouettes mobiles afin
 que le joueur voie simultanément le terrain et l'entité. L'étude détaillée est
 dans [`ETUDE_PHASE_18_SPRITES_ENTITES.md`](ETUDE_PHASE_18_SPRITES_ENTITES.md).
 
-> État au 27 août 2026 : phase en cours. Le socle des lots 18.0 à 18.3 est
-> livré et couvert dans la suite de 480 tests ; orientations, animations, modding
-> et stabilisation restent à réaliser.
+> État au 29 août 2026 : phase en validation finale. Les lots 18.0 à 18.4 et
+> le socle modding/stabilisation 18.5 sont livrés ; seule la campagne Canvas
+> réelle 60 × 30 / 120 × 60 reste nécessaire pour clôturer la phase.
 
 ## Lots
 
@@ -818,12 +832,31 @@ l'eau sans changer d'identité. Les autres professions, structures et animaux
 possèdent leurs sprites transparents dédiés.
 
 ### Lot 18.4 — Orientations et animations
-Ajouter directions, frames optionnelles et états visuels en respectant la
-réduction des animations.
+Terminé : huit directions sont dérivées des déplacements sans PRNG et publiées
+dans le snapshot. Le navigateur détecte seul le mouvement, accepte jusqu'à huit
+frames plates par direction/état, applique un miroir ouest rétrocompatible et
+borne son rebond à 375 ms. Le mouvement réduit conserve la frame 0 et ne
+programme aucune boucle Canvas supplémentaire.
 
 ### Lot 18.5 — Modding et stabilisation
-Documenter les thèmes multicouches, mesurer le coût Canvas et valider thèmes
-partiels, grandes cartes et fallback.
+Socle terminé : guide et générateur de thème multicouche minimal, couverture
+partielle explicite avec fallback obligatoire, validation PNG renforcée
+(budgets, structure et CRC), et banc reproductible de projection/sérialisation/
+delta sur cartes 60 × 30 et 120 × 60. La campagne compte 512 tests. La mesure
+FPS réelle du Canvas est désormais instrumentée sans boucle supplémentaire,
+avec un historique borné, exclusion des pauses et une séquence reproductible
+déclenchée uniquement à la demande ; la campagne sur les deux tailles reste à
+exécuter avant clôture complète.
+
+Le benchmark Python corrigé sépare mémoire et latence. Son pipeline complet
+atteint au maximum 18,474 ms sur 60 × 30 et 66,473 ms sur 120 × 60, sous les
+budgets respectifs de 25 et 75 ms.
+
+Les dimensions de création sont maintenant pilotables par CLI. Le lancement
+réel 120 × 60 de la graine 88574 sert bien 7 200 cellules ; après 240 cycles,
+les 105 cellules de route et 72 cellules de rivière ne présentent aucune
+connexion cardinale absente de leur variante projetée. La validation restante
+porte donc sur les pixels et la cadence Canvas, pas sur la topologie publiée.
 
 ## Critères de sortie
 
@@ -837,4 +870,6 @@ partiels, grandes cartes et fallback.
 
 # Prochaines étapes
 
-- Lot 18.4 : cadrer orientations et animations optionnelles sans coût moteur.
+- Lot 18.5 : mesurer les FPS Canvas dans un navigateur sur 60 × 30 et 120 × 60,
+  vérifier au moins 50 FPS actifs, un intervalle p95 de 25 ms et un coût de
+  dessin p95 de 16,7 ms, puis traiter uniquement les goulots confirmés.

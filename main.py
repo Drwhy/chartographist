@@ -98,10 +98,19 @@ def main():
         else:
             config = options.config
             seed = options.seed
-            engine = SimulationEngine.create(config, seed, WIDTH, HEIGHT)
+            engine = SimulationEngine.create(
+                config,
+                seed,
+                getattr(options, "width", WIDTH),
+                getattr(options, "height", HEIGHT),
+            )
             world, stats = engine.world, engine.stats
 
-        renderer = RenderEngine(WIDTH, HEIGHT, config)
+        renderer = RenderEngine(
+            world.get("width", getattr(options, "width", WIDTH)),
+            world.get("height", getattr(options, "height", HEIGHT)),
+            config,
+        )
         bestiary_state = {'active': False, 'tab': FAUNA_TAB, 'page': 0}
         presentation_config = config.get("presentation", {})
         max_commands = presentation_config.get("max_commands", 64) \
@@ -208,8 +217,8 @@ def _run_web_mode(options):
             engine = SimulationEngine.create(
                 options.config,
                 options.seed,
-                WIDTH,
-                HEIGHT,
+                getattr(options, "width", WIDTH),
+                getattr(options, "height", HEIGHT),
             )
 
         archive_record_path = getattr(options, "archive_record_path", None)

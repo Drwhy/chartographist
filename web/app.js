@@ -1,6 +1,9 @@
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 4;
 const TILE_SIZE = 18;
+const ENTITY_FRAME_MS = 125;
+const ENTITY_MOTION_MS = 375;
+const MAX_ENTITY_FRAMES = 8;
 const TERRAIN_COLORS = Object.freeze({
   ocean: "#16324f",
   deep_ocean: "#0d2238",
@@ -71,13 +74,172 @@ export function applyDeltaToSnapshot(snapshot, delta, cellIndex = null) {
   };
 }
 
+export function panelForView(panels, activePanel) {
+  const safePanels = panels && typeof panels === "object" ? panels : {};
+  if (activePanel === "overview") return safePanels.metrics || {};
+  return safePanels[activePanel] || {};
+}
+
+export function entitySpriteCandidates(entity, motion = "idle", frame = 0) {
+  const base = String(entity?.render_key || "");
+  const direction = String(entity?.direction || "south");
+  const state = motion === "moving" ? "moving" : "idle";
+  const index = Math.max(0, Math.trunc(Number(frame) || 0));
+  return [
+    `${base}.${direction}.${state}.frame_${index}`,
+    `${base}.${direction}.${state}.frame_0`,
+    `${base}.${direction}`,
+    base,
+  ];
+}
+
+export function animationFrameIndex(elapsedMs, frameCount, reducedMotion = false) {
+  const count = Math.max(0, Math.min(MAX_ENTITY_FRAMES, Math.trunc(Number(frameCount))));
+  if (reducedMotion || count <= 1) return 0;
+  return Math.floor(Math.max(0, Number(elapsedMs) || 0) / ENTITY_FRAME_MS) % count;
+}
+
+export function movingEntityIds(previousCells, currentCells) {
+  const positions = (cells) => new Map(
+    (cells || [])
+      .filter((cell) => cell?.entity?.entity_id !== undefined)
+      .map((cell) => [Number(cell.entity.entity_id), `${cell.x},${cell.y}`]),
+  );
+  const previous = positions(previousCells);
+  const current = positions(currentCells);
+  return new Set(
+    [...current].filter(([identifier, position]) => (
+      previous.has(identifier) && previous.get(identifier) !== position
+    )).map(([identifier]) => identifier),
+  );
+}
+
+export function createCanvasPerformanceTracker(sampleLimit = 600) {
+  const limit = Math.max(1, Math.min(3600, Math.trunc(Number(sampleLimit)) || 600));
+  const maximumActiveInterval = 250;
+  let previousTimestamp = null;
+  const samples = [];
+  const rounded = (value) => Number(value.toFixed(3));
+  const percentile = (values, ratio) => {
+    if (!values.length) return 0;
+    const sorted = [...values].sort((left, right) => left - right);
+    const index = Math.max(0, Math.ceil(sorted.length * ratio) - 1);
+    return rounded(sorted[index]);
+  };
+  return {
+    record(timestamp, drawMs, visibleCells) {
+      const current = Number(timestamp);
+      const interval = previousTimestamp === null ? null : current - previousTimestamp;
+      previousTimestamp = current;
+      samples.push({
+        interval_ms: Number.isFinite(interval) && interval > 0 ? interval : null,
+        draw_ms: Math.max(0, Number(drawMs) || 0),
+        visible_cells: Math.max(0, Math.trunc(Number(visibleCells)) || 0),
+      });
+      if (samples.length > limit) samples.shift();
+    },
+    reset() {
+      samples.length = 0;
+      previousTimestamp = null;
+    },
+    report() {
+      const intervals = samples
+        .map((sample) => sample.interval_ms)
+        .filter((value) => value !== null && value <= maximumActiveInterval);
+      const draws = samples.map((sample) => sample.draw_ms);
+      const meanInterval = intervals.length
+        ? intervals.reduce((total, value) => total + value, 0) / intervals.length
+        : 0;
+      return {
+        frames: samples.length,
+        fps: meanInterval ? rounded(1000 / meanInterval) : 0,
+        interval_ms: {
+          median: percentile(intervals, 0.5),
+          p95: percentile(intervals, 0.95),
+          max: percentile(intervals, 1),
+        },
+        draw_ms: {
+          median: percentile(draws, 0.5),
+          p95: percentile(draws, 0.95),
+          max: percentile(draws, 1),
+        },
+        visible_cells: samples.reduce(
+          (maximum, sample) => Math.max(maximum, sample.visible_cells),
+          0,
+        ),
+      };
+    },
+  };
+}
+
+export function runCanvasBenchmark(scheduleDraw, tracker, options = {}) {
+  if (typeof scheduleDraw !== "function" || typeof tracker?.reset !== "function") {
+    throw new TypeError("canvas benchmark");
+  }
+  const duration = Math.max(
+    500,
+    Math.min(10000, Math.trunc(Number(options.durationMs)) || 3000),
+  );
+  const requestFrame = options.requestFrame
+    || ((callback) => requestAnimationFrame(callback));
+  const now = options.now || (() => performance.now());
+  tracker.reset();
+  const startedAt = now();
+  return new Promise((resolve) => {
+    const sample = (timestamp) => {
+      scheduleDraw();
+      if (timestamp - startedAt >= duration) {
+        requestFrame(() => resolve(tracker.report()));
+        return;
+      }
+      requestFrame(sample);
+    };
+    requestFrame(sample);
+  });
+}
+
+export function resolveEntitySprite(manifest, entity, motion, elapsedMs, reducedMotion) {
+  const base = String(entity?.render_key || "");
+  const direction = String(entity?.direction || "south");
+  const state = motion === "moving" ? "moving" : "idle";
+  let frameCount = 0;
+  while (
+    frameCount < MAX_ENTITY_FRAMES
+    && manifest.sprites[`${base}.${direction}.${state}.frame_${frameCount}`]
+  ) {
+    frameCount += 1;
+  }
+  const frame = animationFrameIndex(elapsedMs, frameCount, reducedMotion);
+  const candidates = entitySpriteCandidates(entity, state, frame);
+  for (const candidate of candidates.slice(0, -1)) {
+    if (manifest.sprites[candidate]) return manifest.sprites[candidate];
+  }
+  const sprite = resolveSprite(manifest, base);
+  if (!sprite?.auto_mirror) return sprite;
+  const westward = direction === "west"
+    || direction === "northwest"
+    || direction === "southwest";
+  return {...sprite, flip_x: westward};
+}
+
 export function resolveSpriteLayers(cell) {
-  const layers = ["terrain." + String(cell.terrain_key || "unknown")];
+  const terrain = String(cell.terrain_base_key || cell.terrain_key || "unknown");
+  const climate = String(cell.climate_variant || "base");
+  const terrainKey = climate === "base"
+    ? "terrain." + terrain
+    : "terrain." + terrain + "." + climate;
+  const layers = [terrainKey];
   if (cell.hydrology_key) {
-    layers.push("hydrology." + cell.hydrology_key);
+    const hydrology = "hydrology." + cell.hydrology_key;
+    layers.push(cell.hydrology_variant
+      ? hydrology + "." + cell.hydrology_variant
+      : hydrology);
   }
   if (cell.infrastructure_key) {
-    layers.push("infrastructure." + cell.infrastructure_key);
+    const infrastructure = "infrastructure." + cell.infrastructure_key;
+    layers.push(cell.infrastructure_variant
+      ? infrastructure + "." + cell.infrastructure_variant
+      : infrastructure);
   }
   if (cell.site_key) {
     layers.push("site." + cell.site_key);
@@ -116,22 +278,23 @@ export function spriteDestination(sprite, left, top, size) {
   };
 }
 
-export function edgeBlendProfile(x, y, direction, depth = 0.18, steps = 8) {
-  const count = Math.max(2, Math.min(16, Math.trunc(Number(steps)) || 8));
-  const maximum = Math.max(0.01, Math.min(0.5, Number(depth) || 0.18));
-  const directionSalt = direction === "left" ? 0x51ed270b : 0x2c1b3c6d;
-  let seed = (
-    Math.imul(Math.trunc(Number(x)) || 0, 0x165667b1)
-    ^ Math.imul(Math.trunc(Number(y)) || 0, 0x27d4eb2d)
-    ^ directionSalt
-  ) >>> 0;
-  const profile = [];
+export function spriteRotation(sprite) {
+  return Number(sprite?.rotation || 0) * Math.PI / 180;
+}
+
+export function puzzleEdgeProfile(x, y, axis, depth = 0.04, teeth = 4) {
+  const count = Math.max(2, Math.min(16, Math.trunc(Number(teeth)) || 6));
+  const maximum = Math.max(0.01, Math.min(0.5, Number(depth) || 0.04));
+  const axisOffset = axis === "vertical" ? 1 : 0;
+  const polarity = ((Math.trunc(Number(x)) + Math.trunc(Number(y)) + axisOffset) & 1)
+    ? -1
+    : 1;
+  const profile = [0];
   for (let index = 0; index < count; index += 1) {
-    seed ^= seed << 13;
-    seed ^= seed >>> 17;
-    seed ^= seed << 5;
-    const variation = 0.35 + ((seed >>> 0) % 651) / 1000;
-    profile.push(Number((maximum * variation).toFixed(6)));
+    const direction = index % 2 ? -polarity : polarity;
+    for (const ratio of [0.25, 0.75, 1, 0.75, 0.25, 0]) {
+      profile.push(Number((maximum * direction * ratio).toFixed(6)));
+    }
   }
   return profile;
 }
@@ -164,6 +327,7 @@ function startClient() {
     archiveStatus: document.getElementById("archive-status"),
   };
   const camera = {offsetX: 12, offsetY: 12, zoom: 1, tileSize: TILE_SIZE};
+  const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
   const state = {
     labels: {},
     snapshot: null,
@@ -184,7 +348,11 @@ function startClient() {
     archive: null,
     archiveRequest: 0,
     changedCells: new Set(),
+    movingEntities: new Map(),
+    reducedMotion: motionPreference.matches,
+    performance: createCanvasPerformanceTracker(),
   };
+  window.__chartographistPerformance = state.performance;
 
   function label(key) {
     return state.labels[key] || key;
@@ -223,9 +391,20 @@ function startClient() {
     state.drawPending = true;
     requestAnimationFrame(draw);
   }
+  state.performance.benchmark = (durationMs = 3000) => runCanvasBenchmark(
+    scheduleDraw,
+    state.performance,
+    {durationMs},
+  );
 
-  function draw() {
+  function draw(timestamp = 0) {
+    const drawStartedAt = performance.now();
     state.drawPending = false;
+    for (const [identifier, startedAt] of state.movingEntities) {
+      if (timestamp - startedAt >= ENTITY_MOTION_MS) {
+        state.movingEntities.delete(identifier);
+      }
+    }
     const bounds = canvas.getBoundingClientRect();
     context.fillStyle = "#050705";
     context.fillRect(0, 0, bounds.width, bounds.height);
@@ -245,12 +424,16 @@ function startClient() {
     context.textBaseline = "middle";
     context.imageSmoothingEnabled = false;
     context.font = `${Math.max(7, Math.floor(size * 0.58))}px ui-monospace, monospace`;
-    for (let y = minY; y < maxY; y += 1) {
-      for (let x = minX; x < maxX; x += 1) {
-        const cell = state.cells.get(`${x},${y}`);
-        if (!cell) continue;
-        const left = camera.offsetX + x * size;
-        const top = camera.offsetY + y * size;
+    const eachVisibleCell = (callback) => {
+      for (let y = minY; y < maxY; y += 1) {
+        for (let x = minX; x < maxX; x += 1) {
+          const cell = state.cells.get(`${x},${y}`);
+          if (!cell) continue;
+          callback(cell, x, y, camera.offsetX + x * size, camera.offsetY + y * size);
+        }
+      }
+    };
+    eachVisibleCell((cell, x, y, left, top) => {
         context.fillStyle = terrainColor(cell);
         context.fillRect(left, top, Math.ceil(size), Math.ceil(size));
         if (state.tileset) {
@@ -258,28 +441,55 @@ function startClient() {
           const layers = resolveSpriteLayers(cell);
           const terrainSprite = resolveSprite(manifest, layers[0]);
           if (terrainSprite) drawSprite(terrainSprite, left, top, size);
-          if (manifest.edge_blending?.mode === "interlaced") {
-            drawTerrainEdge(
-              cell,
-              state.cells.get(`${x},${y - 1}`),
-              "top",
-              left,
-              top,
-              size,
-            );
-            drawTerrainEdge(
-              cell,
-              state.cells.get(`${x - 1},${y}`),
-              "left",
-              left,
-              top,
-              size,
-            );
-          }
+        }
+    });
+    if (state.tileset?.manifest.edge_blending?.mode === "puzzle") {
+      eachVisibleCell((cell, x, y, left, top) => {
+        drawTerrainPuzzleEdge(
+          cell,
+          state.cells.get(`${x},${y - 1}`),
+          "top",
+          left,
+          top,
+          size,
+        );
+        drawTerrainPuzzleEdge(
+          cell,
+          state.cells.get(`${x - 1},${y}`),
+          "left",
+          left,
+          top,
+          size,
+        );
+      });
+    }
+    eachVisibleCell((cell, x, y, left, top) => {
+        if (state.tileset) {
+          const manifest = state.tileset.manifest;
+          const layers = resolveSpriteLayers(cell);
           for (const visualKey of layers.slice(1)) {
-            const sprite = resolveSprite(manifest, visualKey);
+            const entityId = Number(cell.entity?.entity_id);
+            const startedAt = state.movingEntities.get(entityId);
+            const isMoving = (
+              visualKey.startsWith("entity.")
+              && startedAt !== undefined
+              && timestamp - startedAt < ENTITY_MOTION_MS
+            );
+            const elapsed = isMoving ? Math.max(0, timestamp - startedAt) : 0;
+            const sprite = visualKey.startsWith("entity.") && cell.entity
+              ? resolveEntitySprite(
+                manifest,
+                cell.entity,
+                isMoving ? "moving" : "idle",
+                elapsed,
+                state.reducedMotion,
+              )
+              : resolveSprite(manifest, visualKey);
             if (!sprite) continue;
-            drawSprite(sprite, left, top, size);
+            const bob = isMoving && !state.reducedMotion
+              ? Math.abs(Math.sin(elapsed / ENTITY_FRAME_MS * Math.PI)) * size * 0.04
+              : 0;
+            drawSprite(sprite, left, top - bob, size);
           }
         }
         if (state.changedCells.has(`${x},${y}`)) {
@@ -292,8 +502,13 @@ function startClient() {
           context.lineWidth = 2;
           context.strokeRect(left + 1, top + 1, Math.max(1, size - 2), Math.max(1, size - 2));
         }
-      }
-    }
+    });
+    state.performance.record(
+      timestamp,
+      performance.now() - drawStartedAt,
+      Math.max(0, maxX - minX) * Math.max(0, maxY - minY),
+    );
+    if (state.movingEntities.size && !state.reducedMotion) scheduleDraw();
   }
 
   function drawSprite(sprite, left, top, size) {
@@ -302,6 +517,29 @@ function startClient() {
     const sheet = manifest.sheets?.[sheetId] || manifest;
     const image = state.tileset.images?.[sheetId] || state.tileset.image;
     const destination = spriteDestination(sprite, left, top, size);
+    const rotation = spriteRotation(sprite);
+    if (rotation || sprite.flip_x) {
+      context.save();
+      context.translate(
+        destination.left + destination.width / 2,
+        destination.top + destination.height / 2,
+      );
+      context.rotate(rotation);
+      context.scale(sprite.flip_x ? -1 : 1, 1);
+      context.drawImage(
+        image,
+        sprite.x * sheet.tile_width,
+        sprite.y * sheet.tile_height,
+        sheet.tile_width,
+        sheet.tile_height,
+        -destination.width / 2,
+        -destination.height / 2,
+        Math.ceil(destination.width),
+        Math.ceil(destination.height),
+      );
+      context.restore();
+      return;
+    }
     context.drawImage(
       image,
       sprite.x * sheet.tile_width,
@@ -315,49 +553,79 @@ function startClient() {
     );
   }
 
-  function drawTerrainEdge(cell, neighbor, direction, left, top, size) {
-    if (!neighbor || neighbor.terrain_key === cell.terrain_key) return;
+  function drawTerrainPuzzleEdge(cell, neighbor, direction, left, top, size) {
+    if (!neighbor || resolveSpriteLayers(neighbor)[0] === resolveSpriteLayers(cell)[0]) return;
     const manifest = state.tileset.manifest;
-    const sprite = resolveSprite(
-      manifest,
-      `terrain.${String(neighbor.terrain_key || "unknown")}`,
-    );
-    if (!sprite) return;
+    const neighborSprite = resolveSprite(manifest, resolveSpriteLayers(neighbor)[0]);
+    const cellSprite = resolveSprite(manifest, resolveSpriteLayers(cell)[0]);
+    if (!neighborSprite || !cellSprite) return;
     const blending = manifest.edge_blending;
-    const profile = edgeBlendProfile(
+    const profile = puzzleEdgeProfile(
       cell.x,
       cell.y,
-      direction,
+      direction === "top" ? "horizontal" : "vertical",
       blending.depth,
-      8,
+      blending.teeth,
     );
     context.save();
     context.beginPath();
     if (direction === "top") {
       context.moveTo(left, top);
       context.lineTo(left + size, top);
-      for (let index = profile.length; index >= 0; index -= 1) {
-        const depth = profile[Math.min(index, profile.length - 1)];
+      for (let index = profile.length - 1; index >= 0; index -= 1) {
+        const depth = Math.max(0, profile[index]);
         context.lineTo(
-          left + (index / profile.length) * size,
+          left + (index / (profile.length - 1)) * size,
           top + depth * size,
         );
       }
     } else {
       context.moveTo(left, top);
       context.lineTo(left, top + size);
-      for (let index = profile.length; index >= 0; index -= 1) {
-        const depth = profile[Math.min(index, profile.length - 1)];
+      for (let index = profile.length - 1; index >= 0; index -= 1) {
+        const depth = Math.max(0, profile[index]);
         context.lineTo(
           left + depth * size,
-          top + (index / profile.length) * size,
+          top + (index / (profile.length - 1)) * size,
         );
       }
     }
     context.closePath();
     context.clip();
-    context.globalAlpha = blending.opacity;
-    drawSprite(sprite, left, top, size);
+    drawSprite(neighborSprite, left, top, size);
+    context.restore();
+
+    context.save();
+    context.beginPath();
+    if (direction === "top") {
+      context.moveTo(left, top);
+      context.lineTo(left + size, top);
+      for (let index = profile.length - 1; index >= 0; index -= 1) {
+        const depth = Math.max(0, -profile[index]);
+        context.lineTo(
+          left + (index / (profile.length - 1)) * size,
+          top - depth * size,
+        );
+      }
+    } else {
+      context.moveTo(left, top);
+      context.lineTo(left, top + size);
+      for (let index = profile.length - 1; index >= 0; index -= 1) {
+        const depth = Math.max(0, -profile[index]);
+        context.lineTo(
+          left - depth * size,
+          top + (index / (profile.length - 1)) * size,
+        );
+      }
+    }
+    context.closePath();
+    context.clip();
+    drawSprite(
+      cellSprite,
+      direction === "left" ? left - size : left,
+      direction === "top" ? top - size : top,
+      size,
+    );
     context.restore();
   }
 
@@ -365,6 +633,17 @@ function startClient() {
     state.cells = new Map(
       (state.snapshot?.cells || []).map((cell) => [`${cell.x},${cell.y}`, cell]),
     );
+  }
+
+  function markEntityMovements(previousCells, currentCells) {
+    if (state.reducedMotion) {
+      state.movingEntities.clear();
+      return;
+    }
+    const now = performance.now();
+    for (const identifier of movingEntityIds(previousCells, currentCells)) {
+      state.movingEntities.set(identifier, now);
+    }
   }
 
   function updateClock() {
@@ -384,10 +663,137 @@ function startClient() {
     elements.logs.replaceChildren(fragment);
   }
 
+  function displayKey(key) {
+    return String(key)
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, (character) => character.toUpperCase());
+  }
+
+  function displayValue(value) {
+    if (typeof value === "boolean") return value ? "✓" : "—";
+    if (value === null || value === undefined || value === "") return "—";
+    if (typeof value === "number") {
+      return new Intl.NumberFormat(state.meta?.language || undefined, {
+        maximumFractionDigits: 2,
+      }).format(value);
+    }
+    return String(value);
+  }
+
+  function appendStructuredValue(container, value) {
+    if (Array.isArray(value)) {
+      if (!value.length) {
+        const empty = document.createElement("p");
+        empty.className = "panel-empty";
+        empty.textContent = label("empty");
+        container.append(empty);
+        return;
+      }
+      const grid = document.createElement("div");
+      grid.className = "panel-grid";
+      for (const entry of value) {
+        const card = document.createElement("article");
+        card.className = "panel-card";
+        appendStructuredValue(card, entry);
+        grid.append(card);
+      }
+      container.append(grid);
+      return;
+    }
+    if (value && typeof value === "object") {
+      const fields = document.createElement("dl");
+      fields.className = "panel-fields";
+      for (const [key, child] of Object.entries(value)) {
+        if (child && typeof child === "object") {
+          const section = document.createElement("section");
+          section.className = "panel-section";
+          const heading = document.createElement("h3");
+          heading.textContent = displayKey(key);
+          section.append(heading);
+          appendStructuredValue(section, child);
+          container.append(section);
+          continue;
+        }
+        const term = document.createElement("dt");
+        term.textContent = displayKey(key);
+        const detail = document.createElement("dd");
+        detail.textContent = displayValue(child);
+        fields.append(term, detail);
+      }
+      if (fields.childElementCount) container.append(fields);
+      return;
+    }
+    const text = document.createElement("p");
+    text.textContent = displayValue(value);
+    container.append(text);
+  }
+
+  function renderStructuredPanel(value) {
+    elements.panel.replaceChildren();
+    if (
+      value === null
+      || value === undefined
+      || (Array.isArray(value) && value.length === 0)
+      || (typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0)
+    ) {
+      const empty = document.createElement("p");
+      empty.className = "panel-empty";
+      empty.textContent = label("empty");
+      elements.panel.append(empty);
+      return;
+    }
+    appendStructuredValue(elements.panel, value);
+  }
+
+  function renderBestiary(bestiary) {
+    elements.panel.replaceChildren();
+    const groups = [
+      ["fauna", "bestiary_fauna"],
+      ["species", "bestiary_species"],
+      ["religions", "bestiary_religions"],
+      ["settlements", "bestiary_settlements"],
+    ];
+    for (const [key, headingKey] of groups) {
+      const section = document.createElement("section");
+      section.className = "bestiary-group";
+      const heading = document.createElement("h3");
+      heading.textContent = label(headingKey);
+      section.append(heading);
+      const entries = bestiary?.[key] || [];
+      if (!entries.length) {
+        const empty = document.createElement("p");
+        empty.className = "panel-empty";
+        empty.textContent = label("empty");
+        section.append(empty);
+      } else {
+        const grid = document.createElement("div");
+        grid.className = "bestiary-grid";
+        for (const entry of entries) {
+          const card = document.createElement("article");
+          card.className = "bestiary-card";
+          const title = document.createElement("h4");
+          const emblem = entry.symbols || entry.symbol || "";
+          title.textContent = [emblem, entry.name].filter(Boolean).join(" ");
+          card.append(title);
+          const details = Object.fromEntries(
+            Object.entries(entry).filter(([field]) => !["name", "symbol", "symbols"].includes(field)),
+          );
+          appendStructuredValue(card, details);
+          grid.append(card);
+        }
+        section.append(grid);
+      }
+      elements.panel.append(section);
+    }
+  }
+
   function renderPanel() {
     const panels = state.snapshot?.panels || {};
-    const value = state.activePanel === "overview" ? panels : panels[state.activePanel];
-    elements.panel.textContent = JSON.stringify(value ?? {}, null, 2);
+    if (state.activePanel === "bestiary") {
+      renderBestiary(panelForView(panels, state.activePanel));
+    } else {
+      renderStructuredPanel(panelForView(panels, state.activePanel));
+    }
     document.querySelectorAll("[data-panel]").forEach((button) => {
       button.setAttribute("aria-selected", String(button.dataset.panel === state.activePanel));
     });
@@ -413,8 +819,12 @@ function startClient() {
   }
 
   function consumeSnapshot(snapshot, center = false, rebuildCells = true) {
+    const previousCells = rebuildCells ? [...state.cells.values()] : null;
     state.snapshot = snapshot;
-    if (rebuildCells) rebuildCellIndex();
+    if (rebuildCells) {
+      rebuildCellIndex();
+      markEntityMovements(previousCells, [...state.cells.values()]);
+    }
     if (center && snapshot.world) {
       const bounds = canvas.getBoundingClientRect();
       const naturalWidth = snapshot.world.width * camera.tileSize;
@@ -585,12 +995,16 @@ function startClient() {
       if (message.type === "snapshot") {
         consumeSnapshot(message.payload, state.snapshot === null);
       } else if (message.type === "delta") {
+        const previousCells = [...state.cells.values()];
         const next = applyDeltaToSnapshot(
           state.snapshot,
           message.payload,
           state.cells,
         );
-        if (next) consumeSnapshot(next, false, false);
+        if (next) {
+          markEntityMovements(previousCells, [...state.cells.values()]);
+          consumeSnapshot(next, false, false);
+        }
         else await refreshSnapshot();
       }
     });
@@ -733,6 +1147,11 @@ function startClient() {
       state.activePanel = button.dataset.panel;
       renderPanel();
     });
+  });
+  motionPreference.addEventListener?.("change", (event) => {
+    state.reducedMotion = event.matches;
+    if (event.matches) state.movingEntities.clear();
+    scheduleDraw();
   });
 
   new ResizeObserver(resizeCanvas).observe(canvas);

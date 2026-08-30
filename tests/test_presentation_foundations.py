@@ -19,6 +19,8 @@ from core.presentation import (
 )
 from core.random_service import RandomService
 from core.simulation_host import SimulationHost
+from entities.constructs.city import City
+from entities.constructs.village import Village
 from entities.species.human.fisherman import Fisherman
 from entities.species.human.settler import Settler
 from render.ui_map import get_char_at
@@ -139,6 +141,102 @@ class PresentationFoundationTests(unittest.TestCase):
             "terrain.glaciated",
         )
 
+    def test_web_terrain_base_stays_stable_while_climate_variant_changes(self):
+        self.config["climate"] = {
+            "enabled": True,
+            "seasonal_amplitude": 0.35,
+            "altitude_lapse_rate": 0.6,
+            "base_humidity": 0.65,
+            "river_humidity_bonus": 0.25,
+        }
+        self.world["climate"] = {
+            "season": "winter",
+            "season_index": 0,
+            "temperature_anomaly": 0.0,
+            "precipitation_anomaly": 0.0,
+            "drought_severity": 0.0,
+            "flood_severity": 0.0,
+            "last_update_cycle": 0,
+        }
+
+        winter = VisualCellResolver(self.world, self.config).resolve(0, 0)
+        self.world["cycle"] = 6
+        self.world["climate"]["season"] = "summer"
+        self.world["climate"]["season_index"] = 2
+        summer = VisualCellResolver(self.world, self.config).resolve(0, 0)
+
+        self.assertEqual(winter["terrain_base_key"], summer["terrain_base_key"])
+        self.assertEqual(winter["climate_variant"], "winter")
+        self.assertEqual(summer["climate_variant"], "summer")
+        self.world["climate"]["drought_severity"] = 0.4
+        drought = VisualCellResolver(self.world, self.config).resolve(0, 0)
+        self.assertEqual(drought["terrain_base_key"], summer["terrain_base_key"])
+        self.assertEqual(drought["climate_variant"], "drought")
+
+    def test_river_connections_project_straights_corners_and_forks(self):
+        self.world["width"] = 3
+        self.world["height"] = 3
+        self.world["elev"] = np.full((3, 3), 0.2)
+        self.world["road"] = [["  "] * 3 for _ in range(3)]
+        self.world["riv"] = np.array([
+            [0, 1, 0],
+            [1, 1, 1],
+            [0, 0, 0],
+        ])
+        resolver = VisualCellResolver(self.world, self.config)
+
+        self.assertEqual(resolver.resolve(1, 0)["hydrology_variant"], "vertical")
+        self.assertEqual(resolver.resolve(0, 1)["hydrology_variant"], "horizontal")
+        self.assertEqual(resolver.resolve(1, 1)["hydrology_variant"], "fork_north")
+
+        self.world["riv"] = np.array([
+            [0, 1, 0],
+            [0, 1, 1],
+            [0, 0, 0],
+        ])
+        corner = VisualCellResolver(self.world, self.config).resolve(1, 1)
+        self.assertEqual(corner["hydrology_variant"], "corner_ne")
+
+    def test_road_connections_project_straights_corners_forks_and_crosses(self):
+        self.world["width"] = 3
+        self.world["height"] = 3
+        self.world["elev"] = np.full((3, 3), 0.2)
+        self.world["riv"] = np.zeros((3, 3))
+        self.world["road"] = [
+            ["  ", ". ", "  "],
+            [". ", ". ", ". "],
+            ["  ", "  ", "  "],
+        ]
+        resolver = VisualCellResolver(self.world, self.config)
+
+        self.assertEqual(resolver.resolve(1, 0)["infrastructure_variant"], "vertical")
+        self.assertEqual(resolver.resolve(0, 1)["infrastructure_variant"], "horizontal")
+        self.assertEqual(resolver.resolve(1, 1)["infrastructure_variant"], "fork_north")
+
+        self.world["road"] = [
+            ["  ", ". ", "  "],
+            [". ", ". ", ". "],
+            ["  ", ". ", "  "],
+        ]
+        self.assertEqual(
+            VisualCellResolver(self.world, self.config).resolve(1, 1)[
+                "infrastructure_variant"
+            ],
+            "cross",
+        )
+
+        self.world["road"] = [
+            ["  ", ". ", "  "],
+            ["  ", ". ", ". "],
+            ["  ", "  ", "  "],
+        ]
+        self.assertEqual(
+            VisualCellResolver(self.world, self.config).resolve(1, 1)[
+                "infrastructure_variant"
+            ],
+            "corner_ne",
+        )
+
 
     def test_terminal_glyphs_match_the_semantic_resolver(self):
         resolver = VisualCellResolver(self.world, self.config)
@@ -161,6 +259,7 @@ class PresentationFoundationTests(unittest.TestCase):
             get_diplomatic_summary=lambda: {"relations": 2},
             get_sites_summary=lambda: {"sites": 1},
             get_explanations_overview=lambda: {"events": 1},
+            get_bestiary_snapshot=lambda: {"fauna": [{"name": "Loup"}]},
         )
         before = RandomService.get_state()
         snapshot = PresentationProjector(engine).snapshot(revision=3)
@@ -174,6 +273,10 @@ class PresentationFoundationTests(unittest.TestCase):
         self.assertEqual(snapshot["panels"]["diplomacy"]["relations"], 2)
         self.assertEqual(snapshot["panels"]["sites"]["sites"], 1)
         self.assertEqual(snapshot["panels"]["why"]["events"], 1)
+        self.assertEqual(
+            snapshot["panels"]["bestiary"],
+            {"fauna": [{"name": "Loup"}]},
+        )
         self.assertNotIn("config", snapshot)
         snapshot["cells"][0]["visible_key"] = "tampered"
         self.assertNotEqual(
@@ -230,8 +333,13 @@ class PresentationFoundationTests(unittest.TestCase):
         )
         cell = PresentationProjector(engine).snapshot()["cells"][0]
         self.assertEqual(cell["entity"]["render_key"], entity.render_key)
+        self.assertEqual(cell["entity"]["direction"], "south")
         self.assertEqual(cell["visible_key"], entity.render_key)
         self.assertEqual(cell["glyph"], "old")
+
+        entity.pos = (1, 0)
+        moved = PresentationProjector(engine).snapshot()["cells"][1]
+        self.assertEqual(moved["entity"]["direction"], "east")
 
     def test_mobile_entity_can_expose_a_semantic_boat_variant(self):
         entity = SimpleNamespace(
@@ -240,6 +348,21 @@ class PresentationFoundationTests(unittest.TestCase):
         )
 
         self.assertEqual(entity_render_key(entity), "entity.vehicle.boat")
+
+    def test_settlements_keep_the_terminal_culture_as_a_visual_variant(self):
+        city = object.__new__(City)
+        city.culture = {"name": "Sultanat", "city": "🕌"}
+        village = object.__new__(Village)
+        village.culture = {"name": "Dynastie", "village": "🏮"}
+
+        self.assertEqual(
+            entity_render_key(city),
+            "entity.structure.city.sultanat",
+        )
+        self.assertEqual(
+            entity_render_key(village),
+            "entity.structure.village.dynastie",
+        )
 
     def test_water_capable_humans_switch_between_person_and_boat_sprites(self):
         world = {

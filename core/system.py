@@ -70,6 +70,20 @@ def _tick_interval(value):
     return numeric
 
 
+def _map_width(value):
+    numeric = int(value)
+    if not 1 <= numeric <= 240:
+        raise argparse.ArgumentTypeError(Translator.translate("cli.width_error"))
+    return numeric
+
+
+def _map_height(value):
+    numeric = int(value)
+    if not 1 <= numeric <= 120:
+        raise argparse.ArgumentTypeError(Translator.translate("cli.height_error"))
+    return numeric
+
+
 @dataclass(frozen=True)
 class LaunchOptions:
     config: dict
@@ -84,6 +98,8 @@ class LaunchOptions:
     tick_speed: float = 0.15
     archive_path: str | None = None
     archive_record_path: str | None = None
+    width: int = 60
+    height: int = 30
 
 
 def load_launch_options():
@@ -164,6 +180,18 @@ def load_launch_options():
         default=0.15,
         help=Translator.translate("cli.tick_speed_help"),
     )
+    parser.add_argument(
+        "--width",
+        type=_map_width,
+        default=60,
+        help=Translator.translate("cli.width_help"),
+    )
+    parser.add_argument(
+        "--height",
+        type=_map_height,
+        default=30,
+        help=Translator.translate("cli.height_help"),
+    )
     args = parser.parse_args()
 
     archive_requested = bool(args.archive_path or args.archive_record_path)
@@ -215,6 +243,8 @@ def load_launch_options():
         tick_speed=args.tick_speed,
         archive_path=args.archive_path,
         archive_record_path=args.archive_record_path,
+        width=args.width,
+        height=args.height,
     )
 
 

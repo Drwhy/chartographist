@@ -183,9 +183,38 @@ h2 { margin-bottom: .6rem; font-size: .95rem; color: var(--accent); }
   background: #0c100b;
   color: #cad6c3;
   font-size: .78rem;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.panel-empty { margin: .35rem 0; color: var(--muted); font-style: italic; }
+.panel-section + .panel-section,
+.bestiary-group + .bestiary-group { margin-top: 1rem; }
+.panel-section h3,
+.bestiary-group h3 { margin: 0 0 .55rem; color: #e2c780; }
+.panel-grid,
+.bestiary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: .55rem;
+}
+.panel-card,
+.bestiary-card {
+  min-width: 0;
+  padding: .65rem;
+  border: 1px solid #35432f;
+  border-radius: .3rem;
+  background: #11170f;
+}
+.bestiary-card h4 { margin: 0 0 .55rem; color: #f1dfad; font-size: .9rem; }
+.panel-fields {
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) minmax(0, 1fr);
+  gap: .25rem .65rem;
+  margin: 0;
+}
+.panel-fields dt { color: #91a987; }
+.panel-fields dd { margin: 0; color: #d8dfd3; }
+.panel-fields + .panel-section { margin-top: .65rem; }
 
 @media (max-width: 900px) {
   .topbar { position: static; grid-template-columns: 1fr; }

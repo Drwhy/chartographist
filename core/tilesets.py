@@ -1,5 +1,6 @@
 """Validation stricte des thèmes de sprites indépendants de la simulation."""
 
+import binascii
 import json
 from pathlib import Path
 import re
@@ -8,6 +9,9 @@ import struct
 
 TILESET_SCHEMA_VERSION = 1
 _MAX_MANIFEST_BYTES = 256 * 1024
+_MAX_IMAGE_BYTES = 64 * 1024 * 1024
+_MAX_IMAGE_DIMENSION = 8192
+_MAX_IMAGE_PIXELS = 64 * 1024 * 1024
 _SAFE_IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 _SAFE_IMAGE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}\.png$")
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -164,6 +168,9 @@ def validate_tileset_manifest(
         manifest, image_size, sheet_image_info
     )
     normalized_sprites = {}
+    coverage = manifest.get("coverage", "complete")
+    if coverage not in {"complete", "partial"} or type(coverage) is not str:
+        raise TilesetValidationError("coverage")
     for key, coordinates in sprites.items():
         if not isinstance(key, str) or not key or len(key) > 96:
             raise TilesetValidationError("sprite_key")
@@ -172,7 +179,8 @@ def validate_tileset_manifest(
         ):
             raise TilesetValidationError(f"sprite_coordinates:{key}")
         if set(coordinates) - {
-            "x", "y", "sheet", "scale", "anchor_x", "anchor_y"
+            "x", "y", "sheet", "scale", "anchor_x", "anchor_y", "rotation",
+            "auto_mirror",
         }:
             raise TilesetValidationError(f"sprite_coordinates:{key}")
         sheet_id = coordinates.get("sheet", default_sheet)
@@ -193,6 +201,12 @@ def validate_tileset_manifest(
             coordinates.get("anchor_y", sheet["anchor_y"]),
             "sprite_anchor",
         )
+        rotation = coordinates.get("rotation", 0)
+        if type(rotation) is not int or rotation not in {0, 90, 180, 270}:
+            raise TilesetValidationError(f"sprite_rotation:{key}")
+        auto_mirror = coordinates.get("auto_mirror", False)
+        if type(auto_mirror) is not bool:
+            raise TilesetValidationError(f"sprite_auto_mirror:{key}")
         if key.startswith("entity.") and scale < 1 and not sheet["alpha"]:
             raise TilesetValidationError(f"sprite_alpha:{key}")
         normalized_sprites[key] = {
@@ -202,13 +216,15 @@ def validate_tileset_manifest(
             "scale": scale,
             "anchor_x": anchor_x,
             "anchor_y": anchor_y,
+            "rotation": rotation,
+            "auto_mirror": auto_mirror,
         }
 
     fallback = manifest.get("fallback")
     if not isinstance(fallback, str) or fallback not in normalized_sprites:
         raise TilesetValidationError("fallback")
     missing = STANDARD_VISUAL_KEYS - normalized_sprites.keys()
-    if missing:
+    if coverage == "complete" and missing:
         raise TilesetValidationError(f"coverage:{sorted(missing)[0]}")
     edge_blending = _edge_blending(manifest.get("edge_blending"))
 
@@ -223,6 +239,7 @@ def validate_tileset_manifest(
         "columns": columns,
         "rows": rows,
         "fallback": fallback,
+        "coverage": coverage,
         "license": {
             "name": license_data["name"].strip(),
             "source": license_data["source"].strip(),
@@ -335,14 +352,88 @@ def _sprite_sheets(manifest, image_size, sheet_image_info):
 
 def _read_png_info(path):
     try:
-        with Path(path).open("rb") as stream:
-            header = stream.read(26)
+        image_path = Path(path)
+        if image_path.stat().st_size > _MAX_IMAGE_BYTES:
+            raise TilesetValidationError("image_too_large")
+        with image_path.open("rb") as stream:
+            header = stream.read(29)
+    except TilesetValidationError:
+        raise
     except OSError as error:
         raise TilesetValidationError("image_unreadable") from error
-    if len(header) != 26 or header[:8] != _PNG_SIGNATURE or header[12:16] != b"IHDR":
+    if len(header) != 29 or header[:8] != _PNG_SIGNATURE or header[12:16] != b"IHDR":
         raise TilesetValidationError("image_format")
     width, height = struct.unpack(">II", header[16:24])
-    return width, height, header[25] in {4, 6}
+    depth, color, compression, filtering, interlace = header[24:29]
+    if (
+        width <= 0
+        or height <= 0
+        or width > _MAX_IMAGE_DIMENSION
+        or height > _MAX_IMAGE_DIMENSION
+        or width * height > _MAX_IMAGE_PIXELS
+    ):
+        raise TilesetValidationError("image_dimensions")
+    if (
+        depth != 8
+        or color not in {2, 6}
+        or compression != 0
+        or filtering != 0
+        or interlace != 0
+    ):
+        raise TilesetValidationError("image_encoding")
+    _validate_png_chunks(image_path)
+    return width, height, color == 6
+
+
+def _validate_png_chunks(path):
+    """Vérifie structure et CRC en flux, sans décoder les pixels."""
+    seen_header = False
+    seen_data = False
+    seen_end = False
+    try:
+        with Path(path).open("rb") as stream:
+            if stream.read(8) != _PNG_SIGNATURE:
+                raise TilesetValidationError("image_format")
+            while not seen_end:
+                length_bytes = stream.read(4)
+                kind = stream.read(4)
+                if len(length_bytes) != 4 or len(kind) != 4:
+                    raise TilesetValidationError("image_truncated")
+                length = struct.unpack(">I", length_bytes)[0]
+                if length > _MAX_IMAGE_BYTES:
+                    raise TilesetValidationError("image_chunk")
+                if not seen_header and (kind != b"IHDR" or length != 13):
+                    raise TilesetValidationError("image_format")
+                if kind[0] < 97 and kind not in {b"IHDR", b"PLTE", b"IDAT", b"IEND"}:
+                    raise TilesetValidationError("image_chunk")
+
+                checksum = binascii.crc32(kind)
+                remaining = length
+                while remaining:
+                    block = stream.read(min(64 * 1024, remaining))
+                    if not block:
+                        raise TilesetValidationError("image_truncated")
+                    checksum = binascii.crc32(block, checksum)
+                    remaining -= len(block)
+                expected = stream.read(4)
+                if len(expected) != 4:
+                    raise TilesetValidationError("image_truncated")
+                if (checksum & 0xFFFFFFFF) != struct.unpack(">I", expected)[0]:
+                    raise TilesetValidationError("image_crc")
+
+                seen_header = seen_header or kind == b"IHDR"
+                if kind == b"IDAT" and length:
+                    seen_data = True
+                if kind == b"IEND":
+                    if length != 0 or stream.read(1):
+                        raise TilesetValidationError("image_format")
+                    seen_end = True
+    except TilesetValidationError:
+        raise
+    except OSError as error:
+        raise TilesetValidationError("image_unreadable") from error
+    if not (seen_header and seen_data and seen_end):
+        raise TilesetValidationError("image_truncated")
 
 
 def _read_png_size(path):
@@ -393,23 +484,42 @@ def _coordinate(value, maximum, key):
 def _edge_blending(value):
     if value is None:
         return {"mode": "none"}
-    if not isinstance(value, dict) or value.get("mode") != "interlaced":
+    if not isinstance(value, dict):
         raise TilesetValidationError("edge_blending")
-    if set(value) != {"mode", "depth", "opacity"}:
+    mode = value.get("mode")
+    if mode == "interlaced":
+        if set(value) != {"mode", "depth", "opacity"}:
+            raise TilesetValidationError("edge_blending")
+        depth = value["depth"]
+        opacity = value["opacity"]
+        if (
+            isinstance(depth, bool)
+            or not isinstance(depth, (int, float))
+            or not 0 < float(depth) <= 0.5
+            or isinstance(opacity, bool)
+            or not isinstance(opacity, (int, float))
+            or not 0 < float(opacity) <= 1
+        ):
+            raise TilesetValidationError("edge_blending")
+        return {
+            "mode": "interlaced",
+            "depth": float(depth),
+            "opacity": float(opacity),
+        }
+    if mode != "puzzle" or set(value) != {"mode", "depth", "teeth"}:
         raise TilesetValidationError("edge_blending")
     depth = value["depth"]
-    opacity = value["opacity"]
+    teeth = value["teeth"]
     if (
         isinstance(depth, bool)
         or not isinstance(depth, (int, float))
         or not 0 < float(depth) <= 0.5
-        or isinstance(opacity, bool)
-        or not isinstance(opacity, (int, float))
-        or not 0 < float(opacity) <= 1
+        or type(teeth) is not int
+        or not 2 <= teeth <= 16
     ):
         raise TilesetValidationError("edge_blending")
     return {
-        "mode": "interlaced",
+        "mode": "puzzle",
         "depth": float(depth),
-        "opacity": float(opacity),
+        "teeth": teeth,
     }

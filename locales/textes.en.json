@@ -360,6 +360,12 @@
     "entity": "Entity",
     "map": "World map",
     "overview": "Overview",
+    "bestiary": "Bestiary",
+    "bestiary_fauna": "Fauna",
+    "bestiary_species": "Humanoid species",
+    "bestiary_religions": "Religions",
+    "bestiary_settlements": "Cities and villages",
+    "empty": "No data available",
     "sites": "Sites",
     "artifacts": "Artifacts",
     "politics": "Politics",
@@ -397,8 +403,12 @@
     "host_help": "Local web server address",
     "port_help": "Local web server port",
     "tick_speed_help": "Interval between simulation cycles, in seconds",
+    "width_help": "New world width, from 1 to 240 cells",
+    "height_help": "New world height, from 1 to 120 cells",
     "port_error": "port must be between 1 and 65535",
-    "tick_speed_error": "interval must be between 0.01 and 10 seconds"
+    "tick_speed_error": "interval must be between 0.01 and 10 seconds",
+    "width_error": "width must be between 1 and 240 cells",
+    "height_error": "height must be between 1 and 120 cells"
   },
   "religion": {
     "syncretic_name": "{god} the Twofold"

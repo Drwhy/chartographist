@@ -79,6 +79,13 @@ L'objet `stats` construit par `world_factory` contient initialement `year`, `see
 
 ### Cadences de simulation
 
+Le contrat de cellule web distingue le biome métier courant `terrain_key` de
+la base visuelle stable `terrain_base_key`. `climate_variant` porte la saison
+ou l'anomalie sans changer cette base. `hydrology_variant` décrit la connexion
+cardinale d'une rivière tout en conservant la clé historique
+`hydrology.river`. Le client Canvas compose les terrains, les frontières
+`puzzle`, puis les couches transparentes.
+
 [`SimulationEngine.step()`](core/simulation_engine.py) applique trois fréquences :
 
 - chaque cycle : climat et anomalies, régénération spatiale lorsqu’elle atteint sa cadence, diplomatie globale, grille, apparition de faune, `process_turn()`, besoins personnels mensuels, événements, scénario, politique, guerre, migrations et territoire selon leurs cadences opt-in, synchronisation des logs, archivage des notables inactifs et nettoyage ; dans chaque ville ou village, la production matérielle optionnelle est avancée une fois après la mise à jour des citoyens ; `main.py` effectue ensuite le rendu ;
@@ -182,16 +189,19 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 | [`ETUDE_PHASE_16_RENDU_WEB.md`](ETUDE_PHASE_16_RENDU_WEB.md) | Faisabilité, risques, architecture cible, protocole, spritesheets, optimisations et bilan de la phase 16 terminée. | À consulter avant toute évolution des rendus web ou sprites. |
 | [`ETUDE_PHASE_17_ARCHIVES_RELECTURE.md`](ETUDE_PHASE_17_ARCHIVES_RELECTURE.md) | Décision d'architecture, frontière de confiance, budgets et plan TDD des archives consultables. | À consulter avant toute persistance de présentation ou navigation temporelle. |
 | [`ETUDE_PHASE_18_SPRITES_ENTITES.md`](ETUDE_PHASE_18_SPRITES_ENTITES.md) | Contrat multicouche, transparence, ancrage, variantes et lots futurs des sprites d'entités. | À consulter avant toute évolution des feuilles terrain/entités ou des animations. |
+| [`GUIDE_TILESETS.md`](GUIDE_TILESETS.md) | Guide de création d'un thème multicouche complet ou partiel, conventions d'animation, budgets PNG et mesure sur grande carte. | `core/tilesets.py`, générateur de scaffold et client Canvas. |
 | [`AGENTS.md`](AGENTS.md) | Directives obligatoires pour toute intervention : compatibilité, i18n et stratégie de tests. | À mettre à jour lorsque la politique de contribution évolue. |
 | [`tests/`](tests/) | Suite `unittest` de non-régression et tests d'architecture. | À étendre avec toute modification fonctionnelle, de configuration ou d'i18n. |
 | [`tools/observatory.py`](tools/observatory.py) | Banc headless multi-graines, profils court/long/reprise, statistiques d’activation et export CSV. | `SimulationEngine.run_observed()` et `core/simulation_metrics.py`. |
 | [`tools/archive_benchmark.py`](tools/archive_benchmark.py) | Mesure reproductible des coûts d’une archive réelle : espace, écriture, mémoire, ouverture et recherches. | `core/history_archive.py` et campagnes du lot 17.7. |
-| [`main.py`](main.py) | Sélectionne terminal, web direct ou archive read-only ; branche l’enregistreur portable au flux de snapshots web et le finalise proprement. | `core/simulation_engine.py`, `core/simulation_host.py`, `core/history_archive.py` et `core/web_server.py`. |
+| [`tools/presentation_benchmark.py`](tools/presentation_benchmark.py) | Mesure sans pas de simulation de la projection, sérialisation, delta, pipeline total et pic mémoire sur un passage distinct des latences. | `core/presentation.py` et campagnes de stabilisation du rendu web. |
+| [`tools/tileset_scaffold.py`](tools/tileset_scaffold.py) | Génère sans dépendance un thème multicouche partiel minimal et ses feuilles PNG RGB/RGBA valides. | `core/tilesets.py` et `GUIDE_TILESETS.md`. |
+| [`main.py`](main.py) | Sélectionne terminal, web direct ou archive read-only ; transmet les dimensions bornées du nouveau monde et branche l’enregistreur portable au flux de snapshots web. | `core/system.py`, `core/simulation_engine.py`, `core/simulation_host.py`, `core/history_archive.py` et `core/web_server.py`. |
 | [`template.json`](template.json) | Source de vérité des cultures, biomes, domaines religieux, archétypes d'espèces et de faune, seuils et probabilités. | Les lecteurs concernés dans `core/`, `entities/` et les libellés de `locales/`. |
 | [`requirements.txt`](requirements.txt) | Dépendances communes : `noise`, `colorama`, `numpy`. | L'environnement d'installation et le README. |
 | [`requirements-web.txt`](requirements-web.txt) | Dépendance optionnelle `aiohttp` du seul mode navigateur. | `core/web_server.py`, tests web et README. |
 | [`web/index.html`](web/index.html) | Structure accessible du client navigateur et de sa frise d’archive, sans chaîne de compilation. | `web/app.js`, `web/styles.css`, métadonnées i18n et protocole v1. |
-| [`web/app.js`](web/app.js) | Client Canvas par thèmes de sprites : direct par WebSocket ou archive read-only, navigation révision/cycle, chroniques, comparaison cartographique, viewport, sélection et bordures interlacées. | `core/presentation.py`, `core/web_server.py`, manifestes, feuilles et clés de sprites. |
+| [`web/app.js`](web/app.js) | Client Canvas par thèmes de sprites : direct par WebSocket ou archive read-only, navigation révision/cycle, chroniques, comparaison cartographique, viewport, sélection, panneaux en cartes lisibles, bestiaire, détection/animation bornée des mouvements, diagnostic FPS borné et bordures interlacées. | `core/presentation.py`, `core/web_server.py`, manifestes, feuilles et clés de sprites. |
 | [`web/styles.css`](web/styles.css) | Présentation sombre responsive, frise, états d’archive, focus clavier et réduction des animations. | Structure de `web/index.html`. |
 | [`web/assets/tilesets/interwoven/tileset.json`](web/assets/tilesets/interwoven/tileset.json) | Manifeste Interwoven multicouche : terrain 8 × 8, océan et plage autonomes, entités 6 × 4, échelles, ancres, couverture et bordures. | `core/tilesets.py`, PNG déclarés et client Canvas. |
 | [`web/assets/tilesets/interwoven/atlas.png`](web/assets/tilesets/interwoven/atlas.png) | Atlas pixel-art carré 1248 × 1248 généré avec OpenAI ImageGen et normalisé en 64 sprites de 156 × 156. | Manifeste Interwoven et client Canvas. |
@@ -209,15 +219,16 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 | Fichier | Responsabilité |
 |---|---|
 | [`core/__init__.py`](core/__init__.py) | Façade exportant l'assemblage du monde et les fonctions terminal/CLI consommées par `main.py`. |
-| [`core/system.py`](core/system.py) | Terminal ANSI/cbreak, `LaunchOptions`, arguments i18n communs, options web bornées et contrats mutuellement cohérents `--archive`/`--record-archive`. |
+| [`core/system.py`](core/system.py) | Terminal ANSI/cbreak, `LaunchOptions`, arguments i18n communs, dimensions de création bornées, options web bornées et contrats mutuellement cohérents `--archive`/`--record-archive`. |
 | [`core/world_factory.py`](core/world_factory.py) | Construit le dictionnaire `world` et `stats`; branche géologie, hydrologie, gestionnaire d'entités et influences. |
-| [`core/simulation_engine.py`](core/simulation_engine.py) | Moteur headless : initialise et possède `world`/`stats`, exécute `step()`/`run()`, isole les erreurs et expose sauvegarde, chroniques et chaînes causales, inspection, climat par monde/tuile, agrégats et instantané des systèmes. |
+| [`core/simulation_engine.py`](core/simulation_engine.py) | Moteur headless : initialise et possède `world`/`stats`, exécute `step()`/`run()`, isole les erreurs et expose sauvegarde, chroniques et chaînes causales, inspection, climat par monde/tuile, agrégats, bestiaire et instantané des systèmes. |
+| [`core/bestiary.py`](core/bestiary.py) | Projection headless en liste blanche de la faune, des espèces humanoïdes, des religions et des implantations ; ne divulgue ni configuration interne ni règles de nommage. |
 | [`core/climate.py`](core/climate.py) | Service headless du cycle saisonnier, température, humidité, biomes, anomalies, productivité agricole/écologique et compatibilité de rendu historique. |
-| [`core/presentation.py`](core/presentation.py) | Résolution visuelle sémantique commune, snapshot JSON v1 en liste blanche, panneaux structurés, copies défensives et deltas bornés. |
+| [`core/presentation.py`](core/presentation.py) | Résolution visuelle sémantique commune, snapshot JSON v1 en liste blanche avec direction des entités, panneaux structurés dont le bestiaire, copies défensives et deltas bornés. |
 | [`core/history_archive.py`](core/history_archive.py) | Format `.chartarchive` v1, enregistreur borné et lecteur headless : validation, index temporel, cache borné des images clés validées, reconstruction, chronologie et comparaison défensive sans `pickle` ni PRNG. |
 | [`core/simulation_host.py`](core/simulation_host.py) | Propriétaire du cycle : file de commandes bornée et thread-safe, pause/pas-à-pas/vitesse/arrêt, publication versionnée différable, consommateurs optionnels de snapshots et sauvegarde sur chemin autorisé. |
 | [`core/web_server.py`](core/web_server.py) | API HTTP v1 locale : mode direct avec page, commandes, WebSocket et deltas ; mode archive read-only avec la même page et les mêmes thèmes, snapshots par révision/cycle, chronologie et comparaison ; contrôles d'origine/taille et bind loopback. |
-| [`core/tilesets.py`](core/tilesets.py) | Catalogue standard et validation stricte des manifestes/PNG, feuilles multiples, alpha, échelle/ancrage, découverte défensive et bordures interlacées. |
+| [`core/tilesets.py`](core/tilesets.py) | Catalogue standard, couverture complète ou partielle explicite et validation stricte des manifestes/PNG (budgets, structure et CRC), feuilles multiples, alpha, échelle/ancrage, rotations par quarts de tour, miroir directionnel optionnel, découverte défensive et bordures interlacées. |
 | [`core/resources.py`](core/resources.py) | Stocks spatiaux renouvelables, capacités, régénération, extraction conservatrice, perturbations persistantes, propagation du feu, migration et résumés défensifs. |
 | [`core/materials.py`](core/materials.py) | Catalogue défensif data-driven des ressources, objets, recettes, cibles, réserves, sources spatiales, infrastructures et chaîne alimentaire ; validation des IDs/références et cache runtime borné par configuration immuable. |
 | [`core/stockpiles.py`](core/stockpiles.py) | Stockage colonial versionné : migration paresseuse, capacité de base et bonus d'infrastructure, dépôts/retraits, transfert conservateur et détérioration par cycle. |
@@ -252,7 +263,7 @@ Quand `config['diplomacy']['enabled']` vaut `true` :
 | [`core/memory.py`](core/memory.py) | Faits personnels structurés et bornés, renforcement, oubli et opinions dérivées (confiance, peur, grief). |
 | [`core/inspection.py`](core/inspection.py) | Produit un instantané de lecture d’une entité ou d’un citoyen imbriqué trouvé par `entity_id`, avec personnage, cohortes, chroniques et relations associées. |
 | [`core/geo.py`](core/geo.py) | Génère le relief Perlin/NumPy, les plaques et les rivières par descente locale. |
-| [`core/entities.py`](core/entities.py) | Classe `Entity` avec `entity_id` persistant, transfert d'identité, z-index, compteur d'action, influence et `EntityManager`. |
+| [`core/entities.py`](core/entities.py) | Classe `Entity` avec `entity_id` persistant, transfert d'identité, dernière direction de déplacement sans PRNG, z-index, compteur d'action, influence et `EntityManager`. |
 | [`core/grid_service.py`](core/grid_service.py) | Index spatial en cellules pour limiter les recherches de voisins. Renvoie des candidats, pas une distance exacte. |
 | [`core/influence.py`](core/influence.py) | Heatmaps persistantes de peur (minimum négatif) et d'odeur (cumulative), avec décroissance. |
 | [`core/random_service.py`](core/random_service.py) | PRNG centralisé et déterministe, raccourcis aléatoires et capture/restauration de son état pour les checkpoints. |
@@ -324,7 +335,7 @@ Point de vigilance : la liste d'exclusion dans `events/__init__.py` nomme `regis
 
 | Fichier | Responsabilité |
 |---|---|
-| [`history/history_engine.py`](history/history_engine.py) | Trace une route entre deux positions dans la grille `world['road']`. Utilisé par colons et marchands. |
+| [`history/history_engine.py`](history/history_engine.py) | Trace une route orthogonale déterministe entre deux positions dans `world['road']`. Les colons et marchands fournissent le relief : le plus court chemin cardinal contourne l’eau et crée les coudes nécessaires ; l’ancien tracé en L reste disponible pour les appelants sans relief. |
 | [`history/__init__.py`](history/__init__.py) | Marqueur de package vide. |
 
 ### Rendu `render/`
@@ -397,6 +408,8 @@ La suite contient 489 tests et s'organise ainsi :
 | [`tests/test_archive_stabilization.py`](tests/test_archive_stabilization.py) | Rejet explicite d’un conteneur ZIP physiquement tronqué. |
 | [`tests/test_web_server.py`](tests/test_web_server.py) | API directe/archive, frise, chroniques, comparaison, ressources, CLI d’ouverture/enregistrement, conflits, finalisation, i18n, documentation et sécurité. |
 | [`tests/test_tilesets.py`](tests/test_tilesets.py) | Contrat Interwoven, licence, PNG, feuilles multiples, alpha, échelles, ancres, couverture, chemins sûrs, fallback et validation générique. |
+| [`tests/test_tileset_scaffold.py`](tests/test_tileset_scaffold.py) | Génération d'un thème partiel multicouche chargeable, sûreté de l'identifiant et cohérence du guide. |
+| [`tests/test_presentation_benchmark.py`](tests/test_presentation_benchmark.py) | Contrat sérialisable du banc de grande carte, bornes d'itération et absence de consommation du PRNG. |
 
 Contrats désormais protégés :
 
@@ -698,14 +711,28 @@ Toute modification fonctionnelle doit introduire ou adapter des tests sous `test
 6. pour une nouvelle clé de template, prévoir une valeur par défaut afin de ne pas casser les anciens templates.
 7. pour tout texte visible, vérifier la parité des clés françaises, anglaises et espagnoles ainsi que leur formatage par `Translator`.
 
+Pour le thème Interwoven, les réseaux cardinalement connectés sont projetés
+par `core/presentation.py` dans `hydrology_variant` et
+`infrastructure_variant`, puis résolus par `web/app.js` vers les feuilles
+`rivers.png` et `roads.png`. Les établissements conservent leur clé
+générique et ajoutent un suffixe culturel normalisé, résolu dans
+`cultures.png` avec repli rétrocompatible. Les sources ImageGen et leur
+ordre de grille sont documentés dans
+`web/assets/tilesets/interwoven/PROMPT.md`.
+Les quatre coudes routiers partagent un sprite NE dont la connexion aux bords
+est vérifiée ; le manifeste le fait pivoter par quarts de tour dans Canvas afin
+que l'orientation graphique corresponde exactement à
+`infrastructure_variant`.
+
 ## Commandes utiles
 
 ```bash
 pip install -r requirements.txt
 python main.py --seed 42 --template template.json --lang fr --save monde.chart
+python main.py --renderer web --seed 88574 --width 120 --height 60
 python main.py --lang fr --load monde.chart --save monde.chart
 python3 -m compileall -q .
 python3 -m unittest discover -s tests -v
 ```
 
-La simulation va jusqu'à 2 000 cycles avec une pause de 0,15 seconde par cycle. Pour un diagnostic rapide, ajuster temporairement les constantes de [`main.py`](main.py) dans une branche de travail, puis restaurer leurs valeurs avant livraison.
+La simulation va jusqu'à 2 000 cycles avec une pause de 0,15 seconde par cycle. Les options `--width` et `--height` règlent uniquement les dimensions d'un nouveau monde, dans les bornes documentées par la CLI.

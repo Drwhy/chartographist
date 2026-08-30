@@ -223,11 +223,118 @@ class CoreServicesTests(unittest.TestCase):
         manager.remove(alive)
         self.assertEqual(len(manager), 0)
 
-    def test_road_connection_reaches_target_and_stays_in_bounds(self):
+    def test_entity_position_tracks_eight_directions_without_randomness(self):
+        entity = CountingEntity(4, 4)
+        self.assertEqual(entity.render_direction, "south")
+
+        movements = (
+            ((4, 3), "north"),
+            ((5, 2), "northeast"),
+            ((6, 2), "east"),
+            ((7, 3), "southeast"),
+            ((7, 4), "south"),
+            ((6, 5), "southwest"),
+            ((5, 5), "west"),
+            ((4, 4), "northwest"),
+        )
+        before = RandomService.get_state()
+        for position, direction in movements:
+            entity.pos = position
+            self.assertEqual(entity.render_direction, direction)
+        entity.pos = entity.pos
+        self.assertEqual(entity.render_direction, "northwest")
+        self.assertEqual(RandomService.get_state(), before)
+
+        legacy = object.__new__(Entity)
+        legacy.pos = (2, 3)
+        self.assertEqual(legacy.pos, (2, 3))
+        self.assertEqual(legacy.render_direction, "south")
+
+    def test_road_connection_is_cardinal_and_contains_a_real_corner(self):
         roads = [["  " for _ in range(6)] for _ in range(5)]
         connect_with_road(roads, (0, 0), (5, 3), 6, 5)
+
+        occupied = {
+            (x, y)
+            for y, row in enumerate(roads)
+            for x, cell in enumerate(row)
+            if cell == "··"
+        }
         self.assertEqual(roads[3][5], "··")
-        self.assertEqual(sum(cell == "··" for row in roads for cell in row), 5)
+        self.assertEqual(
+            occupied,
+            {
+                (1, 0), (2, 0), (3, 0), (4, 0), (5, 0),
+                (5, 1), (5, 2), (5, 3),
+            },
+        )
+        self.assertEqual(
+            {
+                (neighbor_x - 5, neighbor_y)
+                for neighbor_x, neighbor_y in occupied
+                if abs(neighbor_x - 5) + abs(neighbor_y) == 1
+            },
+            {(-1, 0), (0, 1)},
+        )
+
+    def test_road_connection_supports_reverse_and_axis_aligned_routes(self):
+        reverse = [["  " for _ in range(6)] for _ in range(5)]
+        connect_with_road(reverse, (5, 3), (0, 0), 6, 5)
+        self.assertEqual(
+            {
+                (x, y)
+                for y, row in enumerate(reverse)
+                for x, cell in enumerate(row)
+                if cell == "··"
+            },
+            {
+                (4, 3), (3, 3), (2, 3), (1, 3), (0, 3),
+                (0, 2), (0, 1), (0, 0),
+            },
+        )
+
+        vertical = [["  " for _ in range(3)] for _ in range(4)]
+        connect_with_road(vertical, (1, 0), (1, 3), 3, 4)
+        self.assertEqual(
+            [vertical[y][1] for y in range(4)],
+            ["  ", "··", "··", "··"],
+        )
+
+    def test_road_connection_detours_around_water_without_visual_gaps(self):
+        roads = [["  " for _ in range(5)] for _ in range(5)]
+        elevations = [[1.0 for _ in range(5)] for _ in range(5)]
+        for y in range(4):
+            elevations[y][2] = -1.0
+
+        connect_with_road(
+            roads,
+            (0, 2),
+            (4, 2),
+            5,
+            5,
+            elevations=elevations,
+        )
+
+        occupied = {
+            (x, y)
+            for y, row in enumerate(roads)
+            for x, cell in enumerate(row)
+            if cell == "··"
+        }
+        self.assertIn((4, 2), occupied)
+        self.assertIn((2, 4), occupied)
+        self.assertFalse(any(elevations[y][x] < 0 for x, y in occupied))
+
+        connected = {(0, 2)}
+        frontier = [(0, 2)]
+        while frontier:
+            x, y = frontier.pop()
+            for dx, dy in ((0, -1), (1, 0), (0, 1), (-1, 0)):
+                neighbor = (x + dx, y + dy)
+                if neighbor in occupied and neighbor not in connected:
+                    connected.add(neighbor)
+                    frontier.append(neighbor)
+        self.assertIn((4, 2), connected)
 
 
 if __name__ == "__main__":

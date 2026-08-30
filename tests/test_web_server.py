@@ -85,6 +85,7 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
             meta["labels"]["simulation_controls"], "Contrôles de simulation"
         )
         self.assertEqual(meta["labels"]["render_mode"], "Rendu")
+        self.assertEqual(meta["labels"]["bestiary"], "Bestiaire")
         self.assertEqual(
             [item["id"] for item in meta["tilesets"]],
             ["interwoven"],
@@ -275,7 +276,7 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
         interwoven = await response.json()
         self.assertEqual(interwoven["id"], "interwoven")
         self.assertEqual(interwoven["tile_width"], interwoven["tile_height"])
-        self.assertEqual(interwoven["edge_blending"]["mode"], "interlaced")
+        self.assertEqual(interwoven["edge_blending"]["mode"], "puzzle")
         self.assertEqual(
             interwoven["sheet_urls"]["entities"],
             "/assets/tilesets/interwoven/entities.png",
@@ -301,14 +302,22 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.get("/api/v1/tilesets/interwoven")
         self.assertEqual(response.status, 200)
         manifest = await response.json()
-        for identifier in ("ocean", "beach"):
+        for identifier, filename in (
+            ("ocean", "ocean.png"),
+            ("beach", "beach.png"),
+            ("climate", "climate.png"),
+            ("rivers", "rivers.png"),
+            ("roads", "roads.png"),
+            ("cultures", "cultures.png"),
+            ("water_climate", "water-climate.png"),
+        ):
             with self.subTest(identifier=identifier):
                 self.assertEqual(
                     manifest["sheet_urls"][identifier],
-                    f"/assets/tilesets/interwoven/{identifier}.png",
+                    f"/assets/tilesets/interwoven/{filename}",
                 )
                 response = await self.client.get(
-                    f"/assets/tilesets/interwoven/{identifier}.png"
+                    f"/assets/tilesets/interwoven/{filename}"
                 )
                 self.assertEqual(response.status, 200)
                 self.assertEqual(response.content_type, "image/png")
@@ -326,6 +335,7 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
             'id="render-mode"',
             'id="logs"',
             'id="panel-content"',
+            'data-panel="bestiary"',
             'id="selection"',
             'tabindex="0"',
             'aria-live="polite"',
@@ -345,6 +355,8 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('value="glyphs"', markup)
         self.assertNotIn('data-i18n="glyph_theme"', markup)
         self.assertNotIn('"glyphs"', script)
+        self.assertNotIn("elements.panel.textContent = JSON.stringify", script)
+        self.assertNotIn('<pre id="panel-content"', markup)
         self.assertIn("await loadTileset(initialTileset)", script)
 
         for fragment in (
@@ -356,7 +368,8 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
             "addEventListener(\"keydown\"",
             "loadTileset",
             "resolveSpriteLayers",
-            "edgeBlendProfile",
+            "renderBestiary",
+            "puzzleEdgeProfile",
             "drawImage",
             "initializeArchive",
             'meta.mode === "archive"',
@@ -364,6 +377,9 @@ class WebServerContractTests(unittest.IsolatedAsyncioTestCase):
             'fetch(`/api/v1/compare?',
             "archiveRevisionStep",
             "changedCells",
+            'matchMedia("(prefers-reduced-motion: reduce)")',
+            "resolveEntitySprite",
+            "movingEntityIds",
         ):
             self.assertIn(fragment, script)
         self.assertIn("@media", styles)
@@ -437,12 +453,16 @@ const manifest = {{
 }};
 const layers = client.resolveSpriteLayers({{
   terrain_key: "grassland",
+  terrain_base_key: "temperate_forest",
+  climate_variant: "winter",
   hydrology_key: "river",
+  hydrology_variant: "corner_ne",
   infrastructure_key: "road",
+  infrastructure_variant: "corner_sw",
   site_key: "ruins.ancient",
   entity: {{render_key: "entity.animal.wolf"}}
 }});
-if (layers.join("|") !== "terrain.grassland|hydrology.river|infrastructure.road|site.ruins.ancient|entity.animal.wolf") {{
+if (layers.join("|") !== "terrain.temperate_forest.winter|hydrology.river.corner_ne|infrastructure.road.corner_sw|site.ruins.ancient|entity.animal.wolf") {{
   throw new Error("layer contract");
 }}
 const siteSprite = client.resolveSprite(manifest, "site.ruins.ancient");
@@ -459,17 +479,140 @@ if (
 ) {{
   throw new Error("scaled transparent entity destination");
 }}
-const blendA = client.edgeBlendProfile(4, 7, "top", 0.18, 8);
-const blendB = client.edgeBlendProfile(4, 7, "top", 0.18, 8);
-const blendOther = client.edgeBlendProfile(5, 7, "top", 0.18, 8);
-if (blendA.length !== 8 || JSON.stringify(blendA) !== JSON.stringify(blendB)) {{
-  throw new Error("edge blend determinism contract");
+const horizontal = client.puzzleEdgeProfile(4, 7, "horizontal", 0.04, 4);
+const reversed = client.puzzleEdgeProfile(4, 8, "horizontal", 0.04, 4);
+if (horizontal.length !== 25 || horizontal[0] !== 0 || horizontal.at(-1) !== 0) {{
+  throw new Error("puzzle edge geometry contract");
 }}
-if (JSON.stringify(blendA) === JSON.stringify(blendOther)) {{
-  throw new Error("edge blend spatial variation contract");
+if (horizontal.some((value) => Math.abs(value) > 0.04)) {{
+  throw new Error("puzzle micro-depth contract");
 }}
-if (blendA.some((value) => value <= 0 || value > 0.18)) {{
-  throw new Error("edge blend bounds contract");
+if (horizontal.some((value, index) => Math.abs(value + reversed[index]) > 1e-9)) {{
+  throw new Error("neighbor puzzle complement contract");
+}}
+const centered = client.spriteDestination(
+  {{scale: 0.68, anchor_x: 0.5, anchor_y: 0.5}}, 10, 20, 100
+);
+if (centered.left !== 26 || centered.top !== 36 || centered.width !== 68 || centered.height !== 68) {{
+  throw new Error("centered settlement destination");
+}}
+const panels = {{
+  metrics: {{population: 12}},
+  systems: [{{name: "climate", enabled: true, config: {{debug: true}}}}],
+  bestiary: {{fauna: [{{name: "Wolf"}}], species: [], religions: [], settlements: []}}
+}};
+const overview = client.panelForView(panels, "overview");
+if (overview !== panels.metrics || "systems" in overview || "config" in overview) {{
+  throw new Error("overview exposes configuration state");
+}}
+if (client.panelForView(panels, "bestiary") !== panels.bestiary) {{
+  throw new Error("bestiary panel selection contract");
+}}
+if (
+  client.spriteRotation({{rotation: 90}}) !== Math.PI / 2
+  || client.spriteRotation({{rotation: 270}}) !== Math.PI * 1.5
+  || client.spriteRotation({{}}) !== 0
+) {{
+  throw new Error("sprite quarter-turn contract");
+}}
+const entity = {{entity_id: 7, render_key: "entity.human.trader", direction: "east"}};
+const candidates = client.entitySpriteCandidates(entity, "moving", 1);
+if (candidates.join("|") !== [
+  "entity.human.trader.east.moving.frame_1",
+  "entity.human.trader.east.moving.frame_0",
+  "entity.human.trader.east",
+  "entity.human.trader"
+].join("|")) {{
+  throw new Error("directional frame fallback contract");
+}}
+if (
+  client.animationFrameIndex(260, 3, false) !== 2
+  || client.animationFrameIndex(260, 3, true) !== 0
+  || client.animationFrameIndex(999, 0, false) !== 0
+) {{
+  throw new Error("bounded reduced-motion frame contract");
+}}
+const previousCells = [
+  {{x: 0, y: 0, entity: {{entity_id: 7}}}},
+  {{x: 3, y: 1, entity: {{entity_id: 9}}}}
+];
+const currentCells = [
+  {{x: 1, y: 0, entity: {{entity_id: 7}}}},
+  {{x: 3, y: 1, entity: {{entity_id: 9}}}}
+];
+const moving = client.movingEntityIds(previousCells, currentCells);
+if (moving.size !== 1 || !moving.has(7)) {{
+  throw new Error("client-only movement detection contract");
+}}
+const performanceTracker = client.createCanvasPerformanceTracker(3);
+performanceTracker.record(100, 5, 400);
+performanceTracker.record(116, 7, 400);
+performanceTracker.record(132, 9, 420);
+performanceTracker.record(148, 11, 420);
+const performanceReport = performanceTracker.report();
+if (
+  performanceReport.frames !== 3
+  || performanceReport.fps !== 62.5
+  || performanceReport.draw_ms.median !== 9
+  || performanceReport.draw_ms.p95 !== 11
+  || performanceReport.visible_cells !== 420
+) {{
+  throw new Error("bounded canvas performance contract");
+}}
+performanceTracker.reset();
+if (performanceTracker.report().frames !== 0) {{
+  throw new Error("canvas performance reset contract");
+}}
+const burstTracker = client.createCanvasPerformanceTracker(5);
+burstTracker.record(0, 4, 300);
+burstTracker.record(16, 4, 300);
+burstTracker.record(1016, 4, 300);
+burstTracker.record(1032, 4, 300);
+if (burstTracker.report().fps !== 62.5) {{
+  throw new Error("idle time polluted active canvas fps");
+}}
+let benchmarkClock = 0;
+let scheduledDraws = 0;
+const benchmarkTracker = client.createCanvasPerformanceTracker(120);
+const benchmarkReport = await client.runCanvasBenchmark(
+  () => {{
+    scheduledDraws += 1;
+    benchmarkTracker.record(benchmarkClock, 2, 300);
+  }},
+  benchmarkTracker,
+  {{
+    durationMs: 500,
+    now: () => 0,
+    requestFrame: (callback) => {{
+      benchmarkClock += 16;
+      callback(benchmarkClock);
+    }},
+  }},
+);
+if (
+  scheduledDraws !== 32
+  || benchmarkReport.frames !== 32
+  || benchmarkReport.fps !== 62.5
+) {{
+  throw new Error("on-demand canvas benchmark contract");
+}}
+const mirroredManifest = {{
+  fallback: "fallback.unknown",
+  sprites: {{
+    "entity.human.trader": {{x: 1, y: 1, auto_mirror: true}},
+    "fallback.unknown": {{x: 0, y: 0}}
+  }}
+}};
+const westSprite = client.resolveEntitySprite(
+  mirroredManifest, {{render_key: "entity.human.trader", direction: "west"}},
+  "idle", 0, false
+);
+const eastSprite = client.resolveEntitySprite(
+  mirroredManifest, {{render_key: "entity.human.trader", direction: "east"}},
+  "idle", 0, false
+);
+if (!westSprite.flip_x || eastSprite.flip_x || mirroredManifest.sprites["entity.human.trader"].flip_x) {{
+  throw new Error("directional mirror fallback contract");
 }}
 """
         completed = subprocess.run(
@@ -766,6 +909,7 @@ class WebLaunchOptionTests(unittest.TestCase):
         argv = [
             "chartographist", "--seed", "7", "--renderer", "web",
             "--host", "localhost", "--port", "9016", "--tick-speed", "0.4",
+            "--width", "120", "--height", "60",
         ]
         with (
             mock.patch.object(sys, "argv", argv),
@@ -777,6 +921,8 @@ class WebLaunchOptionTests(unittest.TestCase):
         self.assertEqual(options.web_host, "localhost")
         self.assertEqual(options.web_port, 9016)
         self.assertEqual(options.tick_speed, 0.4)
+        self.assertEqual(options.width, 120)
+        self.assertEqual(options.height, 60)
 
     def test_cli_opens_archive_without_loading_world_configuration(self):
         argv = [
@@ -854,6 +1000,10 @@ class WebLaunchOptionTests(unittest.TestCase):
             ("--port", "70000"),
             ("--tick-speed", "0"),
             ("--tick-speed", "11"),
+            ("--width", "0"),
+            ("--width", "241"),
+            ("--height", "0"),
+            ("--height", "121"),
         )
         for option, value in invalid_arguments:
             with (
@@ -894,6 +1044,8 @@ class WebLaunchOptionTests(unittest.TestCase):
             load_path=None,
             save_path=None,
             seed=7,
+            width=120,
+            height=60,
             tick_speed=0.15,
             web_host="localhost",
             web_port=9016,
@@ -904,7 +1056,7 @@ class WebLaunchOptionTests(unittest.TestCase):
                 application.SimulationEngine,
                 "create",
                 return_value=engine,
-            ),
+            ) as create,
             mock.patch.object(application, "SimulationHost") as host_type,
             mock.patch(
                 "core.history_archive.HistoryArchiveRecorder",
@@ -914,6 +1066,7 @@ class WebLaunchOptionTests(unittest.TestCase):
             mock.patch("builtins.print"),
         ):
             application._run_web_mode(options)
+        create.assert_called_once_with({}, 7, 120, 60)
         consumers = host_type.call_args.kwargs["snapshot_consumers"]
         self.assertEqual(len(consumers), 1)
         self.assertEqual(consumers[0], recorder.record)

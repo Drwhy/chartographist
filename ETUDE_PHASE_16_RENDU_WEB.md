@@ -175,6 +175,9 @@ métadonnées et snapshot 60 × 30 servis avec succès. Validation automatisée 
 - les journaux et panneaux structurés exposent systèmes, chroniques, diplomatie,
   explications, économie, climat, sites, artefacts, politique, territoire,
   migrations, guerre et paix ;
+- le bestiaire terminal est également exposé par une projection headless en
+  liste blanche (faune, espèces, religions et implantations) et présenté en
+  cartes ; l'observatoire n'affiche plus les objets sous forme de JSON brut ;
 - la reconnexion exponentielle resynchronise les révisions divergentes sans
   perturber le propriétaire du moteur ;
 - l'interface est responsive, pilotable au clavier, compatible avec la réduction
@@ -188,6 +191,9 @@ Validation automatisée : 440 tests. Validation HTTP réelle sur
 
 - core/tilesets.py fige 42 clés visuelles standard et valide version, identifiant,
   chemin PNG, dimensions, grille, coordonnées, couverture, fallback et licence ;
+- depuis le lot 18.5, cette couverture complète reste le défaut tandis qu'un
+  mod peut déclarer explicitement une couverture partielle avec fallback
+  obligatoire, sans assouplir les budgets ni la validation structurelle PNG ;
 - la découverte ignore défensivement tout thème invalide et le serveur ne sert
   que le manifeste et l'image déclarée d'un thème valide ;
 - l'atlas classique 8 × 8 couvre terrains, rivière, route, sites, structures,
@@ -228,10 +234,10 @@ snapshot ainsi que des commandes pause, pas-à-pas et reprise sur
 
 - le nouvel atlas `interwoven` mesure 1248 × 1248, forme une grille 8 × 8 de
   sprites strictement carrés de 156 × 156 et couvre les 42 clés standard ;
-- son manifeste active explicitement `edge_blending.mode = interlaced`, avec
-  profondeur et opacité bornées ;
-- le Canvas mélange seulement les terrains différents sur leurs bordures haute
-  et gauche, selon un profil spatial déterministe sans `Math.random` ;
+- son manifeste active explicitement `edge_blending.mode = puzzle`, avec
+  profondeur et nombre de dents bornés ;
+- le Canvas assemble chaque paire de terrains différents sur une frontière
+  commune en dents de scie complémentaires, sans `Math.random` ;
 - les couches rivière, route, site et entité restent dessinées après la
   transition afin de conserver leur lisibilité ;
 - le thème classique reçoit le mode neutre `none` par défaut et ne régresse pas ;
@@ -245,6 +251,24 @@ Elle étend les manifestes sans modifier les contrats sémantiques livrés ici.
 client charge désormais automatiquement le premier thème de sprites disponible
 et le sélecteur ne contient que les thèmes graphiques. Les glyphes historiques
 restent conservés pour le terminal et dans le contrat de présentation.
+
+Évolution du 28 août 2026 : `edge_blending.mode = puzzle` remplace le profil
+interlacé. Le Canvas dessine les fonds, les frontières communes selon des dents
+complémentaires, puis les rivières, routes, sites et entités. Le snapshot
+conserve `terrain_key` pour le métier et ajoute `terrain_base_key` ainsi que
+`climate_variant` pour éviter les changements brutaux : la géométrie de fond
+reste stable et seules les variantes hiver, printemps, été, automne,
+sécheresse, crue, vague de chaleur ou vague de froid changent. Les rivières
+conservent `hydrology.river` et ajoutent une topologie calculée depuis leurs
+quatre voisins : lignes, coudes, fourches et croix.
+
+Correction du 28 août 2026 : la profondeur puzzle passe de 12 % à 4 % et son
+profil devient une succession de lobes progressifs complémentaires, sans
+double bande pleine. Les routes exposent désormais
+`infrastructure_variant` avec le même contrat cardinal que les rivières et
+utilisent une feuille RGBA dédiée. Les villes et villages ajoutent le nom de
+culture normalisé à leur `render_key`, avec repli automatique vers la clé
+générique ; leurs huit sprites sont centrés et bornés à 68 % de la case.
 
 ## Plan d'implémentation TDD
 
