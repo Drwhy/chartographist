@@ -1,5 +1,7 @@
 import json
 import os
+from core.config_validator import ConfigValidationError, validate_config
+from core.translator import Translator
 
 def load_config(filepath="template.json"):
     """
@@ -37,9 +39,8 @@ def load_config(filepath="template.json"):
 
     try:
         with open(filepath, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
-        # In case of corruption, we should ideally log the error here
-        # For now, we return the basic template to prevent a crash
-        print(f"Error loading configuration: {e}")
+            config = json.load(f)
+        return validate_config(config)
+    except (json.JSONDecodeError, IOError, ConfigValidationError) as error:
+        print(Translator.translate("system.config_load_error", error=error))
         return {}

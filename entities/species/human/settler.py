@@ -12,11 +12,12 @@ from core.religion import ReligionDemographics
 @register_civ
 class Settler(Human):
     def __init__(self, x, y, culture, config, home_city=None):
-        # Strictly following the Actor parameter order
+        # Follow the Human base constructor order
         super().__init__(x, y, culture, config, 1)
         self.land_char = culture.get("settler_emoji", "🚶")
         self.boat_char = culture.get("boat_emoji", "🛶")
         self.char = self.land_char
+        self.render_variant = None
         self.home_city = home_city
         self.group_size = home_city.settler_cost
         self.distance_traveled = 0
@@ -48,9 +49,11 @@ class Settler(Human):
         h = world['elev'][self.y][self.x]
         if h < 0:
             self.char = self.boat_char
+            self.render_variant = "boat"
             self.speed = 0.6  # Slower at sea
         else:
             self.char = self.land_char
+            self.render_variant = None
             self.speed = 1.0
 
     def think(self, world):
@@ -58,6 +61,9 @@ class Settler(Human):
         if self.is_expired: return
 
         self._update_terrain_status(world)
+        from core.knowledge import KnowledgeService
+        KnowledgeService(self, self.config).observe_tile(world, self.pos)
+
 
         self.distance_traveled += 1
 
@@ -135,6 +141,10 @@ class Settler(Human):
         for e in world['grid'].get_nearby(self.x, self.y, 8):
             if e.is_expired or e is self:
                 continue
+            sites = self.config.get("sites", {})
+            from entities.constructs.ruins import Ruins
+            if isinstance(sites, dict) and sites.get("enabled") is True and isinstance(e, Ruins):
+                continue
             if e.pos == self.pos:
                 return False
             if type(e) in STRUCTURE_TYPES and math.dist(self.pos, e.pos) < 8:
@@ -150,6 +160,14 @@ class Settler(Human):
     def _found_village(self, world):
         """Creates the village and traces the road to the mother city."""
         new_village = Village(self.x, self.y, self.culture, self.config)
+        from core.knowledge import KnowledgeService, knowledge_enabled
+        if knowledge_enabled(self.config):
+            KnowledgeService(self, self.config).transmit_to(
+                new_village,
+                cycle=int(world.get("cycle", 0)),
+                distance=0,
+                transfer_type="copied",
+            )
 
         # Transfer settler's faith as the founding religion
         if self.faith:
@@ -161,6 +179,24 @@ class Settler(Human):
             ))
 
         world['entities'].add(new_village)
+        from core.sites import SiteRegistry
+        registry = SiteRegistry(world, self.config)
+        ruin_sites = registry.query(kind="ruins", position=self.pos)
+        if ruin_sites:
+            from entities.constructs.ruins import Ruins
+            for entity in world["entities"]:
+                if (
+                    isinstance(entity, Ruins)
+                    and not entity.is_expired
+                    and entity.pos == self.pos
+                ):
+                    entity.is_expired = True
+            registry.reoccupy(
+                ruin_sites[0]["site_id"],
+                occupant_ids=[new_village.entity_id],
+                owner_ids=[new_village.entity_id],
+            )
+
 
         if self.home_city:
             connect_with_road(
@@ -168,7 +204,8 @@ class Settler(Human):
                 self.home_city.pos,
                 self.pos,
                 world['width'],
-                world['height']
+                world['height'],
+                elevations=world.get('elev'),
             )
             GameLogger.log(Translator.translate("events.settler_found_village",
                                               new_village_char=new_village.char,

@@ -111,6 +111,7 @@ class Epidemic(BaseEvent):
             # 4. EFFONDREMENT TOTAL : Si la liste de citoyens est trop courte
             if len(entity.citizens) <= 3: # Seuil critique
                 ruin = Ruins(entity.x, entity.y, entity.culture, entity.config, entity.name)
+                ruin.preserve_identity_from(entity)
                 world['entities'].add(ruin)
                 entity.is_expired = True
                 GameLogger.log(Translator.translate("events.epidemic_death", name=entity.name))

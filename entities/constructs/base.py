@@ -1,8 +1,8 @@
-import math
 from core.naming import NameGenerator
 from core.random_service import RandomService
 from entities.species.human.base import Human
 from core.entities import Entity, Z_CONSTRUCT
+from core.economy import ensure_economy
 from core.logger import GameLogger
 from core.translator import Translator
 from core.religion import generate_demographics, SyncreticReligion, _find_template
@@ -11,7 +11,7 @@ from core.species import get_species_for_culture, PersonalSpecies
 class Construct(Entity):
     """
     Base class for all static structures built on the map.
-    Handles naming, cultural stability, and the 'Cultural Drift' mechanic.
+    Handles naming, religion, species and family behavior for settlements.
     """
     _syncretism_chance = 0.01  # Overridden by City (0.02)
 
@@ -20,10 +20,8 @@ class Construct(Entity):
         super().__init__(x, y, "?", Z_CONSTRUCT, 1.0)
 
         self.culture = culture
-        self.original_culture = culture
-        self.ticks_since_founded = 0
-        self.stability = 1.0
         self.config = config
+        ensure_economy(self)
         self.species = "construct"
 
         # Generates a procedural place name based on cultural linguistics
@@ -40,80 +38,38 @@ class Construct(Entity):
         """Standard update loop to be overridden by child classes (City, Village, etc.)."""
         pass
 
-    def _check_cultural_drift(self, world):
-        """
-        Calculates the likelihood of a settlement shifting its cultural identity.
-        Driven by distance from the mother city and the passage of time.
-        """
-        from entities.constructs.ruins import Ruins
+    def get_defense_power(self):
+        """Return condition-weighted fortification defense when enabled."""
+        from core.infrastructure import InfrastructureService
+        defense = InfrastructureService(
+            self, self.config
+        ).effect("defense_bonus")
+        from core.institutions import settlement_policy_modifier
+        return round(defense * settlement_policy_modifier(
+            self,
+            "defense_multiplier",
+            default=1.0,
+        ), 6)
 
-        if self.is_expired or isinstance(self, Ruins):
-            return
-
-        self.ticks_since_founded += 1
-
-        # 1. Distance to Capital Calculation
-        # Cultural influence weakens the further a settlement is from its origin
-        dist_to_origin = 0
-        if hasattr(self, 'home_city') and self.home_city:
-            dist_to_origin = math.dist(self.pos, self.home_city.pos)
-
-        # 2. Drift Factors: Time (Aging) + Distance (Isolation)
-        # Probabilities scale based on 5000-tick intervals and 500-unit distances
-        drift_chance = (self.ticks_since_founded / 5000) + (dist_to_origin / 500)
-
-        # 3. Mutation Event Trigger
-        if RandomService.random() < drift_chance * 0.01:
-            self._mutate_culture(world)
-
-    def _mutate_culture(self, world):
-        """
-        Forces a cultural shift, changing the settlement's values and visual style.
-        """
-        from entities.constructs.city import City
-        from entities.constructs.village import Village
-
-        all_cultures = self.config['cultures']
-
-        # Filter to ensure we select a new, different culture
-        available_cultures = [c for c in all_cultures if c['name'] != self.culture['name']]
-        if not available_cultures:
-            return
-
-        old_culture_name = self.culture['name']
-        self.culture = RandomService.choice(available_cultures)
-
-        # --- VISUAL UPDATE BY TYPE ---
-        # Refresh the display character based on the new culture's theme
-        if isinstance(self, City):
-            self.char = self.culture.get('city', '🏙️')
-        elif isinstance(self, Village):
-            self.char = self.culture.get('village', '🏡')
-
-        # Refresh species for the new culture
-        _tmpl = get_species_for_culture(self.culture.get('name', ''))
-        self._personal_species = PersonalSpecies(_tmpl) if _tmpl else None
-
-        GameLogger.log(
-            Translator.translate(
-                "events.cultural_mutation",
-                name=self.name,
-                old_culture=old_culture_name,
-                new_culture=self.culture['name']
-            )
-        )
     def _assign_species(self, agent):
         """Assign the settlement's species to a spawned agent and apply its speed modifier."""
         if self._personal_species:
             agent.species_data = self._personal_species
             agent.speed = max(0.3, agent.speed + self._personal_species.speed_mod)
 
-    def _handle_reproduction(self, chance_multiplier=1.0):
-        """Four-phase family system: cleanup → attraction → courtship → births."""
+    def _handle_reproduction(self, chance_multiplier=1.0, world=None):
+        """Four-phase family system: cleanup, attraction, courtship and births."""
+        population_before = len(self.citizens)
         self._cleanup_partnerships()
         self._handle_attraction()
         self._handle_courtship()
         self._handle_births(chance_multiplier)
+        if world is not None:
+            from core.simulation_metrics import SimulationMetrics
+            SimulationMetrics(world).record_demography(
+                "births",
+                len(self.citizens) - population_before,
+            )
 
     def _cleanup_partnerships(self):
         """Break bonds whose partner has died; clear stale love interests."""
@@ -126,6 +82,10 @@ class Construct(Entity):
                                   and li.partner is not citizen):
                     citizen.love_interest = None
                     citizen.love_score = 0.0
+
+    def _family_random_stream(self):
+        from core.characters import characters_enabled
+        return "demography" if characters_enabled(self.config) else None
 
     def _handle_attraction(self):
         """Gradually build romantic attraction between single fertile citizens."""
@@ -153,19 +113,19 @@ class Construct(Entity):
                     growth += 0.01
                 if abs(person.age - target.age) <= 10:
                     growth += 0.008
-                growth += RandomService.random() * 0.015
+                growth += RandomService.random(stream=self._family_random_stream()) * 0.015
                 person.love_score = min(1.0, person.love_score + growth)
             else:
                 # 5% chance per tick to notice someone and develop an initial spark
-                if RandomService.random() < 0.05:
+                if RandomService.random(stream=self._family_random_stream()) < 0.05:
                     candidates = [
                         c for c in singles
                         if c is not person and not self._are_related(person, c)
                     ]
                     if candidates:
-                        target = RandomService.choice(candidates)
+                        target = RandomService.choice(candidates, stream=self._family_random_stream())
                         person.love_interest = target
-                        person.love_score = RandomService.uniform(0.05, 0.2)
+                        person.love_score = RandomService.uniform(0.05, 0.2, stream=self._family_random_stream())
 
     def _handle_courtship(self):
         """When two people are mutually in love (≥0.65 / ≥0.5), they wed."""
@@ -187,15 +147,15 @@ class Construct(Entity):
                 target.love_interest = None
                 person.love_score = 0.0
                 target.love_score = 0.0
-                if RandomService.random() < 0.05:
+                if RandomService.random(stream=self._family_random_stream()) < 0.05:
                     GameLogger.log(Translator.translate(
                         "events.family_married",
                         name1=person.name, name2=target.name, city=self.name
                     ))
-            elif target.love_interest is None and RandomService.random() < 0.15:
+            elif target.love_interest is None and RandomService.random(stream=self._family_random_stream()) < 0.15:
                 # Target begins noticing their admirer
                 target.love_interest = person
-                target.love_score = RandomService.uniform(0.1, 0.3)
+                target.love_score = RandomService.uniform(0.1, 0.3, stream=self._family_random_stream())
 
     def _handle_births(self, chance_multiplier=1.0):
         """M+F couples may produce a child when food is sufficient. Fertility bonus applies."""
@@ -212,22 +172,22 @@ class Construct(Entity):
             # Biological reproduction requires one male and one female
             if citizen.sex == partner.sex:
                 continue
-            pair_key = frozenset({id(citizen), id(partner)})
+            pair_key = frozenset({citizen.entity_id, partner.entity_id})
             if pair_key in seen:
                 continue
             seen.add(pair_key)
             avg_fertility = (citizen.species_trait('fertility') + partner.species_trait('fertility')) / 2
             birth_chance = 0.02 * chance_multiplier * (1.0 + avg_fertility * 0.15)
-            if RandomService.random() < birth_chance:
+            if RandomService.random(stream=self._family_random_stream()) < birth_chance:
                 self._spawn_child(citizen, partner)
 
     def _are_related(self, p1, p2):
         """Return True if p1 and p2 share a parent or are parent and child."""
-        p1_parent_ids = {id(p) for p in (p1.parents or ()) if p is not None}
-        p2_parent_ids = {id(p) for p in (p2.parents or ()) if p is not None}
+        p1_parent_ids = {p.entity_id for p in (p1.parents or ()) if p is not None}
+        p2_parent_ids = {p.entity_id for p in (p2.parents or ()) if p is not None}
         if p1_parent_ids & p2_parent_ids:   # siblings
             return True
-        if id(p2) in p1_parent_ids or id(p1) in p2_parent_ids:  # parent-child
+        if p2.entity_id in p1_parent_ids or p1.entity_id in p2_parent_ids:  # parent-child
             return True
         return False
 
@@ -269,6 +229,8 @@ class Construct(Entity):
             parents=(p1, p2)
         )
         child.experience = int((p1.experience + p2.experience) * 0.05)
+        from core.characters import inherit_character_state
+        inherit_character_state(child, p1, p2, self.config)
         child.birth_city = self.name
         for parent in (p1, p2):
             if parent.faith is not None:

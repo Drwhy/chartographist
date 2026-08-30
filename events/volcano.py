@@ -37,6 +37,7 @@ class VolcanoEruption(BaseEvent):
         )
 
         impact_radius = 3
+        impacted_tiles = set()
 
         for vx, vy in erupting_cluster:
             # 1. Spread flames and fear on the world grids
@@ -48,6 +49,7 @@ class VolcanoEruption(BaseEvent):
                             # Set the ground on fire and generate high fear
                             world['road'][ny][nx] = "🔥"
                             self._lava_tiles.add((nx, ny))
+                            impacted_tiles.add((nx, ny))
                             world['influence'].add_influence(nx, ny, value=-10.0, radius=2)
 
             # 2. Destruction and Entity Transformation
@@ -57,12 +59,23 @@ class VolcanoEruption(BaseEvent):
                     if hasattr(entity, 'population'): # Check if it's a City or Village
                         # Replace the thriving settlement with a Ruin
                         ruin = Ruins(entity.x, entity.y, entity.culture, entity.config, entity.name)
+                        ruin.preserve_identity_from(entity)
                         world['entities'].add(ruin)
                         entity.is_expired = True
 
                         GameLogger.log(
                             Translator.translate("events.volcano_ruin", name=entity.name)
                         )
+
+        from core.resources import ResourceSystem, resources_enabled
+
+        if impacted_tiles and resources_enabled(config):
+            ResourceSystem(world, config).apply_disturbance(
+                "volcano",
+                sorted(impacted_tiles),
+                severity=0.85,
+                duration=36,
+            )
 
     def tick(self, world, stats):
         """

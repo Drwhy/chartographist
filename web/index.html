@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10140f">
+  <title>Chartographist</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="identity">
+      <h1>Chartographist</h1>
+      <output id="connection" class="connection" aria-live="polite"></output>
+    </div>
+    <dl class="clock" aria-live="polite">
+      <div><dt data-i18n="year"></dt><dd id="year">—</dd></div>
+      <div><dt data-i18n="month"></dt><dd id="month">—</dd></div>
+      <div><dt data-i18n="cycle"></dt><dd id="cycle">—</dd></div>
+    </dl>
+    <nav class="controls" data-i18n-aria="simulation_controls">
+      <button id="pause" type="button" data-i18n="pause"></button>
+      <button id="resume" type="button" data-i18n="resume"></button>
+      <button id="step" type="button" data-i18n="step"></button>
+      <label for="speed" data-i18n="speed"></label>
+      <input id="speed" type="range" min="0.05" max="2" step="0.05" value="0.15">
+      <label for="render-mode" data-i18n="render_mode"></label>
+      <select id="render-mode"></select>
+    </nav>
+  </header>
+  <section
+    id="archive-controls"
+    class="archive-controls"
+    data-i18n-aria="archive_navigation"
+    hidden
+  >
+    <strong class="archive-badge" data-i18n="archive_mode"></strong>
+    <button id="archive-previous" type="button" data-i18n="archive_previous"></button>
+    <label for="archive-timeline" data-i18n="archive_revision"></label>
+    <input id="archive-timeline" type="range" min="1" max="1" step="1" value="1">
+    <output id="archive-position" for="archive-timeline"></output>
+    <button id="archive-next" type="button" data-i18n="archive_next"></button>
+    <label for="archive-events" data-i18n="archive_events"></label>
+    <select id="archive-events"></select>
+    <output
+      id="archive-status"
+      class="archive-status"
+      aria-live="polite"
+    ></output>
+  </section>
+  <main id="app" data-api-version="1">
+    <section class="map-shell">
+      <canvas id="world-map" tabindex="0" data-i18n-aria="map"></canvas>
+      <div class="map-hint" aria-hidden="true">← ↑ ↓ → · + − · [ ]</div>
+    </section>
+    <aside class="sidebar">
+      <section class="card">
+        <h2 data-i18n="selection"></h2>
+        <div id="selection" aria-live="polite"></div>
+      </section>
+      <section class="card logs-card">
+        <h2 data-i18n="logs"></h2>
+        <ol id="logs" aria-live="polite"></ol>
+      </section>
+    </aside>
+    <section class="panels card">
+      <nav class="tabs" data-i18n-aria="observatory">
+        <button type="button" data-panel="overview" data-i18n="overview"></button>
+        <button type="button" data-panel="bestiary" data-i18n="bestiary"></button>
+        <button type="button" data-panel="systems" data-i18n="systems"></button>
+        <button type="button" data-panel="chronicles" data-i18n="chronicles"></button>
+        <button type="button" data-panel="diplomacy" data-i18n="diplomacy"></button>
+        <button type="button" data-panel="why" data-i18n="why"></button>
+        <button type="button" data-panel="economy" data-i18n="economy"></button>
+        <button type="button" data-panel="climate" data-i18n="climate"></button>
+        <button type="button" data-panel="sites" data-i18n="sites"></button>
+        <button type="button" data-panel="artifacts" data-i18n="artifacts"></button>
+        <button type="button" data-panel="politics" data-i18n="politics"></button>
+        <button type="button" data-panel="territory" data-i18n="territory"></button>
+        <button type="button" data-panel="migration" data-i18n="migration"></button>
+        <button type="button" data-panel="warfare" data-i18n="warfare"></button>
+        <button type="button" data-panel="peace" data-i18n="peace"></button>
+      </nav>
+      <div id="panel-content" role="region" tabindex="0"></div>
+    </section>
+  </main>
+</body>
+</html>

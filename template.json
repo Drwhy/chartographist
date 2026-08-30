@@ -1,5 +1,444 @@
 {
   "world_name": "Fantasy World",
+  "presentation": {
+    "max_logs": 100,
+    "max_delta_cells": 2048,
+    "max_commands": 64
+  },
+  "history": {
+    "enabled": false,
+    "max_facts": 16,
+    "max_links": 8
+  },
+  "sites": {
+    "enabled": false,
+    "advance_interval": 12,
+    "max_sites": 512,
+    "max_history_per_site": 32,
+    "overgrow_cycles": 120,
+    "symbols": {
+      "battlefield": "† ",
+      "ruins": "▒▒",
+      "sanctuary": "⌂ ",
+      "mine": "⛏ ",
+      "road": "◆ "
+    },
+    "stage_symbols": {
+      "destroyed": "× ",
+      "rebuilt": "▣ ",
+      "reoccupied": "⌂ ",
+      "overgrown": "░░"
+    }
+  },
+  "artifacts": {
+    "enabled": false,
+    "max_artifacts": 256,
+    "max_history_per_artifact": 48,
+    "promotion_quality": 1.5,
+    "max_promotions_per_order": 1,
+    "loot_per_engagement": 1,
+    "eligible_items": ["stone_tool"],
+    "renown_per_event": 2.0,
+    "max_renown": 100.0,
+    "prestige_per_renown": 0.1
+  },
+  "legends": {
+    "enabled": false,
+    "max_legends": 256,
+    "max_versions_per_legend": 12,
+    "max_history_per_legend": 48,
+    "advance_interval": 12,
+    "max_propagations_per_cycle": 8,
+    "default_reliability": 0.75,
+    "artifact_renown_threshold": 20.0,
+    "exploration_threshold": 10.0,
+    "war_threshold": 25.0,
+    "cult_threshold": 50.0,
+    "culture_emphases": {}
+  },
+  "explanations": {
+    "enabled": false,
+    "max_results": 64,
+    "hunger_ratio": 0.25
+  },
+  "economy": {
+    "enabled": true,
+    "initial_treasury": 250.0,
+    "base_food_price": 1.0,
+    "min_food_price": 0.5,
+    "max_food_price": 3.0,
+    "food_reserve": 50,
+    "trade_capacity": 15,
+    "settler_treasury_cost": 75.0,
+    "transport_cost_per_tile": 0.1,
+    "risk_cost_multiplier": 1.0,
+    "transport_loss_per_tile": 0.005
+  },
+  "diplomacy": {
+    "enabled": true,
+    "trade_trust_gain": 2,
+    "trade_tension_relief": 1,
+    "trade_interdependence_gain": 2,
+    "trade_pact_threshold": 20,
+    "alliance_threshold": 60,
+    "hostility_threshold": 50,
+    "war_threshold": 80,
+    "truce_duration": 60,
+    "war_min_duration": 60,
+    "war_exhaustion_rate": 1,
+    "trade_pact_capacity_multiplier": 1.5,
+    "alliance_aid_food": 10,
+    "alliance_aid_reserve": 50
+  },
+  "climate": {
+    "enabled": true,
+    "seasonal_amplitude": 0.2,
+    "altitude_lapse_rate": 0.6,
+    "base_humidity": 0.5,
+    "river_humidity_bonus": 0.25,
+    "temperature_anomaly_decay": 0.9,
+    "precipitation_anomaly_decay": 0.9,
+    "hazard_decay": 0.85,
+    "anomaly_chance": 0.01,
+    "anomaly_min_severity": 0.2,
+    "anomaly_max_severity": 0.6
+  },
+  "characters": {
+    "enabled": false,
+    "memory_limit": 24,
+    "memory_decay_rate": 0.02,
+    "notability_threshold": 20.0,
+    "decision_interval": 3,
+    "cohort_decision_interval": 6,
+    "need_growth": {
+      "security": 1.0,
+      "belonging": 1.0,
+      "status": 1.0,
+      "faith": 0.5,
+      "wealth": 1.0,
+      "fatigue": 3.0
+    }
+  },
+  "knowledge": {
+    "enabled": false,
+    "perception_radius": 8.0,
+    "observation_interval": 3,
+    "max_facts": 128,
+    "reliability_decay": 0.002,
+    "transmission_decay": 0.08,
+    "distance_decay": 0.002,
+    "minimum_reliability": 0.05
+  },
+  "politics": {
+    "enabled": false,
+    "advance_interval": 12,
+    "initial_satisfaction": 60,
+    "grievance_limit": 32,
+    "initial_legitimacy": 55,
+    "max_factions_per_type": 32,
+    "default_government": "council",
+    "succession_crisis_penalty": 5,
+    "proposal_threshold": 5,
+    "famine_ratio": 0.25,
+    "famine_penalty": 20,
+    "tax_dissent_scale": 50,
+    "war_dissent": 5,
+    "protest_threshold": 50,
+    "sabotage_threshold": 75,
+    "revolt_threshold": 90,
+    "sabotage_min_influence": 30,
+    "coup_min_influence": 60,
+    "reform_min_legitimacy": 50,
+    "conflict_limit": 256,
+    "conflict_cooldown": 12,
+    "sabotage_food_loss": 10,
+    "faction_types": [
+      {"id": "profession", "source": "profession", "objectives": {"Trader": "open_trade", "Soldier": "military_readiness"}, "default_objective": "food_security", "opposes": {"open_trade": ["military_readiness"], "military_readiness": ["open_trade"]}, "base_influence": 20},
+      {"id": "faith", "source": "faith", "objective": "religious_privilege", "base_influence": 10},
+      {"id": "household", "source": "household", "objective": "family_security", "base_influence": 5}
+    ],
+    "governments": [
+      {"id": "council", "head_office": "steward", "offices": [
+        {"id": "steward", "skill": "leadership", "minimum_notability": 20, "term_cycles": 120},
+        {"id": "marshal", "skill": "combat", "minimum_notability": 20, "term_cycles": 120}
+      ]}
+    ],
+    "policies": [
+      {"id": "market_charter", "duration_cycles": 24, "supports": ["open_trade"], "opposes": ["military_readiness"], "modifiers": {"trade_capacity_multiplier": 1.25, "labor_efficiency_multiplier": 0.95, "religious_tolerance_multiplier": 1.1, "defense_multiplier": 0.9, "tax_rate": 0.03}},
+      {"id": "military_levy", "duration_cycles": 12, "supports": ["military_readiness"], "opposes": ["open_trade"], "modifiers": {"trade_capacity_multiplier": 0.75, "labor_efficiency_multiplier": 0.8, "religious_tolerance_multiplier": 0.9, "defense_multiplier": 1.4, "tax_rate": 0.08}},
+      {"id": "food_relief", "duration_cycles": 12, "supports": ["food_security", "family_security"], "opposes": ["open_trade"], "modifiers": {"labor_efficiency_multiplier": 1.1, "tax_rate": -0.03}}
+    ]
+  },
+  "territory": {
+    "enabled": false,
+    "advance_interval": 12,
+    "max_radius": 8,
+    "base_power": 5.0,
+    "population_scale": 1.0,
+    "distance_decay": 0.5,
+    "road_multiplier": 1.5,
+    "fortification_scale": 2.0,
+    "contest_margin": 2.0,
+    "strategic_resource_bonus": 4.0,
+    "territorial_tension": 0.5,
+    "strategic_resources": ["surface_water", "soil_fertility", "forest_cover"]
+  },
+  "pathfinding": {
+    "enabled": false,
+    "allow_diagonal": true,
+    "base_cost": 1.0,
+    "elevation_weight": 4.0,
+    "road_multiplier": 0.5,
+    "weather_weight": 2.0,
+    "danger_weight": 1.0,
+    "unknown_multiplier": 1.5,
+    "max_cache_entries": 128,
+    "max_expanded_nodes": 5000
+  },
+  "migration": {
+    "enabled": false,
+    "advance_interval": 12,
+    "departure_threshold": 1.0,
+    "hunger_food_ratio": 0.25,
+    "hunger_weight": 4.0,
+    "war_weight": 3.0,
+    "climate_weight": 2.0,
+    "persecution_weight": 2.0,
+    "opportunity_departure_weight": 1.0,
+    "food_attractiveness": 3.0,
+    "capacity_attractiveness": 2.0,
+    "knowledge_bonus": 2.0,
+    "family_bonus": 2.0,
+    "distance_penalty": 0.1,
+    "settlement_capacity": 1000,
+    "cohort_size": 5,
+    "minimum_population": 3,
+    "max_history": 128,
+    "integration_rate": 0.1,
+    "discrimination_penalty": 0.25
+  },
+  "warfare": {
+    "enabled": false,
+    "advance_interval": 1,
+    "auto_declare": false,
+    "war_tension_threshold": 80.0,
+    "levy_rate": 0.1,
+    "minimum_army": 2,
+    "initial_morale": 100.0,
+    "command_base": 1.0,
+    "supply_per_soldier": 0.1,
+    "max_supply_cost": 50.0,
+    "unsupplied_morale_loss": 20.0,
+    "unsupplied_attrition": 0.1,
+    "winter_supply_multiplier": 1.5,
+    "engagement_interval": 3,
+    "casualty_rate": 0.1,
+    "retreat_morale": 20.0,
+    "prisoner_rate": 0.1,
+    "truce_duration": 12,
+    "max_history": 128
+  },
+  "peace": {
+    "enabled": false,
+    "transfer_territory": true,
+    "tribute_food_ratio": 0.1,
+    "tribute_base": 0.0,
+    "commercial_rights": 5.0,
+    "postwar_tension": 5.0,
+    "refugee_rate": 0.25,
+    "max_treaties": 128
+  },
+  "materials": {
+    "enabled": false,
+    "stockpile_capacity": 1000,
+    "initial_stock": {"stone_tool": 1},
+    "targets": {"food_ration": 40, "plank": 10, "stone_tool": 1, "granary_kit": 1, "road_kit": 1, "market_kit": 1, "workshop_kit": 1, "fortification_kit": 1},
+    "food_chain": {
+      "recipe_id": "preserve_food",
+      "raw_good_id": "raw_food",
+      "ration_good_id": "food_ration"
+    },
+    "resources": [
+      {"id": "raw_food", "unit_weight": 1.0, "decay_rate": 0.08},
+      {
+        "id": "timber",
+        "unit_weight": 2.0,
+        "decay_rate": 0.01,
+        "source": {
+          "spatial_resource": "forest_cover",
+          "stock_per_unit": 2.0,
+          "max_per_cycle": 2.0,
+          "minimum_ratio": 0.2,
+          "skill": "forestry"
+        }
+      }
+    ],
+    "items": [
+      {"id": "food_ration", "unit_weight": 1.0, "decay_rate": 0.02, "base_value": 2.0},
+      {"id": "stone_tool", "unit_weight": 2.0, "decay_rate": 0.0, "base_value": 5.0, "durability": 100},
+      {"id": "plank", "unit_weight": 1.0, "decay_rate": 0.0, "base_value": 3.0},
+      {"id": "granary_kit", "unit_weight": 4.0, "decay_rate": 0.0, "base_value": 20.0},
+      {"id": "road_kit", "unit_weight": 3.0, "decay_rate": 0.0, "base_value": 12.0},
+      {"id": "market_kit", "unit_weight": 4.0, "decay_rate": 0.0, "base_value": 18.0},
+      {"id": "workshop_kit", "unit_weight": 5.0, "decay_rate": 0.0, "base_value": 22.0},
+      {"id": "fortification_kit", "unit_weight": 6.0, "decay_rate": 0.0, "base_value": 25.0}
+    ],
+    "recipes": [
+      {
+        "id": "preserve_food",
+        "inputs": {"raw_food": 20},
+        "tools": ["stone_tool"],
+        "skill": "agriculture",
+        "cycles": 1,
+        "labor": 1.0,
+        "outputs": {"food_ration": 20}
+      },
+      {
+        "id": "saw_plank",
+        "inputs": {"timber": 1},
+        "tools": ["stone_tool"],
+        "skill": "forestry",
+        "cycles": 2,
+        "labor": 1.0,
+        "outputs": {"plank": 2}
+      },
+      {
+        "id": "repair_stone_tool",
+        "inputs": {"plank": 2},
+        "tools": [],
+        "skill": "construction",
+        "cycles": 2,
+        "labor": 1.0,
+        "outputs": {"stone_tool": 1}
+      },
+      {
+        "id": "build_granary",
+        "inputs": {"plank": 4},
+        "tools": ["stone_tool"],
+        "skill": "construction",
+        "cycles": 4,
+        "labor": 1.0,
+        "outputs": {"granary_kit": 1}
+      },
+      {
+        "id": "build_road",
+        "inputs": {"plank": 2},
+        "tools": ["stone_tool"],
+        "skill": "construction",
+        "cycles": 2,
+        "labor": 1.0,
+        "outputs": {"road_kit": 1}
+      },
+      {
+        "id": "build_market",
+        "inputs": {"plank": 3},
+        "tools": ["stone_tool"],
+        "skill": "commerce",
+        "cycles": 3,
+        "labor": 1.0,
+        "outputs": {"market_kit": 1}
+      },
+      {
+        "id": "build_workshop",
+        "inputs": {"plank": 4},
+        "tools": ["stone_tool"],
+        "skill": "construction",
+        "cycles": 4,
+        "labor": 1.0,
+        "outputs": {"workshop_kit": 1}
+      },
+      {
+        "id": "build_fortification",
+        "inputs": {"plank": 5},
+        "tools": ["stone_tool"],
+        "skill": "construction",
+        "cycles": 5,
+        "labor": 1.0,
+        "outputs": {"fortification_kit": 1}
+      }
+    ],
+    "infrastructures": [
+      {
+        "id": "granary",
+        "kit_good_id": "granary_kit",
+        "max_level": 2,
+        "capacity_bonus": 250.0,
+        "maintenance": {"plank": 1},
+        "repair_amount": 20.0,
+        "hazard_damage": {"flood": 30.0, "heatwave": 10.0, "cold_snap": 5.0}
+      },
+      {
+        "id": "road",
+        "kit_good_id": "road_kit",
+        "max_level": 1,
+        "effects": {"transport_cost_reduction": 0.25, "transport_loss_reduction": 0.35},
+        "maintenance": {"plank": 1},
+        "repair_amount": 25.0,
+        "hazard_damage": {"flood": 40.0, "heatwave": 10.0}
+      },
+      {
+        "id": "market",
+        "kit_good_id": "market_kit",
+        "max_level": 1,
+        "effects": {"trade_capacity_bonus": 5.0},
+        "maintenance": {"plank": 1},
+        "repair_amount": 25.0,
+        "hazard_damage": {"flood": 20.0, "heatwave": 10.0}
+      },
+      {
+        "id": "workshop",
+        "kit_good_id": "workshop_kit",
+        "max_level": 1,
+        "effects": {"production_speed_bonus": 0.5},
+        "maintenance": {"plank": 1},
+        "repair_amount": 25.0,
+        "hazard_damage": {"flood": 20.0, "heatwave": 15.0}
+      },
+      {
+        "id": "fortification",
+        "kit_good_id": "fortification_kit",
+        "max_level": 1,
+        "effects": {"defense_bonus": 0.35},
+        "maintenance": {"plank": 1},
+        "repair_amount": 25.0,
+        "hazard_damage": {"flood": 15.0, "heatwave": 5.0}
+      }
+    ]
+  },
+  "resources": {
+    "enabled": false,
+    "regeneration_interval": 3,
+    "biomass_capacity_scale": 5000.0,
+    "fish_capacity_scale": 1000.0,
+    "biomass_regeneration_rate": 0.08,
+    "soil_regeneration_rate": 0.02,
+    "water_regeneration_rate": 0.1,
+    "fish_regeneration_rate": 0.06,
+    "forest_regeneration_rate": 0.01,
+    "winter_mortality_rate": 0.05,
+    "drought_pressure": 0.8,
+    "flood_recovery": 0.2,
+    "agriculture_soil_cost": 0.02,
+    "agriculture_min_support": 0.85,
+    "minimum_birth_resource": 1.0,
+    "fire_min_forest_ratio": 0.25,
+    "fire_max_moisture": 0.85
+  },
+  "ecology": {
+    "population_limits": {
+      "enabled": true,
+      "global": 20,
+      "per_species": {},
+      "per_biome": {}
+    }
+  },
+  "food_balance": {
+    "enabled": true,
+    "generic_labor_yield": 0,
+    "storage_loss_rate": 0.01,
+    "specialization_window": 6,
+    "specialization_food_ratio": 0.25
+  },
   "water": {
     "ocean": "🌊",
     "shore": "💧",

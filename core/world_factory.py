@@ -5,6 +5,8 @@ from core.random_service import RandomService
 from core.logger import GameLogger
 from core.translator import Translator
 from core.influence import InfluenceSystem
+from core.chronicles import ChronicleBook
+from core.simulation_metrics import initial_metrics_state
 
 def assemble_world(width, height, config, seed_val):
     """
@@ -25,6 +27,20 @@ def assemble_world(width, height, config, seed_val):
         'height': height,
         'seed': seed_val,
         'cycle': 0,
+        'chronicles': [],
+        'next_chronicle_id': 1,
+        'diplomacy': {},
+        'next_relation_id': 1,
+        'metrics': initial_metrics_state(),
+        'climate': {
+            'season': 'winter',
+            'season_index': 0,
+            'temperature_anomaly': 0.0,
+            'precipitation_anomaly': 0.0,
+            'drought_severity': 0.0,
+            'flood_severity': 0.0,
+            'last_update_cycle': 0,
+        },
         'elev': elevation,
         'riv': rivers,
         'plates': plates,
@@ -32,9 +48,14 @@ def assemble_world(width, height, config, seed_val):
         'road': [["  " for _ in range(width)] for _ in range(height)],
         # Core entity manager for lifeforms and structures
         'entities': EntityManager(),
+        'notables': {},
+        'notable_archive': {},
         # Influence heatmap system for fear and attraction signals
         'influence': InfluenceSystem(width, height, config)
     }
+
+    from core.resources import ResourceSystem
+    ResourceSystem(world, config)
 
     # 3. STATISTICS AND INITIALIZATION LOGS
     init_msg = Translator.translate("system.world_init", seed_val=seed_val)
@@ -45,4 +66,11 @@ def assemble_world(width, height, config, seed_val):
         'logs': [init_msg]
     }
 
+    ChronicleBook(world).record(
+        init_msg,
+        cycle=0,
+        year=0,
+        month=1,
+        category="system",
+    )
     return world, stats

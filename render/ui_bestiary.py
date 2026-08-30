@@ -9,6 +9,10 @@ SPECIES_TAB = 'species'
 RELIGION_TAB = 'religion'
 GUIDE_TAB = 'guide'
 SETTLEMENTS_TAB = 'cities'
+CHRONICLES_TAB = 'chronicles'
+DIPLOMACY_TAB = 'diplomacy'
+SYSTEMS_TAB = "systems"
+WHY_TAB = "why"
 ENTRIES_PER_PAGE = 7
 
 _GUIDE_KEYS = [
@@ -50,6 +54,14 @@ def render_bestiary(width, height, world_data, config, state):
         entries = _build_religion_entries()
     elif tab == SETTLEMENTS_TAB:
         entries = _build_settlements_entries(world_data)
+    elif tab == CHRONICLES_TAB:
+        entries = _build_chronicle_entries(world_data)
+    elif tab == DIPLOMACY_TAB:
+        entries = _build_diplomacy_entries(world_data)
+    elif tab == SYSTEMS_TAB:
+        entries = _build_system_entries(world_data, config)
+    elif tab == WHY_TAB:
+        entries = _build_why_entries(world_data, config, state)
     else:
         entries = _build_guide_entries()
 
@@ -65,7 +77,24 @@ def render_bestiary(width, height, world_data, config, state):
     tr = Translator.translate("ui.bestiary_tab_religion_on" if tab == RELIGION_TAB else "ui.bestiary_tab_religion_off")
     tg = Translator.translate("ui.bestiary_tab_guide_on" if tab == GUIDE_TAB else "ui.bestiary_tab_guide_off")
     tc = Translator.translate("ui.bestiary_tab_cities_on" if tab == SETTLEMENTS_TAB else "ui.bestiary_tab_cities_off")
-    nav = Translator.translate("ui.bestiary_nav", fauna=tf, species=ts, religion=tr, guide=tg, cities=tc, page=page + 1, total=total_pages)
+    th = Translator.translate("ui.bestiary_tab_chronicles_on" if tab == CHRONICLES_TAB else "ui.bestiary_tab_chronicles_off")
+    ty = Translator.translate("ui.bestiary_tab_systems_on" if tab == SYSTEMS_TAB else "ui.bestiary_tab_systems_off")
+    tw = Translator.translate("ui.bestiary_tab_why_on" if tab == WHY_TAB else "ui.bestiary_tab_why_off")
+    td = Translator.translate("ui.bestiary_tab_diplomacy_on" if tab == DIPLOMACY_TAB else "ui.bestiary_tab_diplomacy_off")
+    nav = Translator.translate(
+        "ui.bestiary_nav",
+        fauna=tf,
+        species=ts,
+        religion=tr,
+        guide=tg,
+        cities=tc,
+        chronicles=th,
+        systems=ty,
+        why=tw,
+        diplomacy=td,
+        page=page + 1,
+        total=total_pages,
+    )
     title = Translator.translate("ui.bestiary_title")
     print(("═" * W)[:W] + eol)
     print(f"{title}   {nav}"[:W] + eol)
@@ -263,6 +292,19 @@ def _build_settlements_entries(world_data):
     return [_settlement_entry(s) for s in settlements]
 
 
+def _settlement_economy_line(settlement):
+    from core.economy import economy_snapshot
+
+    economy = economy_snapshot(settlement)
+    return Translator.translate(
+        "ui.bestiary_settlements_economy_line",
+        treasury=f"{economy['treasury']:.2f}",
+        price=f"{economy['food_price']:.2f}",
+        imported=economy["food_imported"],
+        exported=economy["food_exported"],
+    )
+
+
 def _settlement_entry(settlement):
     from entities.constructs.city import City
     from entities.species.human.base import Human
@@ -285,7 +327,7 @@ def _settlement_entry(settlement):
     couple_pairs = set()
     for c in citizens:
         if c.partner is not None and not c.partner.is_dead:
-            couple_pairs.add(frozenset({id(c), id(c.partner)}))
+            couple_pairs.add(frozenset({c.entity_id, c.partner.entity_id}))
     couples = len(couple_pairs)
 
     families  = sum(1 for c in citizens if any(not ch.is_dead for ch in c.children))
@@ -314,7 +356,48 @@ def _settlement_entry(settlement):
         "ui.bestiary_settlements_food_line",
         food=food, max_food=max_food, faith=faith_label
     )
-    return [line1, line2, line3, line4]
+    lines = [line1, line2, line3, line4]
+    from core.economy import economy_enabled
+    if economy_enabled(settlement):
+        lines.append("     " + _settlement_economy_line(settlement))
+    return lines
+
+
+# ── Diplomacy tab ──────────────────────────────────────────────────────────
+
+def _build_diplomacy_entries(world_data):
+    from core.diplomacy import DiplomacyRegistry
+
+    entities = {
+        entity.entity_id: entity
+        for entity in world_data.get("entities", [])
+        if hasattr(entity, "entity_id")
+    }
+    entries = []
+    for relation in DiplomacyRegistry(world_data).query():
+        first = entities.get(relation["first_id"])
+        second = entities.get(relation["second_id"])
+        first_name = getattr(first, "name", relation["first_id"])
+        second_name = getattr(second, "name", relation["second_id"])
+        status = Translator.translate(
+            f"ui.diplomacy_status_{relation['status']}"
+        )
+        line1 = "  " + Translator.translate(
+            "ui.diplomacy_relation_line",
+            first=first_name,
+            second=second_name,
+            status=status,
+        )
+        line2 = "     " + Translator.translate(
+            "ui.diplomacy_metrics_line",
+            trust=f"{relation['trust']:.1f}",
+            tension=f"{relation['tension']:.1f}",
+            interdependence=f"{relation['interdependence']:.1f}",
+        )
+        entries.append([line1, line2])
+    if not entries:
+        entries.append(["  " + Translator.translate("ui.diplomacy_empty")])
+    return entries
 
 
 # ── Guide tab ──────────────────────────────────────────────────────────────
@@ -330,6 +413,39 @@ def _build_guide_entries():
             entries.append([f"  {name}", f"     {desc}"])
     return entries
 
+
+# ── Chronicles tab ────────────────────────────────────────────────────────
+
+def _build_chronicle_entries(world_data):
+    from core.chronicles import ChronicleBook
+
+    entries = []
+    for entry in reversed(ChronicleBook(world_data).query()):
+        date = Translator.translate(
+            "ui.chronicle_date",
+            year=entry["year"],
+            month=entry["month"],
+            cycle=entry["cycle"],
+        )
+        category = Translator.translate(
+            f"ui.chronicle_category_{entry['category']}"
+        )
+        if category.startswith("[MISSING_TEXT:"):
+            category = Translator.translate(
+                "ui.chronicle_category",
+                category=entry["category"],
+            )
+        lines = [f"  {date}  {category}", f"     {entry['message']}"]
+        if entry.get("caused_by") or entry.get("resulted_in"):
+            lines.append(
+                "     " + Translator.translate(
+                    "ui.chronicle_causality",
+                    causes=len(entry.get("caused_by", ())),
+                    results=len(entry.get("resulted_in", ())),
+                )
+            )
+        entries.append(lines)
+    return entries
 
 # ── Final Chronicles bestiary summary ──────────────────────────────────────
 
@@ -428,3 +544,201 @@ def print_bestiary_summary(config, world_data):
             if parents:
                 print("     " + Translator.translate("ui.bestiary_religion_parents", p1=parents[0], p2=parents[1] if len(parents) > 1 else "?"))
     print("─" * 50)
+
+# Systems tab
+
+def _build_system_entries(world_data, config):
+    from core.system_visibility import systems_snapshot
+
+    entries = []
+    for system in systems_snapshot(world_data, config):
+        identifier = system["id"]
+        state = system["state"]
+        effects = system["effects"]
+        name = Translator.translate(f"ui.system_name_{identifier}")
+        status = Translator.translate(
+            "ui.system_status_enabled"
+            if system["enabled"]
+            else "ui.system_status_disabled"
+        )
+        header = Translator.translate(
+            "ui.system_entry_header",
+            name=name,
+            status=status,
+        )
+        values = _system_line_values(identifier, state, effects)
+        detail = Translator.translate(f"ui.system_{identifier}_line", **values)
+        entries.append([f"  {header}", f"     {detail}"])
+    return entries
+
+
+def _system_line_values(identifier, state, effects):
+    if identifier == "climate":
+        return {
+            "season": Translator.translate(f"ui.season_{state.get('season', 'spring')}"),
+            "drought": round(float(state.get("drought_severity", 0.0)) * 100),
+            "flood": round(float(state.get("flood_severity", 0.0)) * 100),
+            "events": int(effects.get("events", 0)),
+        }
+    if identifier == "resources":
+        return {
+            "biomass": round(float(state["biomass_ratio"]) * 100),
+            "fish": round(float(state["fish_ratio"]) * 100),
+            "soil": round(float(state["soil_ratio"]) * 100),
+            "forest": round(float(state["forest_ratio"]) * 100),
+        }
+    if identifier == "ecology":
+        return {"fauna": state["fauna"], **effects}
+    if identifier == "food":
+        return {**state, **effects}
+    if identifier == "economy":
+        return state
+    if identifier == "diplomacy":
+        statuses = state.get("statuses", {})
+        return {
+            "relations": state.get("relations", 0),
+            "wars": statuses.get("war", 0),
+            "alliances": statuses.get("alliance", 0),
+            "pacts": statuses.get("trade_pact", 0),
+        }
+    if identifier == "characters":
+        return {**state, **effects}
+    if identifier == "materials":
+        return state
+    if identifier == "artifacts":
+        return {
+            "artifacts": int(state.get("artifacts", 0)),
+            "active": int(state.get("active", 0)),
+            "lost": int(state.get("lost", 0)),
+            "holders": int(state.get("holders", 0)),
+            "renown": round(float(state.get("total_renown", 0.0)), 1),
+            "events": int(state.get("provenance_events", 0)),
+        }
+    if identifier == "legends":
+        motives = state.get("motivations", {})
+        return {
+            "legends": int(state.get("legends", 0)),
+            "versions": int(state.get("versions", 0)),
+            "renown": round(float(state.get("total_renown", 0.0)), 1),
+            "propagations": int(state.get("propagations", 0)),
+            "exploration": int(motives.get("exploration", 0)),
+            "war": int(motives.get("war", 0)),
+            "cult": int(motives.get("cult", 0)),
+        }
+    if identifier == "knowledge":
+        return {**state, **effects}
+    if identifier == "politics":
+        return {
+            "settlements": int(state.get("settlements", 0)),
+            "factions": int(state.get("factions", 0)),
+            "legitimacy": round(float(state.get("average_legitimacy", 0.0))),
+            "policies": int(state.get("active_policies", 0)),
+            "conflicts": int(state.get("conflicts", 0)),
+            "proposals": int(effects.get("proposals", 0)),
+        }
+    if identifier == "pathfinding":
+        return {
+            "queries": int(state.get("queries", 0)),
+            "cache_hits": int(state.get("cache_hits", 0)),
+            "cache_entries": int(state.get("cache_entries", 0)),
+            "invalidations": int(state.get("invalidations", 0)),
+            "expanded": int(state.get("expanded_nodes", 0)),
+        }
+    if identifier == "territory":
+        return {
+            "claimed": int(state.get("claimed_tiles", 0)),
+            "owned": sum(int(value) for value in state.get("owned_tiles", {}).values()),
+            "contested": int(state.get("contested_tiles", 0)),
+            "borders": len(state.get("borders", ())),
+        }
+    if identifier == "migration":
+        return {
+            "migrants": int(state.get("total_migrants", 0)),
+            "diasporas": int(state.get("active_diasporas", 0)),
+            "returnees": int(state.get("returnees", 0)),
+            "cohorts": len(state.get("recent_cohorts", ())),
+        }
+    if identifier == "warfare":
+        return {
+            "active": len(state.get("active_campaigns", ())),
+            "ended": len(state.get("ended_campaigns", ())),
+            "casualties": int(state.get("total_casualties", 0)),
+            "prisoners": int(state.get("total_prisoners", 0)),
+            "supply": round(float(state.get("total_supply_consumed", 0.0)), 1),
+            "occupations": len(state.get("occupations", ())),
+        }
+    if identifier == "sites":
+        return {
+            "sites": int(state.get("sites", 0)),
+            "kinds": len(state.get("kinds", {})),
+            "statuses": len(state.get("statuses", {})),
+            "discoveries": int(state.get("discoveries", 0)),
+            "dropped_sites": int(state.get("dropped_sites", 0)),
+        }
+    if identifier == "peace":
+        return {
+            "treaties": int(state.get("treaties", 0)),
+            "debts": len(state.get("debts", ())),
+            "veterans": sum(int(value) for value in state.get("veterans", {}).values()),
+            "refugees": int(state.get("refugees", 0)),
+            "ruins": int(state.get("ruins", 0)),
+        }
+    if identifier == "history":
+        return state
+    if identifier == "influence":
+        return state
+    if identifier == "events":
+        return state
+    objectives = state.get("objectives", ())
+    status = (
+        Translator.translate(
+            f"ui.scenario_status_{state.get('status', 'active')}"
+        )
+        if state.get("configured")
+        else Translator.translate("ui.system_status_disabled")
+    )
+    return {
+        "status": status,
+        "complete": effects.get("completed_objectives", 0),
+        "total": len(objectives),
+    }
+
+def _build_why_entries(world_data, config, state=None):
+    """Rend les situations explicables selon le filtre terminal courant."""
+    from core.why import ExplanationService
+
+    current = state if isinstance(state, dict) else {}
+    selected_filter = current.get("why_filter", "all")
+    category = None if selected_filter == "all" else selected_filter
+    service = ExplanationService(world_data, config)
+    explanations = service.overview(category=category)
+    entries = []
+    for explanation in explanations:
+        subject = explanation.get("subject", {})
+        header = Translator.translate(
+            "ui.why_entry_header",
+            kind=subject.get("kind", "?"),
+            subject_id=subject.get("id", "?"),
+        )
+        summary = explanation.get("summary") or Translator.translate(
+            "ui.why_no_summary"
+        )
+        lines = [
+            "  " + Translator.translate("ui.why_heading"),
+            f"     {header}",
+            f"     {summary}",
+        ]
+        for cause in explanation.get("causes", ())[:3]:
+            lines.append(
+                "     " + Translator.translate(
+                    "ui.why_cause",
+                    cause=cause.get("kind", "unknown"),
+                )
+            )
+        entries.append(lines)
+    if not entries:
+        entries.append([
+            "  " + Translator.translate("ui.why_heading"),
+            "     " + Translator.translate("ui.why_empty"),
+        ])
+    return entries

@@ -1,8 +1,12 @@
 import sys
 import random
 import argparse
+import hashlib
+from dataclasses import dataclass
 from . import culture
 from core.translator import Translator
+from core.config_validator import ConfigValidationError, validate_config
+from core.scenarios import ScenarioValidationError, load_config_layers
 
 _saved_term = None
 
@@ -40,37 +44,211 @@ def restore_terminal():
         except Exception:
             pass
 
-def load_arguments():
-    """
-    Handles command-line argument parsing for world generation and simulation settings.
-    Processes seeds, templates, and language localization.
+def stable_seed(value):
+    """Convert a numeric or text seed to a process-stable integer."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        encoded = str(value).encode("utf-8")
+        digest = hashlib.sha256(encoded).digest()
+        return int.from_bytes(digest[:8], "big")
 
-    Returns:
-        tuple: (config_dict, seed_value)
-    """
-    parser = argparse.ArgumentParser(description="Procedural World Engine Simulation")
 
-    # 1. Argument definitions
-    parser.add_argument("--seed", type=str, help="World seed (integer or string)")
-    parser.add_argument("--template", type=str, default="template.json", help="Path to the JSON template file")
-    parser.add_argument("--lang", type=str, default="fr", help="Simulation language (en, fr, etc.)")
+def _web_port(value):
+    numeric = int(value)
+    if not 1 <= numeric <= 65535:
+        raise argparse.ArgumentTypeError(Translator.translate("cli.port_error"))
+    return numeric
 
+
+def _tick_interval(value):
+    numeric = float(value)
+    if not 0.01 <= numeric <= 10.0:
+        raise argparse.ArgumentTypeError(
+            Translator.translate("cli.tick_speed_error")
+        )
+    return numeric
+
+
+def _map_width(value):
+    numeric = int(value)
+    if not 1 <= numeric <= 240:
+        raise argparse.ArgumentTypeError(Translator.translate("cli.width_error"))
+    return numeric
+
+
+def _map_height(value):
+    numeric = int(value)
+    if not 1 <= numeric <= 120:
+        raise argparse.ArgumentTypeError(Translator.translate("cli.height_error"))
+    return numeric
+
+
+@dataclass(frozen=True)
+class LaunchOptions:
+    config: dict
+    seed: int
+    load_path: str | None = None
+    save_path: str | None = None
+    scenario_path: str | None = None
+    mod_paths: tuple[str, ...] = ()
+    renderer: str = "terminal"
+    web_host: str = "127.0.0.1"
+    web_port: int = 8765
+    tick_speed: float = 0.15
+    archive_path: str | None = None
+    archive_record_path: str | None = None
+    width: int = 60
+    height: int = 30
+
+
+def load_launch_options():
+    """Parse les options complètes utilisées par l'adaptateur terminal."""
+    language_parser = argparse.ArgumentParser(add_help=False)
+    language_parser.add_argument("--lang", default="fr")
+    language_args, _ = language_parser.parse_known_args()
+    Translator.load(language_args.lang)
+
+    parser = argparse.ArgumentParser(description=Translator.translate("cli.description"))
+    parser.add_argument("--seed", type=str, help=Translator.translate("cli.seed_help"))
+    parser.add_argument(
+        "--template",
+        type=str,
+        default="template.json",
+        help=Translator.translate("cli.template_help"),
+    )
+    parser.add_argument(
+        "--lang",
+        type=str,
+        default="fr",
+        help=Translator.translate("cli.lang_help"),
+    )
+    parser.add_argument(
+        "--scenario",
+        dest="scenario_path",
+        help=Translator.translate("cli.scenario_help"),
+    )
+    parser.add_argument(
+        "--mod",
+        dest="mod_paths",
+        action="append",
+        default=[],
+        help=Translator.translate("cli.mod_help"),
+    )
+    parser.add_argument(
+        "--load",
+        dest="load_path",
+        help=Translator.translate("cli.load_help"),
+    )
+    parser.add_argument(
+        "--save",
+        dest="save_path",
+        help=Translator.translate("cli.save_help"),
+    )
+    parser.add_argument(
+        "--archive",
+        dest="archive_path",
+        help=Translator.translate("cli.archive_help"),
+    )
+    parser.add_argument(
+        "--record-archive",
+        dest="archive_record_path",
+        help=Translator.translate("cli.record_archive_help"),
+    )
+    parser.add_argument(
+        "--renderer",
+        choices=("terminal", "web"),
+        default=None,
+        help=Translator.translate("cli.renderer_help"),
+    )
+    parser.add_argument(
+        "--host",
+        dest="web_host",
+        default="127.0.0.1",
+        help=Translator.translate("cli.host_help"),
+    )
+    parser.add_argument(
+        "--port",
+        dest="web_port",
+        type=_web_port,
+        default=8765,
+        help=Translator.translate("cli.port_help"),
+    )
+    parser.add_argument(
+        "--tick-speed",
+        type=_tick_interval,
+        default=0.15,
+        help=Translator.translate("cli.tick_speed_help"),
+    )
+    parser.add_argument(
+        "--width",
+        type=_map_width,
+        default=60,
+        help=Translator.translate("cli.width_help"),
+    )
+    parser.add_argument(
+        "--height",
+        type=_map_height,
+        default=30,
+        help=Translator.translate("cli.height_help"),
+    )
     args = parser.parse_args()
 
-    # 2. Seed management (Deterministic hashing logic)
-    if args.seed:
+    archive_requested = bool(args.archive_path or args.archive_record_path)
+    if args.archive_path and (
+        args.archive_record_path
+        or args.load_path
+        or args.save_path
+        or args.scenario_path
+        or args.mod_paths
+        or args.seed is not None
+        or args.template != "template.json"
+    ):
+        parser.error(Translator.translate("cli.archive_conflict_error"))
+    if archive_requested and args.renderer == "terminal":
+        parser.error(Translator.translate("cli.archive_renderer_error"))
+    renderer = args.renderer or ("web" if archive_requested else "terminal")
+
+    seed = (
+        0
+        if args.archive_path
+        else stable_seed(args.seed) if args.seed else random.randint(0, 99999)
+    )
+    if args.archive_path:
+        config = {}
+    elif args.load_path:
+        config = {}
+    elif args.scenario_path or args.mod_paths:
         try:
-            seed_val = int(args.seed)
-        except ValueError:
-            # Hash string seeds into integers for the RandomService
-            seed_val = hash(args.seed)
+            config = validate_config(load_config_layers(
+                args.template,
+                scenario_path=args.scenario_path,
+                mod_paths=tuple(args.mod_paths),
+            ))
+        except (ConfigValidationError, ScenarioValidationError) as error:
+            print(Translator.translate("system.config_load_error", error=error))
+            config = {}
     else:
-        seed_val = random.randint(0, 99999)
+        config = culture.load_config(args.template)
+    return LaunchOptions(
+        config,
+        seed,
+        args.load_path,
+        args.save_path,
+        args.scenario_path,
+        tuple(args.mod_paths),
+        renderer=renderer,
+        web_host=args.web_host,
+        web_port=args.web_port,
+        tick_speed=args.tick_speed,
+        archive_path=args.archive_path,
+        archive_record_path=args.archive_record_path,
+        width=args.width,
+        height=args.height,
+    )
 
-    # 3. Locale initialization (Loads the language JSON)
-    Translator.load(args.lang)
 
-    # 4. Configuration loading
-    config = culture.load_config(args.template)
-
-    return config, seed_val
+def load_arguments():
+    """Retourne le contrat historique ``(config, seed)``."""
+    options = load_launch_options()
+    return options.config, options.seed

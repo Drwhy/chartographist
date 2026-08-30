@@ -1,0 +1,29 @@
+{
+  "mod": {
+    "id": "highland_bison"
+  },
+  "append": {
+    "fauna": [
+      {
+        "species": "bison",
+        "char": "🦬",
+        "name": "Bison",
+        "speed": 0.8,
+        "locomotion": "land",
+        "diet": "herbivore",
+        "weight": 35,
+        "perception_range": 4,
+        "danger": 0.4,
+        "danger_level": 0.4,
+        "fear_sensitivity": 2.0,
+        "food_value": [25, 40],
+        "energy": 110,
+        "max_energy": 170,
+        "hunger_threshold": 65,
+        "repro_threshold": 135,
+        "habitat": {"temperature_min": 0.2, "temperature_max": 0.7, "moisture_min": 0.25},
+        "spawn": {"elevation_min": 0.1, "elevation_max": 0.55, "chance": 0.04}
+      }
+    ]
+  }
+}

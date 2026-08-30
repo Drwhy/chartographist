@@ -31,6 +31,10 @@ class Human(Entity):
         self.species_data = None  # PersonalSpecies, assigned by the spawning settlement
         self.is_infected = False
         self.infection_turns = 0
+        self._last_age_cycle = None
+        from core.characters import characters_enabled, ensure_character_state
+        if characters_enabled(self.config):
+            ensure_character_state(self, self.config)
 
     @property
     def is_edible(self):
@@ -53,7 +57,17 @@ class Human(Entity):
         if self.is_dead or self.is_expired:
             return
 
-        self.age += 1
+        cycle = world.get("cycle")
+        if cycle is None:
+            self.age += 1 / 12
+        elif cycle != self._last_age_cycle:
+            self.age += 1 / 12
+            self._last_age_cycle = cycle
+        from core.characters import CharacterService, characters_enabled
+        if characters_enabled(self.config):
+            if not CharacterService(self, self.config).prepare_action(world):
+                return
+
         # 1. ANALYSIS (Perception)
         # 2. DECISION (AI) -> self.think(world)
         # 3. ACTION (Movement/Interaction) -> self.perform_action(world)
@@ -90,14 +104,22 @@ class Human(Entity):
             return self.name.split(" ")[-1]
         return str(self.name)
 
-    def process_monthly_update(self):
+    def process_monthly_update(self, world=None):
         """Common biological logic for everyone."""
         self.age += (1/12)
         self.hunger += 5
+        if world is not None:
+            from core.characters import CharacterService, characters_enabled
+            if characters_enabled(self.config):
+                CharacterService(self, self.config).advance(world)
 
         # Natural death risk
         if self.age > 50:
-            if RandomService.random() < (self.age - 50) * 0.01:
+            from core.characters import characters_enabled
+            random_stream = (
+                "demography.lifecycle" if characters_enabled(self.config) else None
+            )
+            if RandomService.random(stream=random_stream) < (self.age - 50) * 0.01:
                 self.is_dead = True
 
     def faith_bonus(self, key, default=0):
@@ -113,5 +135,11 @@ class Human(Entity):
         return self.species_data.trait(key, default)
 
     def work(self, city, world):
-        """Base citizens provide basic labor (slow food gain)."""
-        city.food_stock = min(city.max_food, city.food_stock + 1)
+        """Base citizens provide configurable basic labor."""
+        from core.food_balance import add_food, generic_labor_yield
+        add_food(
+            city,
+            world,
+            generic_labor_yield(self.config),
+            source="generic_labor",
+        )

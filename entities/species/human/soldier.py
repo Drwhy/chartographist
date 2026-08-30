@@ -37,6 +37,15 @@ class Soldier(Human):
         if self.is_expired or self.is_dead:
             return
 
+        from core.diplomacy import diplomacy_enabled, is_at_war
+        if diplomacy_enabled(self.home_city) and not is_at_war(
+            world,
+            self.home_city.entity_id,
+            self.target_city.entity_id,
+        ):
+            self.retreating = True
+            return
+
         # Target city destroyed or expired — mission over, retreat
         if self.target_city.is_expired or getattr(self.target_city, 'population', 0) <= 0:
             self.retreating = True
@@ -125,6 +134,47 @@ class Soldier(Human):
         # Loot food
         loot = min(target.food_stock, int(self.strength * 20))
         target.food_stock -= loot
+        from core.simulation_metrics import SimulationMetrics
+        SimulationMetrics(world).record_food("pillaged", loot)
+        SimulationMetrics(world).record_activity("combat", "raids")
+
+        from core.characters import characters_enabled
+        if characters_enabled(self.config):
+            from core.memory import MemoryBook
+
+            intensity = min(100.0, 25.0 + kills * 10.0 + loot * 0.5)
+            for citizen in target.citizens:
+                if citizen.is_dead:
+                    continue
+                MemoryBook(citizen, self.config).remember(
+                    "raid",
+                    cycle=world.get("cycle", 0),
+                    target_id=self.entity_id,
+                    position=target.pos,
+                    intensity=intensity,
+                    reliability=1.0,
+                    sentiment=-1.0,
+                    fear=0.8,
+                    grievance=1.0,
+                )
+
+        from core.knowledge import KnowledgeService, knowledge_enabled
+        if knowledge_enabled(self.config):
+            KnowledgeService(target, self.config).learn(
+                kind="threat",
+                subject_id=self.entity_id,
+                claim="raid",
+                value={
+                    "attacker_city_id": int(self.home_city.entity_id),
+                    "kills": int(kills),
+                    "loot": int(loot),
+                },
+                cycle=int(world.get("cycle", 0)),
+                source_id=int(target.entity_id),
+                source_type="observed",
+                reliability=1.0,
+                position=target.pos,
+            )
 
         GameLogger.log(Translator.translate(
             "events.soldier_raids",
@@ -145,6 +195,25 @@ class Soldier(Human):
         possible_moves = self._get_accessible_neighbors(world)
         if not possible_moves:
             return
+        from core.pathfinding import PathfindingService, known_tiles_for
+        pathfinder = PathfindingService(world, getattr(self, "config", {}))
+        if pathfinder.enabled:
+            route = pathfinder.find_path(
+                self.pos,
+                target_pos,
+                known_tiles=known_tiles_for(self),
+            )
+            if route["reachable"] and len(route["path"]) > 1:
+                next_tile = tuple(route["path"][1])
+                if next_tile in possible_moves:
+                    self.pos = next_tile
+                    self.pathfinding_decision = {
+                        "target": list(target_pos),
+                        "next_tile": list(next_tile),
+                        "cost": route["cost"],
+                        "cache_hit": route["cache_hit"],
+                    }
+                    return
 
         best_move = self.pos
         max_score = -float('inf')

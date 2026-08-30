@@ -43,6 +43,34 @@ def render_header(width, world_data, stats, config):
         line3 = Translator.translate("ui.header_faiths", faiths=faiths_str)
         print(f"{line3}{erase_to_end}")
 
+    scenario_config = config.get("scenario", {})
+    if isinstance(scenario_config, dict) and scenario_config:
+        from core.scenarios import ScenarioService
+        scenario = ScenarioService(world_data, config).summary()
+        title_key = scenario_config.get("title_key")
+        title = Translator.translate(title_key) if title_key else scenario["id"]
+        status = Translator.translate(f"ui.scenario_status_{scenario['status']}")
+        completed = sum(1 for objective in scenario["objectives"] if objective.get("complete"))
+        line_scenario = Translator.translate(
+            "ui.header_scenario",
+            title=title,
+            status=status,
+            completed=completed,
+            total=len(scenario["objectives"]),
+        )
+        print(f"{line_scenario}{erase_to_end}")
+    climate_config = config.get("climate", {})
+    if isinstance(climate_config, dict) and climate_config.get("enabled") is True:
+        from core.climate import ClimateSystem
+        climate = ClimateSystem(world_data, config)
+        season = Translator.translate(f"ui.season_{climate.state['season']}")
+        line_climate = Translator.translate(
+            "ui.header_climate",
+            season=season,
+            drought=round(float(climate.state.get("drought_severity", 0.0)) * 100),
+            flood=round(float(climate.state.get("flood_severity", 0.0)) * 100),
+        )
+        print(f"{line_climate}{erase_to_end}")
     # Proportional separation line based on map width (character width is 2 per tile)
     print("=" * (width * 2))
 
